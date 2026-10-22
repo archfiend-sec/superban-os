@@ -58,3 +58,4 @@ nohup.out
 # Local binaries & tunnels
 bin/
 tunnel.log
+PUBLIC_URL.txt
