@@ -54,3 +54,7 @@ nohup.out
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Local binaries & tunnels
+bin/
+tunnel.log
