@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# ==============================================================================
+#  影の道 // AFTERLIGHT - SUPERBAN OS LAUNCHER
+# ==============================================================================
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+cd "$DIR"
+
+PYTHON="$DIR/venv/bin/python3"
+if [ ! -f "$PYTHON" ]; then
+    PYTHON="python3"
+fi
+
+case "$1" in
+    terminal|cli|tui|-t|1)
+        exec "$PYTHON" terminal_app.py
+        ;;
+    web|hud|gui|-w|2)
+        exec "$PYTHON" web_app.py
+        ;;
+    help|--help|-h)
+        echo "Usage: ./bot [terminal|web]"
+        echo "  ./bot           Interactive mode launcher"
+        echo "  ./bot terminal  Launch Afterlight Terminal TUI"
+        echo "  ./bot web       Launch Afterlight Web Mission Control (http://127.0.0.1:8000)"
+        exit 0
+        ;;
+    *)
+        exec "$PYTHON" launch.py
+        ;;
+esac

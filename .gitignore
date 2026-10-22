@@ -1,0 +1,56 @@
+# ==============================================================================
+#  SUPERBAN OS // STRICT SECURITY & ARTIFACT EXCLUSIONS
+# ==============================================================================
+
+# Telegram Credentials & Active Auth Sessions (NEVER COMMIT!)
+.env
+*.session
+*.session-journal
+sessions/
+ultimate_config.json
+
+# Local Databases & Wiretapped History
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Audio Streaming Buffers & DVR Replays
+/tmp/vc_*
+*.mp3
+*.wav
+*.raw
+*.pcm
+
+# Python Environments & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env/
+build/
+dist/
+*.egg-info/
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs & Debug Dumps
+*.log
+logs/
+nohup.out
+
+# IDE & Editor metadata
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
