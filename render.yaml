@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: superban-os
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: HEADLESS
+        value: "1"
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: TELEGRAM_PHONE
+        sync: false
+      - key: TELEGRAM_STRING_SESSION
+        sync: false
