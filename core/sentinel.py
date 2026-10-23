@@ -283,16 +283,30 @@ class SentinelShield:
                     confidence = 96
 
             if is_threat:
+                action_taken = "FLAGGED"
                 try:
+                    # Attempt admin deletion if privileged
                     await event.delete()
                     self.stats["spam_messages_nuked"] += 1
-
                     action_taken = "DELETED"
+
                     if opts.get("ban_message_spammers", True) or defcon <= 3:
                         rights = ChatBannedRights(until_date=None, view_messages=True)
                         await self.client(EditBannedRequest(channel=event.chat, participant=sender.id, banned_rights=rights))
                         action_taken = "BANNED"
+                except Exception as del_err:
+                    # Sovereign Non-Admin Defense Fallback:
+                    # When lacking group admin rights, mark message publicly with warning emoji reaction
+                    action_taken = "FLAGGED_AUTOREACT"
+                    try:
+                        from telethon.tl.functions.messages import SendReactionRequest
+                        from telethon.tl.types import ReactionEmoji
+                        await self.client(SendReactionRequest(peer=event.chat, msg_id=event.id, reaction=[ReactionEmoji(emoticon="🤡")]))
+                        logger.info(f"🤡 Non-admin reaction dropped on threat msg #{event.id} in group {group_id}")
+                    except Exception as react_err:
+                        logger.debug(f"Threat reaction notice: {react_err}")
 
+                try:
                     logger.warning(f"🚨 Neural Threat [{threat_type}] intercepted from {sender.id}: {trigger_reason} -> {action_taken}")
                     await self.db.log_ai_threat(
                         group_id, sender.id, getattr(sender, 'username', ''),
@@ -303,8 +317,26 @@ class SentinelShield:
                         "threat_type": threat_type, "confidence": confidence,
                         "reason": trigger_reason, "action": action_taken, "text": text[:120]
                     })
+
+                    # High-confidence drainer alert sent directly to Saved Messages
+                    if confidence >= 95 and is_threat:
+                        try:
+                            alert_card = (
+                                f"🚨 <b>[SUPERBAN OS // THREAT RADAR]</b>\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"👥 <b>Group:</b> {group_title} (<code>{group_id}</code>)\n"
+                                f"👤 <b>Author:</b> {full_name} (@{username} / <code>{sender.id}</code>)\n"
+                                f"⚡ <b>Detected Threat:</b> <code>{threat_type}</code> ({confidence}%)\n"
+                                f"🔍 <b>Trigger:</b> <i>{trigger_reason}</i>\n"
+                                f"🎯 <b>Action:</b> <code>{action_taken}</code>\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"<blockquote>{text[:200]}</blockquote>"
+                            )
+                            await self.client.send_message('me', alert_card, parse_mode='html')
+                        except Exception:
+                            pass
                 except Exception as e:
-                    logger.debug(f"Failed to neutralize threat: {e}")
+                    logger.debug(f"Failed to record threat: {e}")
 
         @self.client.on(events.MessageDeleted)
         async def on_message_deleted(event):

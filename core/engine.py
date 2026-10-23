@@ -1687,6 +1687,130 @@ class SuperBanEngine:
             logger.error(f"Failed to siphon message: {e}")
             return {"status": "error", "error": str(e)}
 
+    # ═══════════════════════════════════════════════════════
+    #   SOVEREIGN NON-ADMIN SUPERPOWERS & TACTICAL STRIKES
+    # ═══════════════════════════════════════════════════════
+    async def react_to_message(self, group_id: int, message_id: int, emoji: str = "👍") -> Dict[str, Any]:
+        """Send an emoji reaction to any message in any group without admin privileges."""
+        await self.ensure_connected()
+        from telethon.tl.functions.messages import SendReactionRequest
+        from telethon.tl.types import ReactionEmoji
+
+        entity = await self.get_group_entity(group_id)
+        if not entity:
+            raise ValueError("Target group not found")
+
+        clean_emoji = emoji.strip() or "👍"
+        try:
+            await self.client(SendReactionRequest(
+                peer=entity,
+                msg_id=message_id,
+                reaction=[ReactionEmoji(emoticon=clean_emoji)]
+            ))
+            logger.info(f"✨ Dropped reaction {clean_emoji} on msg #{message_id} in group {group_id}")
+            return {"success": True, "group_id": group_id, "message_id": message_id, "emoji": clean_emoji}
+        except Exception as e:
+            logger.error(f"Failed to drop reaction: {e}")
+            raise RuntimeError(f"Telegram rejected reaction: {e}")
+
+    async def forward_ghost_evidence_to_saved(self, ghost_id: int) -> Dict[str, Any]:
+        """Extract full intercepted ghost vault evidence and dispatch a certified dossier to Saved Messages."""
+        await self.ensure_connected()
+        if not self.db:
+            raise ValueError("Database offline")
+
+        rec = await self.db.get_ghost_message_by_id(ghost_id)
+        if not rec:
+            raise ValueError("Ghost record not found in vault")
+
+        action = "DELETED // 削除" if rec.get("is_deleted") else "EDITED // 編集"
+        action_time = rec.get("date_deleted") or rec.get("date_edited") or "N/A"
+        sender_name = rec.get("full_name") or "Unknown"
+        handle = f"@{rec.get('username')}" if rec.get('username') else "No username"
+
+        dossier = (
+            f"👻 <b>[GHOST VAULT EVIDENCE CERTIFICATION // 証拠保全]</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👥 <b>Target Group:</b> <code>{rec.get('group_title')}</code> (<code>{rec.get('group_id')}</code>)\n"
+            f"👤 <b>Author:</b> <code>{sender_name}</code> ({handle} / ID: <code>{rec.get('user_id')}</code>)\n"
+            f"📅 <b>Original Date:</b> <code>{rec.get('date_sent')}</code>\n"
+            f"⚠️ <b>Tamper State:</b> <code>{action}</code> at <code>{action_time}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+        )
+
+        if rec.get("is_edited") and rec.get("original_text"):
+            dossier += (
+                f"🔻 <b>ORIGINAL TEXT BEFORE EDIT:</b>\n"
+                f"<blockquote>{rec.get('original_text')}</blockquote>\n\n"
+                f"🔺 <b>NEW EDITED TEXT:</b>\n"
+                f"<blockquote>{rec.get('text')}</blockquote>\n"
+            )
+        else:
+            dossier += (
+                f"📝 <b>RECOVERED DELETED TEXT:</b>\n"
+                f"<blockquote>{rec.get('text') or '[Media Message]'}</blockquote>\n"
+            )
+
+        dossier += (
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛡️ <i>Intercepted in real-time via KAGE Anti-Recall Wiretap</i>"
+        )
+
+        msg = await self.client.send_message('me', dossier, parse_mode='html')
+        return {"success": True, "message_id": msg.id, "chat": "Saved Messages", "ghost_id": ghost_id}
+
+    async def send_counter_threat_warning(self, group_id: int, message_id: int, threat_type: str = "PHISHING", custom_warning: Optional[str] = None) -> Dict[str, Any]:
+        """Autonomous non-admin counter-threat strike: reply directly with an authoritative security warning."""
+        await self.ensure_connected()
+        entity = await self.get_group_entity(group_id)
+        if not entity:
+            raise ValueError("Target group not found")
+
+        warn_text = custom_warning or (
+            f"⚠️ [SUPERBAN SECURITY WARNING]\n"
+            f"Potential {threat_type} signature flagged on this message.\n"
+            f"Do not click unverified links, connect Web3 wallets, or share personal keys.\n"
+            f"🛡️ Scanned by Sentinel Sovereign Engine."
+        )
+
+        msg = await self.client.send_message(
+            entity,
+            warn_text,
+            reply_to=message_id
+        )
+
+        try:
+            from telethon.tl.functions.messages import SendReactionRequest
+            from telethon.tl.types import ReactionEmoji
+            await self.client(SendReactionRequest(peer=entity, msg_id=message_id, reaction=[ReactionEmoji(emoticon="🤡")]))
+        except Exception:
+            pass
+
+        return {"success": True, "warning_message_id": msg.id, "target_message_id": message_id}
+
+    async def schedule_stealth_broadcast(self, group_ids: List[int], text: str, typing_delay: float = 3.0) -> Dict[str, Any]:
+        """Humanized non-admin multi-group broadcast with typing emulation to bypass spam filters."""
+        await self.ensure_connected()
+        results = []
+        for gid in group_ids:
+            try:
+                entity = await self.get_group_entity(gid)
+                if not entity:
+                    results.append({"group_id": gid, "status": "failed", "error": "Group not found"})
+                    continue
+
+                # Humanized typing emulation
+                async with self.client.action(entity, 'typing'):
+                    await asyncio.sleep(max(1.0, min(typing_delay, 10.0)))
+
+                sent_msg = await self.client.send_message(entity, text)
+                results.append({"group_id": gid, "status": "sent", "message_id": sent_msg.id})
+                await asyncio.sleep(1.5) # Natural jitter delay between groups
+            except Exception as e:
+                results.append({"group_id": gid, "status": "failed", "error": str(e)})
+
+        return {"total": len(group_ids), "results": results}
+
 
 
 

@@ -669,6 +669,32 @@ class DatabaseManager:
                 "date_edited": str(r[14]) if r[14] else ""
             } for r in rows]
 
+    async def get_ghost_message_by_id(self, ghost_id: int) -> Optional[Dict[str, Any]]:
+        """Retrieve a specific intercepted message by its database primary key ID."""
+        async with self.lock:
+            sql = "SELECT id, group_id, group_title, message_id, user_id, full_name, username, text, media_type, is_deleted, is_edited, original_text, date_sent, date_deleted, date_edited FROM intercepted_messages WHERE id = ?"
+            self.cursor.execute(sql, (ghost_id,))
+            r = self.cursor.fetchone()
+            if not r:
+                return None
+            return {
+                "id": r[0],
+                "group_id": r[1],
+                "group_title": r[2],
+                "message_id": r[3],
+                "user_id": r[4],
+                "full_name": r[5],
+                "username": r[6],
+                "text": r[7],
+                "media_type": r[8],
+                "is_deleted": bool(r[9]),
+                "is_edited": bool(r[10]),
+                "original_text": r[11],
+                "date_sent": str(r[12]) if r[12] else "",
+                "date_deleted": str(r[13]) if r[13] else "",
+                "date_edited": str(r[14]) if r[14] else ""
+            }
+
     # ═══════════════════════════════════════════════════════
     #   SURVEILLANCE WATCHLIST & REAL-TIME ALERTS
     # ═══════════════════════════════════════════════════════

@@ -1118,6 +1118,67 @@ def create_app(engine: SuperBanEngine):
     # ═══════════════════════════════════════════════════════
     #   SOVEREIGN NON-ADMIN INTELLIGENCE & SPYCRAFT SUITE
     # ═══════════════════════════════════════════════════════
+    class MessageReactReq(BaseModel):
+        group_id: int
+        message_id: int
+        emoji: str = "👍"
+
+    @app.post("/api/message/react")
+    async def react_to_message(req: MessageReactReq):
+        try:
+            return await engine.react_to_message(req.group_id, req.message_id, req.emoji)
+        except ValueError as ve:
+            raise HTTPException(status_code=404, detail=str(ve))
+        except Exception as e:
+            logger.error(f"Failed to react to message: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    class GhostForwardReq(BaseModel):
+        ghost_id: int
+
+    @app.post("/api/ghost/forward_to_saved")
+    async def forward_ghost_to_saved(req: GhostForwardReq):
+        try:
+            return await engine.forward_ghost_evidence_to_saved(req.ghost_id)
+        except ValueError as ve:
+            raise HTTPException(status_code=404, detail=str(ve))
+        except Exception as e:
+            logger.error(f"Failed to forward ghost evidence: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    class ThreatWarnReq(BaseModel):
+        group_id: int
+        message_id: int
+        threat_type: str = "PHISHING"
+        custom_warning: Optional[str] = None
+
+    @app.post("/api/threat/warn")
+    async def dispatch_threat_warning(req: ThreatWarnReq):
+        try:
+            return await engine.send_counter_threat_warning(
+                req.group_id, req.message_id, req.threat_type, req.custom_warning
+            )
+        except ValueError as ve:
+            raise HTTPException(status_code=404, detail=str(ve))
+        except Exception as e:
+            logger.error(f"Failed to dispatch threat warning: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    class StealthBroadcastReq(BaseModel):
+        group_ids: List[int]
+        text: str
+        typing_delay: float = 3.0
+
+    @app.post("/api/broadcast/stealth")
+    async def stealth_broadcast(req: StealthBroadcastReq):
+        try:
+            return await engine.schedule_stealth_broadcast(
+                req.group_ids, req.text, req.typing_delay
+            )
+        except Exception as e:
+            logger.error(f"Failed stealth broadcast: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @app.get("/api/ghost/messages")
     async def get_ghost_messages(group_id: Optional[int] = None, filter_mode: str = 'all', limit: int = 50):
         if not engine.db:

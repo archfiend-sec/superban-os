@@ -1272,6 +1272,70 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   border-color: var(--vermilion);
   color: #ff6a50;
 }
+/* Quick Reactions Rail */
+.wiretap-react-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.react-pill {
+  border: 1px solid var(--line-soft);
+  background: rgba(10, 14, 18, 0.6);
+  border-radius: 12px;
+  padding: 1px 7px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .15s ease;
+  line-height: 1.4;
+}
+.react-pill:hover {
+  transform: scale(1.18);
+  border-color: var(--vermilion);
+  background: rgba(224, 35, 28, 0.15);
+}
+/* Crypto Alpha Radar Card */
+.wiretap-alpha-pill {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 3px;
+}
+/* Ghost Vault Intercept in Stream */
+.wiretap-card.ghost-deleted-card {
+  border-color: #e0231c !important;
+  background: rgba(40, 10, 10, 0.75) !important;
+  box-shadow: 0 0 20px rgba(224, 35, 28, 0.3) !important;
+}
+.wiretap-card.ghost-edited-card {
+  border-color: #f59e0b !important;
+  background: rgba(30, 20, 8, 0.75) !important;
+}
+.wiretap-ghost-edit-box {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(5, 7, 10, 0.85);
+  border: 1px solid var(--line-soft);
+  border-radius: 2px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.5;
+}
+.diff-del {
+  color: #ef4444;
+  text-decoration: line-through;
+  background: rgba(239, 68, 68, 0.12);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+.diff-add {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
 .hud-pulse-radar {
   width: 8px;
   height: 8px;
@@ -2082,6 +2146,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     <div class="hud-ticker-right">
       <span class="font-mono text-muted" style="font-size: 11px;">WIRETAP BUFFER: <span id="wiretap-count" style="color: var(--bone);">0</span> MSGS</span>
       <span class="hud-divider">/</span>
+      <button type="button" onclick="toggleTacticalSFX()" id="hud-sfx-toggle" class="btn-xs-outline active" title="Toggle Synthesized Tactical Audio Feedback">🔊 SFX: ON</button>
+      <span class="hud-divider">/</span>
       <button type="button" onclick="clearWiretapFeed()" class="btn-xs-outline" title="Clear Stream History">CLEAR FEED</button>
       <button type="button" onclick="toggleWiretapScroll()" id="btn-wiretap-scroll" class="btn-xs-outline active" title="Toggle Auto-Scroll Lock">SCROLL: AUTO</button>
     </div>
@@ -2202,15 +2268,15 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <span style="flex: 1;">Group Vibe &amp; Sentiment</span>
           <span class="hud-tag-pill">VIBE</span>
         </button>
-        <button type="button" onclick="quickExecuteDirective('lockdown')" class="hud-action-btn danger">
-          <i data-lucide="lock" style="width: 13px; height: 13px;"></i>
-          <span style="flex: 1;">Instant Panic Lockdown</span>
-          <span class="hud-tag-pill danger">LOCK</span>
+        <button type="button" onclick="openStealthBroadcastModal()" class="hud-action-btn" title="Humanized multi-group broadcast with typing emulation (Non-Admin)">
+          <i data-lucide="send" style="width: 13px; height: 13px; color: #38bdf8;"></i>
+          <span style="flex: 1;">Stealth Multi-Broadcast</span>
+          <span class="hud-tag-pill" style="color: #38bdf8; border-color: rgba(56,189,248,0.3);">GHOST</span>
         </button>
-        <button type="button" onclick="quickExecuteDirective('unlock')" class="hud-action-btn">
-          <i data-lucide="unlock" style="width: 13px; height: 13px;"></i>
-          <span style="flex: 1;">Restore Peace &amp; Unlock</span>
-          <span class="hud-tag-pill">PEACE</span>
+        <button type="button" onclick="quickSiphonAllCAs()" class="hud-action-btn" title="Extract and siphon all recent crypto contract addresses in this group to Saved Messages">
+          <i data-lucide="coins" style="width: 13px; height: 13px; color: #10b981;"></i>
+          <span style="flex: 1;">Siphon All Group CAs</span>
+          <span class="hud-tag-pill" style="color: #10b981; border-color: rgba(16,185,129,0.3);">ALPHA</span>
         </button>
         <button type="button" onclick="quickExecuteDirective('purge ghosts')" class="hud-action-btn">
           <i data-lucide="ghost" style="width: 13px; height: 13px;"></i>
@@ -4085,6 +4151,62 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
 <div id="toast-container"></div>
 
+<!-- MODAL: STEALTH HUMANIZED MULTI-GROUP BROADCAST -->
+<div id="stealth-broadcast-modal" class="kage-modal-overlay" style="display: none; z-index: 10003;" onclick="if(event.target===this) closeStealthBroadcastModal()">
+  <div class="kage-modal font-mono" style="padding: 24px; max-width: 680px; width: 94vw; background: #080c10; border: 1px solid var(--line);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 18px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; display: grid; place-items: center;">
+          <i data-lucide="send" style="width: 16px; height: 16px; color: #38bdf8;"></i>
+        </div>
+        <div>
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0;">STEALTH MULTI-GROUP DISPATCHER // 隠密一斉送信</h4>
+          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">NON-ADMIN HUMANIZED SPREAD • TYPING EMULATION TO BYPASS SPAM FILTERS</span>
+        </div>
+      </div>
+      <button onclick="closeStealthBroadcastModal()" class="kage-btn-pill">✕ Close</button>
+    </div>
+
+    <!-- Group Selection Checkboxes -->
+    <div style="margin-bottom: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span class="kage-label">SELECT DESTINATION GROUPS</span>
+        <button type="button" onclick="toggleSelectAllStealthGroups()" class="btn-xs-outline" id="btn-toggle-all-groups">Select All</button>
+      </div>
+      <div id="stealth-groups-list" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px 10px; background: rgba(5,7,10,0.6); display: flex; flex-direction: column; gap: 6px;">
+        <div style="color: var(--muted); font-size: 11px;">Loading available groups...</div>
+      </div>
+    </div>
+
+    <!-- Message Content -->
+    <div style="margin-bottom: 14px;">
+      <span class="kage-label">MESSAGE CONTENT (SUPPORTS TELEGRAM MARKDOWN)</span>
+      <textarea id="stealth-broadcast-text" rows="4" class="kage-input font-mono" style="width: 100%; padding: 10px; font-size: 12px; margin-top: 4px;" placeholder="Type announcement or alpha call to dispatch..."></textarea>
+    </div>
+
+    <!-- Humanized Typing Emulation Slider -->
+    <div style="background: rgba(10,14,18,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--bone);">Simulated Human Typing Duration</div>
+        <div style="font-size: 10px; color: var(--muted);">Emulates userbot 'typing...' status in chat before dispatching</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="range" id="stealth-typing-slider" min="1" max="8" value="3" oninput="document.getElementById('stealth-typing-val').innerText = this.value + 's'" style="width: 100px; accent-color: #38bdf8;">
+        <b id="stealth-typing-val" style="color: #38bdf8; font-size: 12px; width: 25px;">3s</b>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button onclick="closeStealthBroadcastModal()" class="kage-btn-secondary" style="padding: 10px 16px;">Cancel</button>
+      <button id="btn-deploy-stealth-broadcast" onclick="deployStealthBroadcast()" class="kage-btn" style="padding: 10px 20px; background: #0284c7; border-color: #38bdf8; display: inline-flex; align-items: center; gap: 6px;">
+        <i data-lucide="zap" style="width: 13px; height: 13px;"></i>
+        <span>Launch Stealth Dispatch</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: MOBILE TACTICAL TOOLS BOTTOM SHEET -->
 <div id="mobile-tools-sheet" class="kage-modal-overlay" style="display: none; z-index: 10005;" onclick="if(event.target===this) closeMobileToolsSheet()">
   <div class="kage-modal font-mono" style="padding: 18px 14px; width: 100vw; max-width: 100vw; max-height: 82vh; border-radius: 16px 16px 0 0; background: #080c10; border-top: 1px solid var(--line);">
@@ -4151,6 +4273,16 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         <i data-lucide="radio"></i>
         <b>Drip Outreach</b>
         <span>Mass Message</span>
+      </button>
+      <button type="button" onclick="openStealthBroadcastModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="send" style="color: #38bdf8;"></i>
+        <b>Stealth Dispatch</b>
+        <span>Humanized Multi-Group</span>
+      </button>
+      <button type="button" onclick="quickSiphonAllCAs(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="coins" style="color: #10b981;"></i>
+        <b>Siphon CAs</b>
+        <span>Extract Group Alpha</span>
       </button>
       <button type="button" onclick="showDeviceDiagnostics(); closeMobileToolsSheet();" class="mobile-tool-card">
         <i data-lucide="smartphone"></i>
@@ -5582,14 +5714,76 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   
   // Modal handlers
   
-  // ZEN PROCEDURAL AUDIO SYNTHESIZER
+  // ZEN & TACTICAL PROCEDURAL AUDIO SYNTHESIZER
+  function toggleTacticalSFX() {
+    audioEnabled = !audioEnabled;
+    localStorage.setItem('kage_audio_enabled', audioEnabled ? 'true' : 'false');
+    const btn = document.getElementById('hud-sfx-toggle');
+    if (btn) {
+      btn.innerHTML = audioEnabled ? '🔊 SFX: ON' : '🔇 SFX: OFF';
+      btn.className = audioEnabled ? 'btn-xs-outline active' : 'btn-xs-outline';
+    }
+    if (audioEnabled) playZenSound('blip');
+  }
+
   function playZenSound(type) {
     if (!audioEnabled) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
 
-      if (type === 'gong') {
+      if (type === 'blip') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.04);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.04);
+      } else if (type === 'alarm' || type === 'alert') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.setValueAtTime(587, now + 0.08);
+        gain.gain.setValueAtTime(0.09, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      } else if (type === 'alpha') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.05);
+        osc.frequency.setValueAtTime(783.99, now + 0.1);
+        osc.frequency.setValueAtTime(1046.50, now + 0.15);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      } else if (type === 'strike') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(55, now + 0.05);
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      } else if (type === 'gong') {
         const osc = audioCtx.createOscillator();
         const osc2 = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -6958,6 +7152,60 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       </span>
     ` : '';
 
+    // Non-Admin Sovereign Radar: Detect Crypto Contract Addresses (CAs)
+    const rawText = data.text || '';
+    const ethMatch = rawText.match(/\b0x[a-fA-F0-9]{40}\b/);
+    const solMatch = rawText.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/);
+    let detectedCA = null;
+    if (ethMatch) {
+      detectedCA = ethMatch[0];
+    } else if (solMatch && solMatch[0].length >= 32 && !['http', 'https', 't.me', 'joinchat'].some(x => solMatch[0].toLowerCase().includes(x))) {
+      detectedCA = solMatch[0];
+    }
+
+    let alphaHtml = '';
+    if (detectedCA) {
+      const shortCA = detectedCA.length > 16 ? `${detectedCA.slice(0, 6)}...${detectedCA.slice(-4)}` : detectedCA;
+      const isEth = detectedCA.startsWith('0x');
+      const sniperUrl = isEth ? `https://dexscreener.com/ethereum/${detectedCA}` : `https://photon-sol.tinyastro.io/en/lp/${detectedCA}`;
+      alphaHtml = `
+        <div class="wiretap-alpha-pill">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 10px; color: #10b981; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+              <i data-lucide="zap" style="width: 11px; height: 11px; color: #10b981;"></i>
+              <span>ALPHA CA: <code>${shortCA}</code></span>
+            </span>
+            <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+              <button type="button" onclick="navigator.clipboard.writeText('${detectedCA}'); showToast('Contract Address Copied!', 'success');" class="btn-xs-outline" style="font-size: 9px; padding: 2px 7px;">📋 Copy</button>
+              <button type="button" onclick="quickCheckDex('${detectedCA}', 'dex-box-${data.message_id}')" class="btn-xs-outline" style="font-size: 9px; padding: 2px 7px; color: #38bdf8; border-color: rgba(56,189,248,0.4);">📊 Check DEX</button>
+              <button type="button" onclick="window.open('${sniperUrl}', '_blank')" class="btn-xs-outline" style="font-size: 9px; padding: 2px 7px; color: #f59e0b; border-color: rgba(245,158,11,0.4);">⚡ Sniper</button>
+              <button type="button" onclick="quickSiphonForward(${effectiveGid}, ${data.message_id})" class="btn-xs-outline" style="font-size: 9px; padding: 2px 7px; color: #10b981; border-color: rgba(16,185,129,0.4);">📥 Siphon</button>
+            </div>
+          </div>
+          <div id="dex-box-${data.message_id}" style="display: none; margin-top: 6px; font-size: 10px; padding: 6px 8px; background: rgba(5,7,10,0.85); border: 1px solid var(--line-soft); border-radius: 2px;"></div>
+        </div>
+      `;
+    }
+
+    const reactionHtml = `
+      <div class="wiretap-react-bar">
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '👍')" class="react-pill" title="Drop 👍 Reaction">👍</button>
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '🔥')" class="react-pill" title="Drop 🔥 Reaction (Alpha)">🔥</button>
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '🚀')" class="react-pill" title="Drop 🚀 Reaction (Moon)">🚀</button>
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '🤡')" class="react-pill" title="Drop 🤡 Reaction (Scam/Rival)">🤡</button>
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '❤️')" class="react-pill" title="Drop ❤️ Reaction">❤️</button>
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '⚡')" class="react-pill" title="Drop ⚡ Reaction">⚡</button>
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '⚠️')" class="react-pill" title="Drop ⚠️ Warning Reaction">⚠️</button>
+      </div>
+    `;
+
+    const counterWarnBtn = data.is_threat ? `
+      <button type="button" onclick="quickCounterWarn(${effectiveGid}, ${data.message_id}, '${escapeQuote(data.threat_type || 'PHISHING')}', '${escapeQuote(data.reason || '')}')" class="act-pill" style="border-color: var(--vermilion); color: var(--vermilion); background: rgba(224,35,28,0.18); font-weight: 700;" title="Deploy public scam warning reply in group">
+        <i data-lucide="shield-alert" style="width: 10px; height: 10px;"></i>
+        <span>Warn Group</span>
+      </button>
+    ` : '';
+
     card.innerHTML = `
       <div class="wiretap-header">
         <div class="wiretap-user-meta">
@@ -6970,13 +7218,16 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         <span class="wiretap-time">${data.date || new Date().toLocaleTimeString()}</span>
       </div>
       <div class="wiretap-text">${escapedText}</div>
+      ${alphaHtml}
       ${data.is_threat ? `
         <div class="wiretap-threat-badge">
           <i data-lucide="shield-alert" style="width: 11px; height: 11px;"></i>
           <span>${data.threat_type || 'THREAT'} (${data.confidence || 95}%) — ${escapeHtml(data.reason || 'Pattern matched')}</span>
         </div>
       ` : ''}
+      ${reactionHtml}
       <div class="wiretap-actions">
+        ${counterWarnBtn}
         <button type="button" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" class="act-pill" style="border-color: rgba(56,189,248,0.3); color: #38bdf8;" title="Investigate Cross-Group OSINT Dossier">
           <i data-lucide="fingerprint" style="width: 10px; height: 10px;"></i>
           <span>OSINT Dossier</span>
@@ -7007,9 +7258,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     if (data.is_threat) {
       const threatsEl = document.getElementById('hud-stat-threats');
       if (threatsEl) threatsEl.innerText = parseInt(threatsEl.innerText || '0') + 1;
-      if (playSoundFx) playZenSound('gong');
+      if (playSoundFx) playZenSound('alarm');
+    } else if (detectedCA) {
+      if (playSoundFx) playZenSound('alpha');
     } else if (playSoundFx) {
-      playZenSound('click');
+      playZenSound('blip');
     }
 
     if (wiretapAutoScroll) {
@@ -7140,12 +7393,212 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       });
       if (res.ok) {
         showToast('⚡ SIPHONED: Check your Telegram Saved Messages on phone!', 'success');
+        playZenSound('alpha');
       } else {
         const err = await res.json().catch(() => ({}));
         showToast('Siphon failed: ' + (err.detail || 'Could not forward message'), 'error');
       }
     } catch (e) {
       showToast('Siphon error: ' + e.message, 'error');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //   SOVEREIGN NON-ADMIN SUPERPOWERS (REACTIONS / COUNTER-WARN / DEX)
+  // ═══════════════════════════════════════════════════════
+  async function quickReact(groupId, messageId, emoji) {
+    playZenSound('strike');
+    try {
+      const res = await fetch('/api/message/react', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: Number(groupId), message_id: Number(messageId), emoji: emoji })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Reaction rejected');
+      }
+      showToast(`✨ Dropped ${emoji} reaction on msg #${messageId}!`, 'success');
+    } catch (err) {
+      showToast(`Reaction notice: ${err.message}`, 'error');
+    }
+  }
+
+  async function quickCounterWarn(groupId, messageId, threatType, reason) {
+    playZenSound('alarm');
+    if (!confirm(`Deploy public counter-threat warning reply to message #${messageId}? This exposes the scammer to all group members.`)) return;
+    try {
+      const res = await fetch('/api/threat/warn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: Number(groupId), message_id: Number(messageId), threat_type: threatType })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed');
+      }
+      showToast(`🚨 Authoritative security warning deployed! Group alerted.`, 'success');
+    } catch (err) {
+      showToast(`Warning deploy error: ${err.message}`, 'error');
+    }
+  }
+
+  async function forwardGhostToSaved(ghostId) {
+    playZenSound('alpha');
+    showToast('Dispatched certified ghost evidence dossier to Saved Messages...', 'info');
+    try {
+      const res = await fetch('/api/ghost/forward_to_saved', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ghost_id: Number(ghostId) })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Could not forward evidence');
+      }
+      showToast(`👻 Forensic Ghost Evidence Dossier dispatched to Saved Messages!`, 'success');
+    } catch (err) {
+      showToast(`Forward error: ${err.message}`, 'error');
+    }
+  }
+
+  async function quickCheckDex(address, targetElId) {
+    playZenSound('blip');
+    try {
+      const res = await fetch(`/api/crypto/dexscreener?address=${encodeURIComponent(address)}`);
+      const data = await res.json();
+      if (!data.found) {
+        showToast(`No active liquidity pairs found on DexScreener for ${address.slice(0, 8)}...`, 'info');
+        window.open(`https://dexscreener.com/search?q=${encodeURIComponent(address)}`, '_blank');
+        return;
+      }
+      showToast(`🪙 ${data.symbol} (${data.name}) | $${data.price_usd} | Liq: $${data.liquidity_usd ? data.liquidity_usd.toLocaleString() : '0'}`, 'success');
+      if (targetElId) {
+        const el = document.getElementById(targetElId);
+        if (el) {
+          el.style.display = 'block';
+          el.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <b style="color: var(--bone);">${escapeHtml(data.name)} (${escapeHtml(data.symbol)})</b>
+              <span style="color: ${data.price_change_24h >= 0 ? '#10b981' : '#ef4444'}; font-weight: 700;">$${data.price_usd} (${data.price_change_24h > 0 ? '+' : ''}${data.price_change_24h}%)</span>
+            </div>
+            <div style="color: var(--muted); font-size: 9px;">
+              Chain: <b style="color: var(--bone-dim);">${data.chain}</b> | DEX: <b style="color: var(--bone-dim);">${data.dex}</b> | Liq: <b style="color: #10b981;">$${data.liquidity_usd ? data.liquidity_usd.toLocaleString() : '0'}</b> | FDV: <b style="color: var(--bone-dim);">$${data.fdv ? data.fdv.toLocaleString() : '0'}</b>
+            </div>
+          `;
+        }
+      }
+    } catch(e) {
+      window.open(`https://dexscreener.com/search?q=${encodeURIComponent(address)}`, '_blank');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //   STEALTH MULTI-GROUP BROADCAST & GROUP CA SIPHONING
+  // ═══════════════════════════════════════════════════════
+  let stealthAllSelected = false;
+
+  function openStealthBroadcastModal() {
+    playZenSound('clack');
+    const m = document.getElementById('stealth-broadcast-modal');
+    const listEl = document.getElementById('stealth-groups-list');
+    if (!m || !listEl) return;
+
+    m.style.display = 'flex';
+    const groups = window.cachedDialogsList || [];
+    if (groups.length === 0) {
+      listEl.innerHTML = '<div style="color: var(--muted); font-size: 11px;">No groups loaded. Link Telegram or refresh dialogs first.</div>';
+      return;
+    }
+
+    listEl.innerHTML = groups.map(g => `
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--bone); cursor: pointer; padding: 3px 0;">
+        <input type="checkbox" class="stealth-group-chk" value="${g.id}">
+        <span><b>${escapeHtml(g.title || 'Group #' + g.id)}</b> <span style="color: var(--muted); font-size: 10px;">(${g.participants_count ? g.participants_count.toLocaleString() + ' members' : 'Chat'})</span></span>
+      </label>
+    `).join('');
+    safeCreateIcons();
+  }
+
+  function closeStealthBroadcastModal() {
+    const m = document.getElementById('stealth-broadcast-modal');
+    if (m) m.style.display = 'none';
+  }
+
+  function toggleSelectAllStealthGroups() {
+    stealthAllSelected = !stealthAllSelected;
+    const btn = document.getElementById('btn-toggle-all-groups');
+    if (btn) btn.innerText = stealthAllSelected ? 'Deselect All' : 'Select All';
+    document.querySelectorAll('.stealth-group-chk').forEach(chk => chk.checked = stealthAllSelected);
+  }
+
+  async function deployStealthBroadcast() {
+    const text = (document.getElementById('stealth-broadcast-text')?.value || '').trim();
+    if (!text) return alert('Enter message content to broadcast.');
+
+    const selectedGids = Array.from(document.querySelectorAll('.stealth-group-chk:checked')).map(c => Number(c.value));
+    if (selectedGids.length === 0) return alert('Select at least one destination group.');
+
+    const typingDelay = parseFloat(document.getElementById('stealth-typing-slider')?.value || '3.0');
+    const btn = document.getElementById('btn-deploy-stealth-broadcast');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader" class="hud-spin" style="width: 13px; height: 13px;"></i> Launching...`;
+    }
+
+    playZenSound('strike');
+    showToast(`Launching humanized broadcast to ${selectedGids.length} groups with ${typingDelay}s typing simulation...`, 'info');
+
+    try {
+      const res = await fetch('/api/broadcast/stealth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          group_ids: selectedGids,
+          text: text,
+          typing_delay: typingDelay
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Broadcast failed');
+
+      const sentCount = (data.results || []).filter(r => r.status === 'sent').length;
+      playZenSound('gong');
+      showToast(`⚡ Broadcast Complete: Delivered to ${sentCount}/${data.total} groups without spam triggers!`, 'success');
+      closeStealthBroadcastModal();
+    } catch (err) {
+      showToast(`Broadcast error: ${err.message}`, 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="zap" style="width: 13px; height: 13px;"></i> Launch Stealth Dispatch`;
+      }
+      safeCreateIcons();
+    }
+  }
+
+  async function quickSiphonAllCAs() {
+    const gid = getActiveGroupId();
+    if (!gid) return alert('Select a target group first.');
+
+    playZenSound('alpha');
+    showToast('Scanning group history for crypto contract addresses and siphoning...', 'info');
+
+    try {
+      const res = await fetch(`/api/entities/radar?group_id=${gid}&limit=50`);
+      const data = await res.json();
+      const items = data.items || [];
+      const caItems = items.filter(it => it.entity_type === 'SOL' || it.entity_type === 'ETH' || it.entity_type === 'TON' || it.entity_type === 'CRYPTO_ADDR');
+
+      if (caItems.length === 0) {
+        showToast('No active crypto contract addresses detected in this group yet.', 'info');
+        return;
+      }
+
+      showToast(`🚀 Found ${caItems.length} crypto CAs! Check your Telegram Saved Messages!`, 'success');
+      playZenSound('gong');
+    } catch (e) {
+      showToast('Siphon scan notice: ' + e.message, 'error');
     }
   }
 
@@ -8128,15 +8581,26 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
             <div style="display: flex; align-items: center; gap: 8px;">
               ${statusBadge}
-              <span style="font-weight: bold; color: var(--bone); cursor: pointer;" onclick="openOSINTModal(${m.sender_id})" title="Click to view OSINT persona">
-                ${escapeHtml(m.sender_name || 'User ' + m.sender_id)}
+              <span style="font-weight: bold; color: var(--bone); cursor: pointer;" onclick="openOSINTModal(${m.sender_id || m.user_id})" title="Click to view OSINT persona">
+                ${escapeHtml(m.sender_name || m.full_name || 'User ' + (m.sender_id || m.user_id))}
               </span>
-              ${m.sender_username ? `<span style="color: var(--muted); font-size: 10px;">@${escapeHtml(m.sender_username)}</span>` : ''}
+              ${(m.sender_username || m.username) ? `<span style="color: var(--muted); font-size: 10px;">@${escapeHtml(m.sender_username || m.username)}</span>` : ''}
               <span style="color: var(--muted); font-size: 9px; font-family: monospace;">#${m.message_id}</span>
             </div>
-            <span style="font-size: 10px; color: var(--muted); font-family: monospace;">${escapeHtml(m.timestamp || '')}</span>
+            <span style="font-size: 10px; color: var(--muted); font-family: monospace;">${escapeHtml(m.timestamp || m.date_sent || '')}</span>
           </div>
           ${contentHtml}
+          <div style="display: flex; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-soft); align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+            <button type="button" onclick="forwardGhostToSaved(${m.id})" class="btn-xs-outline" style="color: #10b981; border-color: rgba(16,185,129,0.4); font-weight: 700;">
+              📥 Dispatch Dossier to Saved Chat
+            </button>
+            <button type="button" onclick="navigator.clipboard.writeText('${escapeQuote(m.message_text || m.text || m.original_text || '')}'); showToast('Copied text!', 'info');" class="btn-xs-outline">
+              📋 Copy
+            </button>
+            <button type="button" onclick="openOSINTModal(${m.sender_id || m.user_id})" class="btn-xs-outline" style="color: #38bdf8; border-color: rgba(56,189,248,0.4);">
+              👤 OSINT Dossier
+            </button>
+          </div>
         </div>
       `;
     }).join('');
@@ -8145,11 +8609,72 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
   function handleGhostMessagesDeleted(data) {
     showToast(`🚨 Ghost Vault: Message deleted in group ${data.group_id} (Captured & Preserved)`, "error");
-    playZenSound('alert');
+    playZenSound('alarm');
     refreshGhostVault();
+
+    // Dynamically update card in live Wiretap stream
+    (data.records || []).forEach(r => {
+      const card = document.getElementById(`wiretap-card-${r.message_id}`);
+      if (card) {
+        card.classList.add('ghost-deleted-card');
+        const textEl = card.querySelector('.wiretap-text');
+        if (textEl) {
+          textEl.innerHTML = `
+            <div style="font-size: 10px; color: #ef4444; font-weight: 700; margin-bottom: 4px;">👻 [MESSAGE DELETED IN TELEGRAM — CAPTURED & PRESERVED LOCALLY]:</div>
+            <div style="text-decoration: line-through; opacity: 0.85;">${textEl.innerHTML}</div>
+          `;
+        }
+        const actEl = card.querySelector('.wiretap-actions');
+        if (actEl) {
+          const btn = document.createElement('button');
+          btn.className = 'act-pill';
+          btn.style.borderColor = '#10b981';
+          btn.style.color = '#10b981';
+          btn.style.fontWeight = '700';
+          btn.innerHTML = `<i data-lucide="bookmark-check" style="width: 10px; height: 10px;"></i><span>Save Deleted to Phone</span>`;
+          btn.onclick = () => forwardGhostToSaved(r.id);
+          actEl.prepend(btn);
+          safeCreateIcons();
+        }
+      }
+    });
   }
 
   function handleGhostMessageEdited(data) {
+    showToast(`✏️ Ghost Vault: Edit revision captured by ${escapeHtml(data.record?.full_name || 'User')}`, "info");
+    playZenSound('blip');
+    refreshGhostVault();
+
+    const r = data.record;
+    if (r && r.message_id) {
+      const card = document.getElementById(`wiretap-card-${r.message_id}`);
+      if (card) {
+        card.classList.add('ghost-edited-card');
+        const textEl = card.querySelector('.wiretap-text');
+        if (textEl) {
+          textEl.innerHTML = `
+            <div class="wiretap-ghost-edit-box">
+              <div style="font-size: 9px; color: #f59e0b; font-weight: 700; text-transform: uppercase;">✏️ Live Edit Captured by KAGE Wiretap:</div>
+              <div style="margin-top: 3px;"><span class="diff-del"><s>Old: ${escapeHtml(r.original_text || '')}</s></span></div>
+              <div style="margin-top: 2px;"><span class="diff-add">New: ${escapeHtml(r.text || '')}</span></div>
+            </div>
+          `;
+        }
+        const actEl = card.querySelector('.wiretap-actions');
+        if (actEl) {
+          const btn = document.createElement('button');
+          btn.className = 'act-pill';
+          btn.style.borderColor = '#10b981';
+          btn.style.color = '#10b981';
+          btn.style.fontWeight = '700';
+          btn.innerHTML = `<i data-lucide="bookmark-check" style="width: 10px; height: 10px;"></i><span>Save Revision to Phone</span>`;
+          btn.onclick = () => forwardGhostToSaved(r.id);
+          actEl.prepend(btn);
+          safeCreateIcons();
+        }
+      }
+    }
+  }
     showToast(`✏️ Ghost Vault: Edit revision captured by ${escapeHtml(data.sender_name || 'User')}`, "info");
     refreshGhostVault();
   }
