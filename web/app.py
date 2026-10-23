@@ -1,4 +1,6 @@
 import asyncio
+import csv
+import io
 import json
 import logging
 import os
@@ -1075,5 +1077,61 @@ def create_app(engine: SuperBanEngine):
         except Exception as e:
             logger.error(f"Failed to launch terminal: {e}")
             return {"status": "error", "message": str(e)}
+
+    # =========================================================================
+    #  SOVEREIGN FORENSIC DATA EXPORTERS (CSV / JSON)
+    # =========================================================================
+    @app.get("/api/export/entities")
+    async def export_entities_csv(group_id: Optional[int] = None, format: str = "csv"):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        data = await engine.db.get_extracted_entities(group_id=group_id, limit=5000)
+        items = data.get("items", [])
+        
+        if format == "json":
+            return items
+            
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Timestamp", "Group Title", "Group ID", "Sender ID", "Sender Name", "Entity Type", "Entity Value", "Context"])
+        for it in items:
+            writer.writerow([
+                it.get("id"), it.get("timestamp"), it.get("group_title"), it.get("group_id"),
+                it.get("sender_id"), it.get("sender_name"), it.get("entity_type"),
+                it.get("entity_value"), it.get("context")
+            ])
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=superban_crypto_signals_alpha.csv"}
+        )
+
+    @app.get("/api/export/ghost")
+    async def export_ghost_csv(group_id: Optional[int] = None, format: str = "csv"):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        items = await engine.db.get_ghost_messages(group_id=group_id, filter_mode='all', limit=5000)
+        
+        if format == "json":
+            return items
+            
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Status", "Date Sent", "Date Deleted/Edited", "Group Title", "Sender ID", "Sender Name", "Username", "Message Text", "Original Text Before Edit"])
+        for it in items:
+            status = "DELETED" if it.get("is_deleted") else "EDITED"
+            date_action = it.get("date_deleted") or it.get("date_edited") or ""
+            writer.writerow([
+                it.get("id"), status, it.get("date_sent"), date_action, it.get("group_title"),
+                it.get("user_id"), it.get("full_name"), it.get("username"),
+                it.get("text"), it.get("original_text") or ""
+            ])
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=superban_ghost_vault_evidence.csv"}
+        )
 
     return app

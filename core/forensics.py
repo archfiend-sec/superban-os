@@ -93,6 +93,49 @@ class ForensicInspector:
         scam_score = min(100, scam_score)
         is_ghost = ghost_score >= 60
 
+        # Non-Admin Sovereign Trust & Reputation Score (0 to 100)
+        trust_score = 65
+        vintage = "Recent (2024-2026)"
+        if user_id < 1000000000:
+            trust_score += 20
+            vintage = "OG Early Adopter (2014-2019)"
+        elif user_id < 4500000000:
+            trust_score += 10
+            vintage = "Established Veteran (2020-2023)"
+        elif user_id > 6800000000:
+            trust_score -= 15
+            vintage = "New Throwaway (2025-2026)"
+
+        if is_verified:
+            trust_score += 25
+        if is_premium:
+            trust_score += 15
+        if has_photo:
+            trust_score += 10
+        if username:
+            trust_score += 5
+        if is_bot:
+            trust_score -= 10
+
+        if is_scam or is_fake or is_deleted:
+            trust_score = 0
+        else:
+            trust_score -= int(scam_score * 0.8)
+
+        trust_score = max(0, min(100, trust_score))
+        if trust_score >= 85:
+            trust_level = "SOVEREIGN VERIFIED"
+            trust_color = "#34d399" # Emerald
+        elif trust_score >= 60:
+            trust_level = "NEUTRAL CITIZEN"
+            trust_color = "#38bdf8" # Sky
+        elif trust_score >= 35:
+            trust_level = "SUSPICIOUS ENTITY"
+            trust_color = "#f59e0b" # Amber
+        else:
+            trust_level = "CRITICAL THREAT"
+            trust_color = "#e0231c" # Crimson
+
         return {
             "id": user_id,
             "username": username,
@@ -111,7 +154,11 @@ class ForensicInspector:
             "scam_score": scam_score,
             "is_suspicious": scam_score >= 40,
             "reasons": reasons,
-            "message_count": message_count
+            "message_count": message_count,
+            "trust_score": trust_score,
+            "trust_level": trust_level,
+            "trust_color": trust_color,
+            "vintage": vintage
         }
 
     @staticmethod

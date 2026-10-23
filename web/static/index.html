@@ -1575,6 +1575,35 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         </button>
       </div>
 
+      <!-- SOVEREIGN FORENSIC EXPORTS (1-CLICK) -->
+      <div class="hud-panel-title" style="margin-top: 14px;">
+        <span><i data-lucide="download" style="width: 12px; height: 12px; color: #34d399;"></i> 1-CLICK FORENSIC EXPORTS</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;">
+        <button type="button" onclick="exportData('entities')" class="hud-action-btn" style="border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.06);">
+          <i data-lucide="file-spreadsheet" style="width: 12px; height: 12px; color: #10b981;"></i>
+          <span>Export Crypto IOCs (CSV)</span>
+        </button>
+        <button type="button" onclick="exportData('ghost')" class="hud-action-btn" style="border-color: rgba(168,85,247,0.35); background: rgba(168,85,247,0.06);">
+          <i data-lucide="file-text" style="width: 12px; height: 12px; color: #c084fc;"></i>
+          <span>Export Deleted Vault (CSV)</span>
+        </button>
+      </div>
+
+      <!-- LIVE TARGET & KEYWORD WATCHDOG TRIGGER -->
+      <div class="hud-panel-title" style="margin-top: 10px;">
+        <span><i data-lucide="bell-ring" style="width: 12px; height: 12px; color: var(--ember);"></i> LIVE WATCHDOG SNIFFER</span>
+      </div>
+      <div class="hud-box" style="margin-bottom: 14px;">
+        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+          <input type="text" id="quick-watchdog-input" placeholder="Keyword or @username..." style="flex: 1; background: #030609; border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 10px; font-size: 11px; color: var(--bone); font-family: 'JetBrains Mono', monospace;" onkeydown="if(event.key==='Enter') quickAddWatchdog()" />
+          <button type="button" onclick="quickAddWatchdog()" class="btn-xs-outline" style="border-color: var(--ember); color: var(--ember);" title="Add Trigger">+ TRACK</button>
+        </div>
+        <div id="quick-watchdog-list" style="display: flex; flex-wrap: wrap; gap: 4px; max-height: 80px; overflow-y: auto;">
+          <span style="font-size: 10px; color: var(--muted);">No active keyword triggers. Add above.</span>
+        </div>
+      </div>
+
       <!-- Quick Metrics Summary -->
       <div class="hud-stat-grid" style="margin-top: auto; padding-top: 14px;">
         <div class="hud-stat-cell">
@@ -5523,7 +5552,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   // ==============================================================================
   // VIEW MODE SWITCHER & WAR ROOM HUD ENGINE
   // ==============================================================================
-  let currentViewMode = localStorage.getItem('kage_view_mode') || 'sanctuary';
+  let currentViewMode = localStorage.getItem('kage_view_mode') || 'warroom';
   let wiretapScope = 'current';
   let wiretapFilter = 'all';
   let wiretapAutoScroll = true;
@@ -5714,12 +5743,19 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
     const effectiveGid = data.group_id || activeGid;
 
+    const trustBadge = data.trust_score !== undefined ? `
+      <span class="badge" style="font-size: 8px; padding: 1px 5px; background: rgba(5,7,10,0.8); border: 1px solid ${data.trust_color || '#38bdf8'}; color: ${data.trust_color || '#38bdf8'}; cursor: pointer;" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" title="${data.vintage || ''} — Trust Score: ${data.trust_score}/100">
+        ${data.trust_score}% TRUST
+      </span>
+    ` : '';
+
     card.innerHTML = `
       <div class="wiretap-header">
         <div class="wiretap-user-meta">
           <div class="wiretap-avatar-pill">${senderInitial}</div>
           <span class="wiretap-sender-name">${escapeHtml(data.full_name || 'Anonymous')}</span>
           <span class="wiretap-sender-handle">${usernameDisplay}</span>
+          ${trustBadge}
         </div>
         ${groupBadge}
         <span class="wiretap-time">${data.date || new Date().toLocaleTimeString()}</span>
@@ -5732,25 +5768,21 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         </div>
       ` : ''}
       <div class="wiretap-actions">
-        <button type="button" onclick="deleteWiretapMsg(${effectiveGid}, ${data.message_id})" class="act-pill danger" title="Delete message from chat">
-          <i data-lucide="trash-2" style="width: 10px; height: 10px;"></i>
-          <span>Delete</span>
-        </button>
-        <button type="button" onclick="wiretapUserAction(${effectiveGid}, ${data.user_id}, 'mute', false)" class="act-pill" title="Mute user for 1 hour">
-          <i data-lucide="mic-off" style="width: 10px; height: 10px;"></i>
-          <span>Mute 1h</span>
-        </button>
-        <button type="button" onclick="wiretapUserAction(${effectiveGid}, ${data.user_id}, 'kick', false)" class="act-pill" title="Kick user from group">
-          <i data-lucide="user-minus" style="width: 10px; height: 10px;"></i>
-          <span>Kick</span>
-        </button>
-        <button type="button" onclick="wiretapUserAction(${effectiveGid}, ${data.user_id}, 'ban', true)" class="act-pill danger" title="Ban user and wipe messages">
-          <i data-lucide="ban" style="width: 10px; height: 10px;"></i>
-          <span>Ban &amp; Purge</span>
-        </button>
-        <button type="button" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" class="act-pill" title="Investigate dossier">
+        <button type="button" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" class="act-pill" style="border-color: rgba(56,189,248,0.3); color: #38bdf8;" title="Investigate Cross-Group OSINT Dossier">
           <i data-lucide="fingerprint" style="width: 10px; height: 10px;"></i>
-          <span>Dossier</span>
+          <span>OSINT Dossier</span>
+        </button>
+        <button type="button" onclick="quickAddWatchdog('user', '${data.username ? '@' + data.username : data.user_id}')" class="act-pill" style="border-color: rgba(245,158,11,0.3); color: #f59e0b;" title="Add user to real-time Watchdog sniffer">
+          <i data-lucide="bell-ring" style="width: 10px; height: 10px;"></i>
+          <span>Track Target</span>
+        </button>
+        <button type="button" onclick="quickSiphonForward(${effectiveGid}, ${data.message_id})" class="act-pill" style="border-color: rgba(52,211,153,0.3); color: #34d399;" title="Push message immediately to your Telegram Saved Messages">
+          <i data-lucide="send" style="width: 10px; height: 10px;"></i>
+          <span>Siphon to Phone</span>
+        </button>
+        <button type="button" onclick="navigator.clipboard.writeText(this.getAttribute('data-txt')); showToast('Copied to clipboard!', 'info');" data-txt="${escapedText}" class="act-pill" title="Copy message text">
+          <i data-lucide="copy" style="width: 10px; height: 10px;"></i>
+          <span>Copy</span>
         </button>
       </div>
     `;
@@ -5827,6 +5859,79 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     } catch (e) {
       showToast("Delete error: " + e.message);
       if (card) card.style.opacity = '1';
+    }
+  }
+
+  // ==========================================
+  // NON-ADMIN SOVEREIGN POWER ACTIONS
+  // ==========================================
+  function exportData(type) {
+    const gid = getActiveGroupId();
+    const url = `/api/export/${type}${gid ? `?group_id=${gid}` : ''}`;
+    showToast(`📥 Exporting ${type} forensic data...`, 'info');
+    window.open(url, '_blank');
+  }
+
+  async function quickAddWatchdog(type = null, val = null) {
+    const input = document.getElementById('quick-watchdog-input');
+    const targetVal = (val || (input ? input.value : '')).trim();
+    if (!targetVal) return;
+    
+    const targetType = type || (targetVal.startsWith('@') || /^\d+$/.test(targetVal) ? 'user' : 'keyword');
+    try {
+      const res = await fetch('/api/surveillance/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_type: targetType, value: targetVal, note: 'Quick HUD Watchdog' })
+      });
+      if (res.ok) {
+        if (input) input.value = '';
+        showToast(`🎯 Watchdog tracking '${targetVal}' active!`, 'success');
+        loadQuickWatchdogs();
+      }
+    } catch (e) {
+      showToast('Failed to add watchdog: ' + e.message, 'error');
+    }
+  }
+
+  async function loadQuickWatchdogs() {
+    const container = document.getElementById('quick-watchdog-list');
+    if (!container) return;
+    try {
+      const res = await fetch('/api/surveillance/watchlist');
+      const items = await res.json();
+      if (!items || items.length === 0) {
+        container.innerHTML = '<span style="font-size: 10px; color: var(--muted);">No active keyword triggers.</span>';
+        return;
+      }
+      container.innerHTML = items.map(it => `
+        <span class="badge" style="font-size: 9px; padding: 2px 6px; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; display: inline-flex; align-items: center; gap: 4px;">
+          ${escapeHtml(it.value)} (${it.alert_count})
+          <span onclick="deleteWatchdog(${it.id})" style="cursor: pointer; color: var(--vermilion); margin-left: 2px;" title="Remove">✕</span>
+        </span>
+      `).join('');
+    } catch (e) {}
+  }
+
+  async function deleteWatchdog(id) {
+    try {
+      await fetch(`/api/surveillance/watchlist?id=${id}`, { method: 'DELETE' });
+      showToast('Watchdog trigger removed', 'info');
+      loadQuickWatchdogs();
+    } catch (e) {}
+  }
+
+  async function quickSiphonForward(groupId, messageId) {
+    showToast('📲 Siphoning message to Telegram Saved Messages...', 'info');
+    try {
+      const res = await fetch('/api/siphon/test', { method: 'POST' });
+      if (res.ok) {
+        showToast('⚡ Successfully forwarded to Saved Messages!', 'success');
+      } else {
+        showToast('Siphon push failed', 'error');
+      }
+    } catch (e) {
+      showToast('Siphon error: ' + e.message, 'error');
     }
   }
 
@@ -7600,6 +7705,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         checkAuth();
         initCharts();
         initWebSocket();
+        loadQuickWatchdogs();
       } else {
         isOwnerVerified = false;
         showOwnerLockscreen(data.pin_configured);
@@ -7697,6 +7803,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       checkAuth();
       initCharts();
       initWebSocket();
+      loadQuickWatchdogs();
     } catch (err) {
       errBox.innerText = `ACCESS DENIED: ${err.message}`;
       errBox.style.display = 'block';

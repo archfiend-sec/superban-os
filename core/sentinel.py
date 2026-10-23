@@ -205,6 +205,9 @@ class SentinelShield:
                     group_id, group_title, sender.id, full_name, username, text, event.id, extracted_entities
                 ))
             
+            # Evaluate user forensic reputation in real-time
+            user_profile = ForensicInspector.inspect_user(sender)
+
             await self.emit_sentinel_event("live_chat_message", {
                 "message_id": event.id,
                 "group_id": group_id,
@@ -217,7 +220,13 @@ class SentinelShield:
                 "is_threat": is_threat,
                 "threat_type": threat_type,
                 "confidence": confidence,
-                "reason": trigger_reason
+                "reason": trigger_reason,
+                "trust_score": user_profile.get("trust_score", 70),
+                "trust_level": user_profile.get("trust_level", "NEUTRAL CITIZEN"),
+                "trust_color": user_profile.get("trust_color", "#38bdf8"),
+                "vintage": user_profile.get("vintage", ""),
+                "is_premium": bool(getattr(sender, 'premium', False)),
+                "is_verified": bool(getattr(sender, 'verified', False))
             })
 
             if group_id not in self.active_groups:
