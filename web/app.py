@@ -55,13 +55,13 @@ def create_app(engine: SuperBanEngine):
     async def owner_guard_middleware(request: Request, call_next):
         path = request.url.path
 
-        # Unprotected static routes and owner authentication
+        # Unprotected static routes, owner authentication, and uptime health probes
         if (
-            path == "/"
+            path in ("/", "/health", "/ping", "/favicon.ico", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png")
             or path.startswith("/static")
             or path.startswith("/api/owner/")
-            or path in ("/favicon.ico", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png")
             or path == "/ws"
+            or request.method == "HEAD"
         ):
             return await call_next(request)
 
@@ -131,6 +131,7 @@ def create_app(engine: SuperBanEngine):
         return {"status": "logged_out"}
 
     @app.get("/", response_class=HTMLResponse)
+    @app.head("/")
     async def get_index():
         index_file = STATIC_DIR / "index.html"
         if not index_file.exists():
@@ -140,6 +141,14 @@ def create_app(engine: SuperBanEngine):
             "Pragma": "no-cache",
             "Expires": "0"
         })
+
+    # Dedicated Keep-Alive & Health Check Probes for UptimeRobot / Cloud Monitoring
+    @app.get("/health")
+    @app.head("/health")
+    @app.get("/ping")
+    @app.head("/ping")
+    async def health_probe():
+        return Response(content="OK", media_type="text/plain", status_code=200)
 
     # ═══════════════════════════════════════════════════════
     #   AUTHENTICATION API (IN-BROWSER TELEGRAM SIGN IN)
