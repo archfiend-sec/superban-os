@@ -127,12 +127,21 @@ class SuperBanEngine:
             except Exception as e:
                 logger.debug(f"Telemetry listener error: {e}")
 
+    async def ensure_connected(self):
+        """Ensure client is actively connected to Telegram MTProto network."""
+        if not self.client.is_connected():
+            try:
+                await self.client.connect()
+            except Exception as e:
+                logger.warning(f"Engine client auto-reconnect attempt: {e}")
+
     async def get_dialogs(self, force: bool = False):
         """Fetch accessible groups and supergroups with 60s TTL cache."""
         if not force and hasattr(self, '_dialogs_cache') and self._dialogs_cache:
             if time.time() - getattr(self, '_dialogs_cache_time', 0) < 60:
                 return self._dialogs_cache
 
+        await self.ensure_connected()
         dialogs = await self.client.get_dialogs()
         groups = []
         for d in dialogs:
@@ -151,6 +160,7 @@ class SuperBanEngine:
 
     async def get_group_entity(self, group_id: int):
         """Fast entity resolution without triggering MTProto flood wait."""
+        await self.ensure_connected()
         clean_target = str(group_id).replace("-100", "").replace("-", "")
         if hasattr(self, '_dialogs_cache') and self._dialogs_cache:
             for g in self._dialogs_cache:

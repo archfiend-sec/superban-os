@@ -83,7 +83,8 @@ def create_app(engine: SuperBanEngine):
         if not token or token not in OWNER_TOKENS or OWNER_TOKENS[token] < time.time():
             return JSONResponse(
                 status_code=401,
-                content={"detail": "Owner clearance required. Access denied."}
+                content={"detail": "Owner clearance required. Access denied."},
+                headers={"X-Owner-Required": "true"}
             )
 
         return await call_next(request)
@@ -338,10 +339,48 @@ def create_app(engine: SuperBanEngine):
 
     @app.get("/api/dialogs")
     async def get_dialogs():
-        if not await engine.client.is_user_authorized():
-            raise HTTPException(status_code=401, detail="Telegram account not authorized")
-        groups = await engine.get_dialogs()
-        return [{"id": g["id"], "title": g["title"], "members_count": g["members_count"]} for g in groups]
+        try:
+            if not engine.client.is_connected():
+                await engine.client.connect()
+        except Exception as e:
+            logger.warning(f"Engine client auto-connect in get_dialogs: {e}")
+
+        try:
+            is_auth = await engine.client.is_user_authorized()
+        except Exception as e:
+            logger.warning(f"is_user_authorized check failed: {e}")
+            is_auth = False
+
+        if not is_auth:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "authorized": False,
+                    "error": "Telegram account not authorized",
+                    "groups": []
+                }
+            )
+
+        try:
+            groups = await engine.get_dialogs()
+            group_list = [{"id": g["id"], "title": g["title"], "members_count": g["members_count"]} for g in groups]
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "authorized": True,
+                    "groups": group_list
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error fetching dialogs: {e}")
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "authorized": True,
+                    "error": str(e),
+                    "groups": []
+                }
+            )
 
     class ScanRequest(BaseModel):
         group_id: int

@@ -1679,10 +1679,20 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
       <!-- Target Selector -->
       <div style="margin-bottom: 14px;">
-        <label class="hud-label">SURVEILLANCE TARGET</label>
-        <select id="hud-group-select" onchange="syncGroupSelect(this.value); refreshWiretap();" class="kage-select font-mono" style="padding: 8px 10px; font-size: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label class="hud-label" style="margin: 0;">SURVEILLANCE TARGET</label>
+          <button type="button" onclick="fetchDialogs()" style="background: none; border: none; color: var(--muted); font-size: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Refresh Target Dialogs">
+            <i data-lucide="refresh-cw" style="width: 10px; height: 10px;"></i> Refresh
+          </button>
+        </div>
+        <select id="hud-group-select" onchange="if(this.value==='__LINK_TG__'){openAuthModal(); this.value='';} else {syncGroupSelect(this.value); refreshWiretap();}" class="kage-select font-mono" style="padding: 8px 10px; font-size: 12px; width: 100%;">
           <option value="">Loading groups...</option>
         </select>
+        <div id="hud-tg-link-alert" style="display: none; margin-top: 8px; padding: 10px 12px; background: rgba(224,35,28,0.1); border: 1px solid rgba(224,35,28,0.3); border-radius: 2px;">
+          <div style="font-size: 11px; font-weight: 600; color: #ff5a3c; margin-bottom: 4px;">⚠️ Telegram Not Linked on Server</div>
+          <div style="font-size: 10px; color: var(--bone-dim); line-height: 1.4; margin-bottom: 8px;">Link via 5-digit code or paste your String Session to load all groups and wiretaps.</div>
+          <button type="button" onclick="openAuthModal()" class="kage-action-btn" style="width: 100%; padding: 6px 10px; font-size: 10px;">⚡ LINK TELEGRAM ACCOUNT</button>
+        </div>
       </div>
 
       <!-- DEFCON State Controller -->
@@ -4027,17 +4037,23 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         const phone = data.phone || '+263 78 831 1244';
         if (userDisp) userDisp.innerText = `${label} (${phone})`;
         if (modal) modal.style.display = 'none';
-        fetchDialogs();
+        showTelegramLinkBanner(false);
       } else {
         if (userDisp) {
-          userDisp.innerHTML = `<span onclick="openAuthModal()" style="cursor: pointer; color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 600;" title="Click to link Telegram account">⚠️ Link Telegram Account</span>`;
+          userDisp.innerHTML = `<span onclick="openAuthModal()" style="cursor: pointer; color: var(--vermilion); border: 1px solid rgba(224,35,28,0.4); padding: 3px 8px; border-radius: 2px; font-size: 10px; font-weight: 600;" title="Click to link Telegram account">⚠️ Link Telegram Account</span>`;
         }
-        // NEVER auto-open the modal over the screen when user enters PIN!
-        if (modal) modal.style.display = 'none';
+        showTelegramLinkBanner(true);
       }
+      fetchDialogs();
     } catch (e) {
       console.error('Check auth error:', e);
+      fetchDialogs();
     }
+  }
+
+  function showTelegramLinkBanner(show) {
+    const banner = document.getElementById('hud-tg-link-alert');
+    if (banner) banner.style.display = show ? 'block' : 'none';
   }
 
   async function sendAuthCode() {
@@ -4172,11 +4188,51 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   }
 
   async function fetchDialogs() {
+    const ids = ['group-select', 'hud-group-select', 'sentinel-group-select', 'leads-group-select', 'sweeper-group-select', 'chatters-group-select'];
     try {
       const res = await fetch('/api/dialogs');
-      if (!res.ok) return;
-      dialogsList = await res.json();
-      const ids = ['group-select', 'hud-group-select', 'sentinel-group-select', 'leads-group-select', 'sweeper-group-select', 'chatters-group-select'];
+      if (!res.ok) {
+        ids.forEach(id => {
+          const sel = document.getElementById(id);
+          if (sel) sel.innerHTML = '<option value="">⚠️ Failed to load groups (Click Refresh)</option>';
+        });
+        return;
+      }
+      const raw = await res.json();
+      let groups = [];
+      let isAuth = true;
+
+      if (Array.isArray(raw)) {
+        groups = raw;
+      } else if (raw && typeof raw === 'object') {
+        isAuth = raw.authorized !== false;
+        groups = raw.groups || [];
+      }
+
+      if (!isAuth) {
+        showTelegramLinkBanner(true);
+        ids.forEach(id => {
+          const sel = document.getElementById(id);
+          if (sel) sel.innerHTML = '<option value="__LINK_TG__">⚠️ Telegram Not Linked — Click to Link Account</option>';
+        });
+        const titleEl = document.getElementById('hud-target-group-name');
+        if (titleEl) titleEl.innerText = 'Telegram Not Linked';
+        return;
+      }
+
+      showTelegramLinkBanner(false);
+      dialogsList = groups;
+
+      if (dialogsList.length === 0) {
+        ids.forEach(id => {
+          const sel = document.getElementById(id);
+          if (sel) sel.innerHTML = '<option value="">-- No groups found in this Telegram account --</option>';
+        });
+        const titleEl = document.getElementById('hud-target-group-name');
+        if (titleEl) titleEl.innerText = 'No groups found';
+        return;
+      }
+
       ids.forEach(id => {
         const sel = document.getElementById(id);
         if (!sel) return;
@@ -4213,7 +4269,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           scanSelectedGroup();
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Fetch dialogs error:', e);
+    }
   }
 
   async function scanSelectedGroup() {
@@ -8745,7 +8803,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     }
     const response = await _rawFetch(url, options);
     if ((response.status === 401 || response.status === 403) && typeof url === 'string' && !url.includes('/api/owner/')) {
-      if (isOwnerVerified) {
+      // ONLY trigger the Master PIN lockscreen if the 401 is specifically from the Owner Guard Gatekeeper
+      const isOwnerDenial = response.headers && response.headers.get('X-Owner-Required') === 'true';
+      if (isOwnerDenial && isOwnerVerified) {
         isOwnerVerified = false;
         showOwnerLockscreen(true);
       }
