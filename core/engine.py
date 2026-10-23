@@ -188,6 +188,43 @@ class SuperBanEngine:
                 return cached['admins']
         return admins
 
+    async def get_recent_chat_messages(self, group_entity, limit: int = 100) -> List[Dict[str, Any]]:
+        """Fetch recent message history for AI synthesis and intelligence forensics."""
+        messages = []
+        try:
+            async for msg in self.client.iter_messages(group_entity, limit=limit):
+                if not msg.raw_text:
+                    continue
+                sender = msg.sender
+                full_name = "User"
+                username = ""
+                user_id = 0
+                trust_score = 70
+                trust_level = "NEUTRAL CITIZEN"
+                if sender:
+                    user_id = getattr(sender, 'id', 0)
+                    fn = getattr(sender, 'first_name', '') or ''
+                    ln = getattr(sender, 'last_name', '') or ''
+                    full_name = f"{fn} {ln}".strip() or "User"
+                    username = getattr(sender, 'username', '') or ''
+                    profile = ForensicInspector.inspect_user(sender)
+                    trust_score = profile.get("trust_score", 70)
+                    trust_level = profile.get("trust_level", "NEUTRAL CITIZEN")
+
+                messages.append({
+                    "message_id": msg.id,
+                    "user_id": user_id,
+                    "full_name": full_name,
+                    "username": username,
+                    "text": msg.raw_text,
+                    "date": msg.date.strftime("%H:%M:%S") if msg.date else "",
+                    "trust_score": trust_score,
+                    "trust_level": trust_level
+                })
+        except Exception as e:
+            logger.error(f"Error fetching recent chat messages: {e}")
+        return messages
+
     async def inspect_group_members(self, group_entity, limit: int = 5000) -> List[Dict[str, Any]]:
         """Deep scan and profile group participants with forensic intelligence."""
         self.state = OperationState.SCANNING
@@ -1373,6 +1410,50 @@ class SuperBanEngine:
             return {"status": "delivered", "destination": "Saved Messages (me)"}
         except Exception as e:
             logger.error(f"Siphon test ping failed: {e}")
+            return {"status": "error", "error": str(e)}
+
+    async def siphon_message_to_me(self, group_id: int, message_id: int) -> Dict[str, Any]:
+        """Forward or copy any wiretapped message directly to Telegram Saved Messages ('me')."""
+        try:
+            entity = await self.get_group_entity(group_id)
+            if not entity:
+                return {"status": "error", "error": "Target group not found"}
+
+            group_title = getattr(entity, 'title', '') or f"Chat #{group_id}"
+
+            # Attempt native forward first
+            try:
+                await self.client.forward_messages('me', messages=message_id, from_peer=entity)
+                return {"status": "delivered", "method": "forwarded", "destination": "Saved Messages (me)"}
+            except Exception as fwd_err:
+                logger.debug(f"Direct forward restricted ({fwd_err}), using direct content copy")
+                # Fallback if chat prevents forwards (noforwards flag)
+                msg = await self.client.get_messages(entity, ids=message_id)
+                if not msg:
+                    return {"status": "error", "error": "Message content could not be retrieved"}
+
+                sender = msg.sender
+                sender_name = "Anonymous User"
+                sender_username = ""
+                if sender:
+                    fn = getattr(sender, 'first_name', '') or ''
+                    ln = getattr(sender, 'last_name', '') or ''
+                    sender_name = f"{fn} {ln}".strip() or "User"
+                    sender_username = f"@{sender.username}" if getattr(sender, 'username', None) else ""
+
+                siphon_card = (
+                    "🛸 <b>[SUPERBAN OS // SIPHON EXTRACTION]</b>\n"
+                    "───────────────────────────────\n"
+                    f"📁 <b>Group:</b> {group_title}\n"
+                    f"👤 <b>Author:</b> <code>{sender_name}</code> {sender_username}\n"
+                    f"⏱️ <b>Date:</b> <code>{msg.date.strftime('%Y-%m-%d %H:%M:%S UTC') if msg.date else 'Live'}</code>\n"
+                    "───────────────────────────────\n"
+                    f"{msg.raw_text or '[Media / Non-Text Content]'}"
+                )
+                await self.client.send_message('me', siphon_card, parse_mode='html')
+                return {"status": "delivered", "method": "mirrored", "destination": "Saved Messages (me)"}
+        except Exception as e:
+            logger.error(f"Failed to siphon message: {e}")
             return {"status": "error", "error": str(e)}
 
 

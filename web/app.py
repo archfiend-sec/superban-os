@@ -11,7 +11,9 @@ from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, JSONResponse
 from pydantic import BaseModel
+import aiohttp
 from telethon.sessions import StringSession
+from telethon.tl.functions.messages import GetCommonChatsRequest
 from telethon.errors import (
     SessionPasswordNeededError, PhoneCodeInvalidError, PhoneCodeExpiredError
 )
@@ -19,6 +21,7 @@ from telethon.errors import (
 from core.config import Config
 from core.engine import SuperBanEngine, OperationState
 from core.forensics import ForensicInspector
+from core.intel import IntelSynthesizer
 
 logger = logging.getLogger("WebMissionControl")
 
@@ -480,8 +483,19 @@ def create_app(engine: SuperBanEngine):
     async def copilot_execute(req: CopilotReq):
         prompt = req.prompt.strip().lower()
         gid = req.group_id
-        
-        if "lockdown" in prompt or "mute all" in prompt:
+
+        if "brief" in prompt or "intel" in prompt or "summary" in prompt:
+            return {"action": "switch_tab", "tab": "intel", "reply": "🧠 Tactical AI Briefing activated. Synthesizing group narrative, sentiment, and whale drivers..."}
+        elif "scan" in prompt or "member" in prompt or "recon" in prompt:
+            return {"action": "switch_tab", "tab": "recon", "reply": "🔍 Deep Member Reconnaissance activated. Profiling group participants with Trust Scores..."}
+        elif "alpha" in prompt or "token" in prompt or "contract" in prompt or "crypto" in prompt:
+            return {"action": "switch_tab", "tab": "alpha", "reply": "📈 Alpha & DexScreener Radar activated. Inspecting intercepted contract addresses and liquidity..."}
+        elif "ghost" in prompt or "delete" in prompt:
+            return {"action": "switch_tab", "tab": "ghost", "reply": "👻 Ghost Vault activated. Revealing all deleted and edited messages with audit diffs..."}
+        elif "siphon" in prompt or "ping" in prompt or "phone" in prompt:
+            test_res = await engine.test_siphon_ping()
+            return {"action": "siphon_tested", "reply": f"🛸 Siphon dispatch sent directly to your Telegram Saved Messages (Phone): {test_res.get('status', 'delivered')}"}
+        elif "lockdown" in prompt or "mute all" in prompt:
             await engine.sentinel.set_defcon_level(gid, 1)
             return {"action": "defcon", "level": 1, "reply": "🚨 Nuclear lockdown engaged. All standard member permissions muted."}
         elif "unlock" in prompt or "peace" in prompt:
@@ -919,32 +933,68 @@ def create_app(engine: SuperBanEngine):
 
     @app.get("/api/osint/user")
     async def get_user_osint(user_id: int):
-        if not engine.db:
-            raise HTTPException(status_code=500, detail="Database offline")
-        profile = await engine.db.get_user_cross_profile(user_id)
-        if not profile:
-            try:
-                u = await engine.client.get_entity(user_id)
-                full_name = f"{getattr(u, 'first_name', '')} {getattr(u, 'last_name', '')}".strip()
-                username = getattr(u, 'username', '')
-                profile = {
-                    "user_id": user_id,
-                    "first_seen": "Observed via radar",
-                    "last_seen": "Active",
-                    "current_name": full_name or f"User #{user_id}",
-                    "current_username": username,
-                    "name_history": [full_name] if full_name else [],
-                    "username_history": [username] if username else [],
-                    "spotted_groups": [],
-                    "message_count": 0,
-                    "vc_participations": 0,
-                    "is_premium": bool(getattr(u, 'premium', False)),
-                    "is_verified": bool(getattr(u, 'verified', False)),
-                    "phone": getattr(u, 'phone', '') or ''
-                }
-            except Exception:
-                raise HTTPException(status_code=404, detail="Target user profile not found in radar")
-        return profile
+        u = None
+        try:
+            u = await engine.client.get_entity(user_id)
+        except Exception:
+            pass
+
+        full_name = f"{getattr(u, 'first_name', '') or ''} {getattr(u, 'last_name', '') or ''}".strip()
+        username = getattr(u, 'username', '') or ''
+
+        forensic_info = ForensicInspector.inspect_user(u) if u else {
+            "trust_score": 70,
+            "trust_level": "NEUTRAL CITIZEN",
+            "vintage": "Standard Account",
+            "risk_flags": []
+        }
+
+        mutual_chats = []
+        try:
+            if u:
+                input_user = await engine.client.get_input_entity(u)
+                res = await engine.client(GetCommonChatsRequest(user_id=input_user, max_id=0, limit=100))
+                for c in getattr(res, 'chats', []):
+                    mutual_chats.append({
+                        "id": c.id,
+                        "title": getattr(c, 'title', '') or f"Chat #{c.id}",
+                        "username": getattr(c, 'username', '') or '',
+                        "participants_count": getattr(c, 'participants_count', 0)
+                    })
+        except Exception as e:
+            logger.debug(f"Mutual chats lookup error: {e}")
+
+        db_profile = {}
+        if engine.db:
+            db_profile = await engine.db.get_user_cross_profile(user_id) or {}
+
+        if not u and not db_profile:
+            raise HTTPException(status_code=404, detail="Target user profile not found in radar")
+
+        return {
+            "user_id": user_id,
+            "current_name": full_name or db_profile.get("current_name") or f"User #{user_id}",
+            "current_username": username or db_profile.get("current_username") or "",
+            "phone": getattr(u, 'phone', '') or db_profile.get("phone", ""),
+            "is_premium": bool(getattr(u, 'premium', False)),
+            "is_verified": bool(getattr(u, 'verified', False)),
+            "is_bot": bool(getattr(u, 'bot', False)),
+            "is_scam": bool(getattr(u, 'scam', False)),
+            "is_fake": bool(getattr(u, 'fake', False)),
+            "trust_score": forensic_info.get("trust_score", 70),
+            "trust_level": forensic_info.get("trust_level", "NEUTRAL CITIZEN"),
+            "vintage": forensic_info.get("vintage", "Standard Account"),
+            "risk_flags": forensic_info.get("risk_flags", []),
+            "mutual_chats": mutual_chats,
+            "mutual_chats_count": len(mutual_chats),
+            "spotted_groups": db_profile.get("spotted_groups", []),
+            "name_history": db_profile.get("name_history", [full_name] if full_name else []),
+            "username_history": db_profile.get("username_history", [username] if username else []),
+            "message_count": db_profile.get("message_count", 0),
+            "vc_participations": db_profile.get("vc_participations", 0),
+            "first_seen": db_profile.get("first_seen", "Live MTProto Radar"),
+            "last_seen": db_profile.get("last_seen", "Active")
+        }
 
     @app.get("/api/surveillance/watchlist")
     async def get_surveillance_watchlist():
@@ -982,6 +1032,18 @@ def create_app(engine: SuperBanEngine):
         if not entity:
             raise HTTPException(status_code=404, detail="Target group not found")
         return await engine.get_group_sentiment_analysis(entity)
+
+    # =========================================================================
+    #  AI & HEURISTIC CHAT INTEL SYNTHESIZER
+    # =========================================================================
+    @app.get("/api/intel/briefing")
+    async def get_chat_intel_briefing(group_id: int, limit: int = 100):
+        entity = await engine.get_group_entity(group_id)
+        if not entity:
+            raise HTTPException(status_code=404, detail="Target group not found")
+        group_title = getattr(entity, 'title', '') or ''
+        messages = await engine.get_recent_chat_messages(entity, limit=limit)
+        return IntelSynthesizer.synthesize_chat_intel(messages, group_title=group_title)
 
     # =========================================================================
     #  SIGNAL & IOC ENTITY RADAR ENDPOINTS
@@ -1034,9 +1096,88 @@ def create_app(engine: SuperBanEngine):
         success = await engine.db.delete_siphon_rule(id)
         return {"success": success}
 
+    class SiphonForwardReq(BaseModel):
+        group_id: int
+        message_id: int
+
+    @app.post("/api/siphon/forward")
+    async def forward_to_saved(req: SiphonForwardReq):
+        res = await engine.siphon_message_to_me(req.group_id, req.message_id)
+        if res.get("status") == "error":
+            raise HTTPException(status_code=400, detail=res.get("error", "Siphon delivery failed"))
+        return res
+
     @app.post("/api/siphon/test")
     async def test_siphon():
         return await engine.test_siphon_ping()
+
+    @app.get("/api/crypto/dexscreener")
+    async def get_dexscreener_info(address: str):
+        cleaned_addr = address.strip()
+        url = f"https://api.dexscreener.com/latest/dex/tokens/{cleaned_addr}"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        pairs = data.get("pairs") or []
+                        if pairs:
+                            pairs.sort(key=lambda p: float(p.get("liquidity", {}).get("usd") or 0), reverse=True)
+                            p = pairs[0]
+                            return {
+                                "found": True,
+                                "name": p.get("baseToken", {}).get("name", "Unknown"),
+                                "symbol": p.get("baseToken", {}).get("symbol", "???"),
+                                "chain": p.get("chainId", ""),
+                                "dex": p.get("dexId", ""),
+                                "price_usd": p.get("priceUsd", "0.00"),
+                                "liquidity_usd": p.get("liquidity", {}).get("usd", 0),
+                                "fdv": p.get("fdv", 0),
+                                "price_change_24h": p.get("priceChange", {}).get("h24", 0),
+                                "url": p.get("url", f"https://dexscreener.com/search?q={cleaned_addr}")
+                            }
+        except Exception as e:
+            logger.debug(f"DexScreener proxy error: {e}")
+        return {
+            "found": False,
+            "address": cleaned_addr,
+            "url": f"https://dexscreener.com/search?q={cleaned_addr}"
+        }
+
+    @app.get("/api/export/members")
+    async def export_members_csv(group_id: int, format: str = "csv"):
+        entity = await engine.get_group_entity(group_id)
+        if not entity:
+            raise HTTPException(status_code=404, detail="Target group not found")
+        members = await engine.inspect_group_members(entity, limit=5000)
+        
+        if format == "json":
+            return members
+            
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["User ID", "Full Name", "Username", "Trust Score", "Trust Level", "Vintage", "Is Premium", "Is Verified", "Is Bot", "Is Scam", "Is Fake"])
+        for m in members:
+            writer.writerow([
+                m.get("user_id"),
+                m.get("name"),
+                m.get("username"),
+                m.get("trust_score", 70),
+                m.get("trust_level", "NEUTRAL CITIZEN"),
+                m.get("vintage", "Standard Account"),
+                "YES" if m.get("is_premium") else "NO",
+                "YES" if m.get("is_verified") else "NO",
+                "YES" if m.get("is_bot") else "NO",
+                "YES" if m.get("is_scam") else "NO",
+                "YES" if m.get("is_fake") else "NO"
+            ])
+        output.seek(0)
+        clean_title = "".join(c for c in getattr(entity, 'title', 'group') if c.isalnum() or c in ('_', '-')) or "group"
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=superban_members_{clean_title}.csv"}
+        )
 
     @app.get("/api/siphon/logs")
     async def get_siphon_logs(limit: int = 50):

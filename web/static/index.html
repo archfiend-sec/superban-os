@@ -1621,32 +1621,168 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       </div>
     </aside>
 
-    <!-- CENTER COLUMN: REAL-TIME TELEGRAM WIRETAP FEED (flex-1) -->
+    <!-- CENTER COLUMN: POWER INTELLIGENCE SUITE (flex-1) -->
     <main class="hud-col hud-col-center">
-      <div class="hud-panel-title">
-        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-          <span class="hud-pulse-radar"></span>
-          <span style="white-space: nowrap;">REAL-TIME WIRETAP // 盗聴</span>
-          <span id="wiretap-target-badge" class="badge badge-vermilion" style="font-size: 9px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">TARGET ONLY</span>
+      <!-- CENTER NAVIGATION TABS -->
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line-soft); padding: 8px 12px; background: rgba(5,7,10,0.6); flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button type="button" onclick="switchCenterTab('wiretap')" id="tab-btn-wiretap" class="flt-btn active" style="font-size: 11px; padding: 6px 12px;">
+            <i data-lucide="radio" style="width: 12px; height: 12px;"></i>
+            <span>Live Wiretap</span>
+          </button>
+          <button type="button" onclick="switchCenterTab('intel')" id="tab-btn-intel" class="flt-btn" style="font-size: 11px; padding: 6px 12px; border-color: rgba(56,189,248,0.3); color: #38bdf8;">
+            <i data-lucide="sparkles" style="width: 12px; height: 12px;"></i>
+            <span>AI Intel Briefing</span>
+          </button>
+          <button type="button" onclick="switchCenterTab('ghost')" id="tab-btn-ghost" class="flt-btn" style="font-size: 11px; padding: 6px 12px; border-color: rgba(192,132,252,0.3); color: #c084fc;">
+            <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
+            <span>Ghost Vault (Anti-Delete)</span>
+          </button>
+          <button type="button" onclick="switchCenterTab('recon')" id="tab-btn-recon" class="flt-btn" style="font-size: 11px; padding: 6px 12px; border-color: rgba(52,211,153,0.3); color: #34d399;">
+            <i data-lucide="users" style="width: 12px; height: 12px;"></i>
+            <span>Member Recon</span>
+          </button>
+          <button type="button" onclick="switchCenterTab('alpha')" id="tab-btn-alpha" class="flt-btn" style="font-size: 11px; padding: 6px 12px; border-color: rgba(245,158,11,0.3); color: #f59e0b;">
+            <i data-lucide="wallet" style="width: 12px; height: 12px;"></i>
+            <span>Alpha Radar</span>
+          </button>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
+
+        <!-- Wiretap specific quick controls (visible when on wiretap tab) -->
+        <div id="wiretap-controls-sub" style="display: flex; align-items: center; gap: 8px;">
           <div class="hud-filter-toggle">
-            <button type="button" onclick="setWiretapScope('current')" id="wiretap-scope-current" class="flt-btn active" title="Show only messages from the selected group">🎯 TARGET ONLY</button>
-            <button type="button" onclick="setWiretapScope('all')" id="wiretap-scope-all" class="flt-btn" title="Show incoming messages across all groups">ALL GROUPS</button>
+            <button type="button" onclick="setWiretapScope('current')" id="wiretap-scope-current" class="flt-btn active" style="font-size: 10px;">🎯 TARGET ONLY</button>
+            <button type="button" onclick="setWiretapScope('all')" id="wiretap-scope-all" class="flt-btn" style="font-size: 10px;">ALL GROUPS</button>
           </div>
           <div class="hud-filter-toggle">
-            <button type="button" onclick="filterWiretap('all')" id="wiretap-flt-all" class="flt-btn active">ALL</button>
-            <button type="button" onclick="filterWiretap('threats')" id="wiretap-flt-threats" class="flt-btn danger">⚠️ THREATS</button>
+            <button type="button" onclick="filterWiretap('all')" id="wiretap-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
+            <button type="button" onclick="filterWiretap('threats')" id="wiretap-flt-threats" class="flt-btn danger" style="font-size: 10px;">⚠️ THREATS</button>
           </div>
         </div>
       </div>
 
-      <!-- WIRETAP MESSAGE STREAM CONTAINER -->
-      <div id="wiretap-stream" class="wiretap-stream-wrap">
-        <div class="wiretap-init-state">
-          <i data-lucide="radio" style="width: 28px; height: 28px; color: var(--muted); opacity: 0.6;"></i>
-          <p>Listening on Telegram MTProto socket...</p>
-          <span style="font-size: 10px; color: var(--muted);">Messages sent in target groups will appear here live with instant moderation controls.</span>
+      <!-- TAB 1: WIRETAP MESSAGE STREAM CONTAINER -->
+      <div id="tab-content-wiretap" class="wiretap-stream-wrap">
+        <div id="wiretap-stream" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+          <div class="wiretap-init-state">
+            <i data-lucide="radio" style="width: 28px; height: 28px; color: var(--muted); opacity: 0.6;"></i>
+            <p>Listening on Telegram MTProto socket...</p>
+            <span style="font-size: 10px; color: var(--muted);">Messages sent in target groups will appear here live with instant moderation controls.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: AI CHAT INTEL SYNTHESIZER CONTAINER -->
+      <div id="tab-content-intel" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="font-size: 10px; letter-spacing: 0.2em; color: #38bdf8; text-transform: uppercase;">TACTICAL AI BRIEFING ENGINE</div>
+            <h3 style="font-size: 18px; color: var(--bone); font-weight: 700; margin-top: 4px;">Group Narrative &amp; Alpha Synthesis</h3>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select id="intel-depth-select" style="background: #080c10; border: 1px solid var(--line-soft); color: var(--bone); font-size: 11px; padding: 6px 10px; border-radius: 4px;">
+              <option value="100" selected>Recent 100 Msgs</option>
+              <option value="250">Deep 250 Msgs</option>
+              <option value="500">Exhaustive 500 Msgs</option>
+            </select>
+            <button type="button" onclick="generateIntelBriefing()" id="btn-run-briefing" class="kage-btn" style="padding: 10px 18px; font-size: 11px; background: #38bdf8; border-color: #38bdf8; color: #020406;">
+              <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i> ⚡ SYNTHESIZE INTEL
+            </button>
+          </div>
+        </div>
+
+        <div id="intel-briefing-results">
+          <div style="text-align: center; padding: 60px 20px; color: var(--muted);">
+            <i data-lucide="cpu" style="width: 36px; height: 36px; margin: 0 auto 12px; opacity: 0.5;"></i>
+            <p style="font-size: 13px; color: var(--bone-dim);">Select a target group and click "SYNTHESIZE INTEL" above.</p>
+            <span style="font-size: 11px; color: var(--muted);">AI will digest recent chat history, extract consensus, sentiment, key alpha, and influencers.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: GHOST VAULT CONTAINER (ANTI-DELETE & ANTI-EDIT) -->
+      <div id="tab-content-ghost" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="font-size: 10px; letter-spacing: 0.2em; color: #c084fc; text-transform: uppercase;">ANTI-DELETE &amp; TAMPER DETECTION ENGINE</div>
+            <h3 style="font-size: 18px; color: var(--bone); font-weight: 700; margin-top: 4px;">Ghost Vault Surveillance Archive</h3>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" onclick="refreshCenterGhostVault()" class="kage-btn-pill">
+              <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> Refresh
+            </button>
+            <button type="button" onclick="exportData('ghost')" class="kage-btn" style="padding: 10px 18px; font-size: 11px; background: #c084fc; border-color: #c084fc; color: #020406;">
+              <i data-lucide="download" style="width: 14px; height: 14px;"></i> EXPORT CSV
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="center-ghost-search" oninput="renderCenterGhostVault()" placeholder="Search deleted or edited text / user..." style="background: #030609; border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 260px;" />
+          <button type="button" onclick="setCenterGhostFilter('all')" id="center-ghost-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
+          <button type="button" onclick="setCenterGhostFilter('deleted')" id="center-ghost-flt-deleted" class="flt-btn danger" style="font-size: 10px;">🚨 DELETED ONLY</button>
+          <button type="button" onclick="setCenterGhostFilter('edited')" id="center-ghost-flt-edited" class="flt-btn" style="font-size: 10px; color: #38bdf8;">✏️ EDITED ONLY</button>
+          <span id="center-ghost-count-tag" style="margin-left: auto; font-size: 11px; color: var(--muted);">0 events</span>
+        </div>
+
+        <div id="center-ghost-messages-container" style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- Loaded dynamically -->
+        </div>
+      </div>
+
+      <!-- TAB 4: MEMBER RECON MATRIX CONTAINER -->
+      <div id="tab-content-recon" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="font-size: 10px; letter-spacing: 0.2em; color: #34d399; text-transform: uppercase;">DEEP PARTICIPANT RECONNAISSANCE</div>
+            <h3 style="font-size: 18px; color: var(--bone); font-weight: 700; margin-top: 4px;">Target Member Surveillance Grid</h3>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" onclick="runMemberRecon()" id="btn-run-recon" class="kage-btn" style="padding: 10px 18px; font-size: 11px; background: #34d399; border-color: #34d399; color: #020406;">
+              <i data-lucide="scan" style="width: 14px; height: 14px;"></i> 🔍 SCAN MEMBERS
+            </button>
+            <button type="button" onclick="exportReconMembers()" class="kage-btn-pill" style="border-color: rgba(52,211,153,0.4); color: #34d399;">
+              <i data-lucide="download" style="width: 12px; height: 12px;"></i> CSV Export
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="recon-search-filter" oninput="filterReconTable()" placeholder="Filter by name, @handle, or ID..." style="background: #030609; border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 240px;" />
+          <button type="button" onclick="setReconFilter('all')" id="recon-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
+          <button type="button" onclick="setReconFilter('premium')" id="recon-flt-premium" class="flt-btn" style="font-size: 10px; color: #c084fc;">⭐ PREMIUM ONLY</button>
+          <button type="button" onclick="setReconFilter('verified')" id="recon-flt-verified" class="flt-btn" style="font-size: 10px; color: #34d399;">🛡️ HIGH TRUST (80%+)</button>
+          <button type="button" onclick="setReconFilter('risky')" id="recon-flt-risky" class="flt-btn danger" style="font-size: 10px;">⚠️ SUSPICIOUS</button>
+          <span id="recon-count-label" style="margin-left: auto; font-size: 11px; color: var(--muted);">0 members</span>
+        </div>
+
+        <div id="recon-table-wrap" style="background: #05070a; border: 1px solid var(--line); border-radius: 4px; overflow-x: auto;">
+          <div style="text-align: center; padding: 60px 20px; color: var(--muted);">
+            <i data-lucide="users" style="width: 36px; height: 36px; margin: 0 auto 12px; opacity: 0.5;"></i>
+            <p style="font-size: 13px; color: var(--bone-dim);">Click "SCAN MEMBERS" above to profile all participants in the active group.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: ALPHA & SIGNAL RADAR CONTAINER (WITH DEXSCREENER) -->
+      <div id="tab-content-alpha" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="font-size: 10px; letter-spacing: 0.2em; color: #f59e0b; text-transform: uppercase;">CRYPTO ASSET &amp; INVITE HARVESTER</div>
+            <h3 style="font-size: 18px; color: var(--bone); font-weight: 700; margin-top: 4px;">Live Extracted Alpha &amp; DexScreener Radar</h3>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" onclick="refreshAlphaRadar()" class="kage-btn-pill">
+              <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> Refresh
+            </button>
+            <button type="button" onclick="exportData('entities')" class="kage-btn" style="padding: 10px 18px; font-size: 11px; background: #f59e0b; border-color: #f59e0b; color: #020406;">
+              <i data-lucide="download" style="width: 14px; height: 14px;"></i> EXPORT CSV
+            </button>
+          </div>
+        </div>
+
+        <div id="alpha-radar-list" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Loaded dynamically -->
         </div>
       </div>
     </main>
@@ -1667,15 +1803,13 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           </div>
         </div>
 
-        <!-- Prompt suggestions -->
+        <!-- Sovereign Non-Admin Directives -->
         <div class="copilot-quick-chips">
-          <button type="button" onclick="sendCopilotPreset('lockdown')">lockdown</button>
-          <button type="button" onclick="sendCopilotPreset('unlock')">unlock</button>
-          <button type="button" onclick="sendCopilotPreset('vc status')">vc status</button>
-          <button type="button" onclick="sendCopilotPreset('start vc')">start vc</button>
-          <button type="button" onclick="sendCopilotPreset('mute vc')">mute vc</button>
-          <button type="button" onclick="sendCopilotPreset('purge ghosts')">purge ghosts</button>
-          <button type="button" onclick="sendCopilotPreset('sweep 1000')">sweep 1000</button>
+          <button type="button" onclick="sendCopilotPreset('briefing')">⚡ briefing</button>
+          <button type="button" onclick="sendCopilotPreset('scan members')">🔍 scan members</button>
+          <button type="button" onclick="sendCopilotPreset('ghosts')">👻 ghosts</button>
+          <button type="button" onclick="sendCopilotPreset('alpha')">📈 alpha</button>
+          <button type="button" onclick="sendCopilotPreset('siphon ping')">📲 siphon ping</button>
         </div>
 
         <!-- Input Bar -->
@@ -5924,51 +6058,547 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   async function quickSiphonForward(groupId, messageId) {
     showToast('📲 Siphoning message to Telegram Saved Messages...', 'info');
     try {
-      const res = await fetch('/api/siphon/test', { method: 'POST' });
+      const res = await fetch('/api/siphon/forward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: Number(groupId), message_id: Number(messageId) })
+      });
       if (res.ok) {
-        showToast('⚡ Successfully forwarded to Saved Messages!', 'success');
+        showToast('⚡ SIPHONED: Check your Telegram Saved Messages on phone!', 'success');
       } else {
-        showToast('Siphon push failed', 'error');
+        const err = await res.json().catch(() => ({}));
+        showToast('Siphon failed: ' + (err.detail || 'Could not forward message'), 'error');
       }
     } catch (e) {
       showToast('Siphon error: ' + e.message, 'error');
     }
   }
 
-  async function wiretapUserAction(groupId, userId, action, purge = false) {
+  // ==========================================
+  // POWER COCKPIT TABS & AI RECON SUITE
+  // ==========================================
+  let activeCenterTab = 'wiretap';
+  let cachedReconMembers = [];
+  let currentReconFilter = 'all';
+  let centerGhostFilter = 'all';
+
+  function switchCenterTab(tab) {
+    activeCenterTab = tab;
+    const tabs = ['wiretap', 'intel', 'ghost', 'recon', 'alpha'];
+    tabs.forEach(t => {
+      const content = document.getElementById(`tab-content-${t}`);
+      const btn = document.getElementById(`tab-btn-${t}`);
+      if (content) content.style.display = (t === tab) ? 'flex' : 'none';
+      if (btn) {
+        if (t === tab) btn.classList.add('active');
+        else btn.classList.remove('active');
+      }
+    });
+
+    const wiretapControls = document.getElementById('wiretap-controls-sub');
+    if (wiretapControls) {
+      wiretapControls.style.display = (tab === 'wiretap') ? 'flex' : 'none';
+    }
+
+    if (tab === 'alpha') refreshAlphaRadar();
+    if (tab === 'ghost') refreshCenterGhostVault();
+    if (tab === 'intel') {
+      const results = document.getElementById('intel-briefing-results');
+      if (results && results.innerText.includes('Select a target group')) {
+        generateIntelBriefing();
+      }
+    }
+    safeCreateIcons();
+  }
+
+  function setCenterGhostFilter(filter) {
+    centerGhostFilter = filter;
+    ['all', 'deleted', 'edited'].forEach(f => {
+      const btn = document.getElementById(`center-ghost-flt-${f}`);
+      if (btn) {
+        if (f === filter) btn.classList.add('active');
+        else btn.classList.remove('active');
+      }
+    });
+    renderCenterGhostVault();
+  }
+
+  async function refreshCenterGhostVault() {
+    const container = document.getElementById('center-ghost-messages-container');
+    if (!container) return;
+    const gid = getActiveGroupId();
+    container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 40px;"><span class="loading-spin"></span> Accessing Ghost Vault archive...</div>';
     try {
-      playZenSound(action === 'ban' ? 'gong' : 'clack');
-      showToast(`Executing ${action.toUpperCase()} on user #${userId}...`);
-      const res = await fetch('/api/user_action', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          group_id: parseInt(groupId),
-          user_id: parseInt(userId),
-          action: action,
-          purge: purge
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(`✓ User #${userId} successfully ${action}ed!`);
+      const url = gid ? `/api/ghost/messages?group_id=${gid}&limit=150` : `/api/ghost/messages?limit=150`;
+      const res = await fetch(url);
+      if (res.ok) {
+        ghostMessagesCache = await res.json();
+        renderCenterGhostVault();
       } else {
-        showToast(`Action notice: Could not complete ${action}`);
+        container.innerHTML = '<div style="text-align: center; color: var(--ember); padding: 30px;">Ghost Vault buffer offline.</div>';
       }
     } catch (e) {
-      showToast(`Error: ${e.message}`);
+      container.innerHTML = `<div style="text-align: center; color: var(--ember); padding: 20px;">Failed to load Ghost Vault: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  function renderCenterGhostVault() {
+    const container = document.getElementById('center-ghost-messages-container');
+    const tag = document.getElementById('center-ghost-count-tag');
+    const searchVal = (document.getElementById('center-ghost-search')?.value || '').toLowerCase();
+    if (!container) return;
+
+    let list = ghostMessagesCache || [];
+    if (centerGhostFilter === 'deleted') {
+      list = list.filter(m => m.is_deleted);
+    } else if (centerGhostFilter === 'edited') {
+      list = list.filter(m => m.is_edited);
+    }
+
+    if (searchVal) {
+      list = list.filter(m => 
+        (m.sender_name && m.sender_name.toLowerCase().includes(searchVal)) ||
+        (m.sender_username && m.sender_username.toLowerCase().includes(searchVal)) ||
+        (m.message_text && m.message_text.toLowerCase().includes(searchVal)) ||
+        (m.original_text && m.original_text.toLowerCase().includes(searchVal))
+      );
+    }
+
+    if (tag) tag.innerText = `${list.length} Interceptions`;
+
+    if (list.length === 0) {
+      container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 40px;">No deleted or edited messages found in target group history.</div>';
+      return;
+    }
+
+    container.innerHTML = list.map(m => {
+      const isDel = m.is_deleted;
+      const statusBadge = isDel 
+        ? '<span class="badge" style="font-size: 9px; padding: 2px 6px; background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #f87171; font-weight: 700;">🚨 DELETED MESSAGE (RECOVERED)</span>'
+        : '<span class="badge" style="font-size: 9px; padding: 2px 6px; background: rgba(56,189,248,0.2); border: 1px solid #38bdf8; color: #38bdf8; font-weight: 700;">✏️ EDITED MESSAGE REVISION</span>';
+      
+      const cardBorder = isDel
+        ? 'border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.04);'
+        : 'border: 1px solid rgba(56,189,248,0.3); background: rgba(56,189,248,0.04);';
+
+      return `
+        <div style="border-radius: 6px; padding: 12px 16px; ${cardBorder}">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${statusBadge}
+              <b style="color: var(--bone); font-size: 12px;">${escapeHtml(m.sender_name || 'Anonymous')}</b>
+              ${m.sender_username ? `<span style="color: var(--muted); font-size: 11px;">@${escapeHtml(m.sender_username)}</span>` : ''}
+            </div>
+            <span style="font-size: 10px; color: var(--muted);">${m.date_deleted || m.date_edited || m.timestamp || ''}</span>
+          </div>
+
+          ${isDel ? `
+            <div style="font-size: 12px; color: #fca5a5; line-height: 1.5; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 4px; word-break: break-word;">
+              ${escapeHtml(m.message_text || '[Empty Content]')}
+            </div>
+          ` : `
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="font-size: 11px; color: var(--muted);">Original text before edit:</div>
+              <div style="font-size: 12px; color: #94a3b8; text-decoration: line-through; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 4px; word-break: break-word;">
+                ${escapeHtml(m.original_text || '')}
+              </div>
+              <div style="font-size: 11px; color: #38bdf8; margin-top: 4px;">Revised new text:</div>
+              <div style="font-size: 12px; color: var(--bone); background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 4px; word-break: break-word;">
+                ${escapeHtml(m.message_text || '')}
+              </div>
+            </div>
+          `}
+
+          <div style="display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end;">
+            <button type="button" onclick="navigator.clipboard.writeText('${escapeQuote(m.message_text || '')}'); showToast('Copied to clipboard!', 'success');" class="btn-xs-outline" style="border-color: var(--line-soft); color: var(--bone);">
+              COPY
+            </button>
+            <button type="button" onclick="openWiretapDossier(${m.sender_id || 0}, '${escapeQuote(m.sender_name || '')}', '${m.sender_username || ''}')" class="btn-xs-outline" style="border-color: rgba(56,189,248,0.4); color: #38bdf8;">
+              DOSSIER
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function generateIntelBriefing() {
+    const gid = getActiveGroupId();
+    if (!gid) {
+      showToast("Select a target group first", "error");
+      return;
+    }
+    const limit = document.getElementById('intel-depth-select')?.value || 100;
+    const btn = document.getElementById('btn-run-briefing');
+    const container = document.getElementById('intel-briefing-results');
+    btn.innerHTML = '<span class="loading-spin"></span> Synthesizing...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`/api/intel/briefing?group_id=${gid}&limit=${limit}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to synthesize intel');
+
+      const s = data.sentiment || {};
+      const influencers = data.top_influencers || [];
+      const cashtags = data.hot_cashtags || [];
+      const threats = data.threat_alerts || [];
+      const signals = data.extracted_signals || [];
+
+      container.innerHTML = `
+        <div style="background: rgba(56,189,248,0.06); border: 1px solid rgba(56,189,248,0.3); border-radius: 6px; padding: 18px 20px; margin-bottom: 20px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <span style="font-size: 11px; color: #38bdf8; font-weight: 700; letter-spacing: 0.15em;">TACTICAL EXECUTIVE SUMMARY</span>
+            <span class="badge" style="background: #030609; border: 1px solid rgba(56,189,248,0.4); color: #38bdf8; font-size: 9px;">${data.message_count} MESSAGES ANALYZED</span>
+          </div>
+          <p style="font-size: 13px; color: var(--bone); line-height: 1.7; font-family: 'Onest', sans-serif;">
+            ${escapeHtml(data.executive_summary)}
+          </p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <div style="background: #05070a; border: 1px solid var(--line); border-radius: 6px; padding: 16px;">
+            <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px;">COMMUNITY SENTIMENT & MOMENTUM</div>
+            <div style="font-size: 15px; font-weight: 700; color: ${s.bullish > s.bearish ? '#34d399' : '#e0231c'}; margin-bottom: 12px;">
+              ${s.mood || 'NEUTRAL CONSENSUS'}
+            </div>
+            <div style="height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: #12181f; margin-bottom: 8px;">
+              <div style="width: ${s.bullish || 50}%; background: #34d399;" title="Bullish: ${s.bullish}%"></div>
+              <div style="width: ${s.neutral || 30}%; background: #38bdf8;" title="Neutral: ${s.neutral}%"></div>
+              <div style="width: ${s.bearish || 20}%; background: #e0231c;" title="Bearish: ${s.bearish}%"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--muted);">
+              <span style="color: #34d399;">Bull: ${s.bullish || 0}%</span>
+              <span style="color: #38bdf8;">Neutral: ${s.neutral || 0}%</span>
+              <span style="color: #e0231c;">Bear: ${s.bearish || 0}%</span>
+            </div>
+          </div>
+
+          <div style="background: #05070a; border: 1px solid var(--line); border-radius: 6px; padding: 16px;">
+            <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px;">MENTIONED TOKENS & CASHTAGS</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              ${cashtags.length > 0 ? cashtags.map(t => `
+                <span class="badge" style="font-size: 11px; padding: 4px 8px; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: #34d399; font-weight: 700;">
+                  $${escapeHtml(t.tag)} <span style="font-size: 9px; opacity: 0.7;">${t.count}x</span>
+                </span>
+              `).join('') : '<span style="font-size: 11px; color: var(--muted);">No $cashtags detected in recent sample.</span>'}
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #05070a; border: 1px solid var(--line); border-radius: 6px; padding: 16px; margin-bottom: 20px;">
+          <div style="font-size: 10px; color: var(--muted); margin-bottom: 12px; letter-spacing: 0.1em; text-transform: uppercase;">TOP DISCUSSION LEADERS & CONVERSATION DRIVERS</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+            ${influencers.map(inf => `
+              <div style="background: #080c10; border: 1px solid var(--line-soft); border-radius: 4px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-size: 12px; font-weight: 600; color: var(--bone);">${escapeHtml(inf.name)}</div>
+                  <div style="font-size: 10px; color: var(--muted);">${inf.handle ? '@' + inf.handle : '#' + inf.user_id}</div>
+                  <span class="badge" style="font-size: 8px; margin-top: 4px; padding: 1px 4px; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.3); color: #38bdf8;">
+                    ${inf.trust_score}% TRUST
+                  </span>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 14px; font-weight: 700; color: #38bdf8;">${inf.share_pct}%</div>
+                  <div style="font-size: 9px; color: var(--muted);">${inf.message_count} msgs</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        ${signals.length > 0 ? `
+          <div style="background: #05070a; border: 1px solid var(--line); border-radius: 6px; padding: 16px;">
+            <div style="font-size: 10px; color: #f59e0b; margin-bottom: 8px; font-weight: 700;">HARVESTED CONTRACT / WALLET SIGNALS (${signals.length})</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              ${signals.map(sig => `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #080c10; border: 1px solid var(--line-soft); padding: 8px 12px; border-radius: 4px;">
+                  <code style="font-size: 11px; color: #34d399;">${escapeHtml(sig)}</code>
+                  <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(sig)}'); showToast('Copied address!', 'success');" class="btn-xs-outline" style="border-color: #34d399; color: #34d399;">COPY</button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      `;
+      showToast("⚡ Tactical AI briefing generated!", "success");
+    } catch (e) {
+      container.innerHTML = `<div style="color: var(--vermilion); padding: 20px;">Failed to generate briefing: ${escapeHtml(e.message)}</div>`;
+      showToast("Briefing error: " + e.message, "error");
+    } finally {
+      btn.innerHTML = '<i data-lucide="sparkles" style="width: 14px; height: 14px;"></i> ⚡ SYNTHESIZE INTEL';
+      btn.disabled = false;
+      safeCreateIcons();
+    }
+  }
+
+  async function runMemberRecon() {
+    const gid = getActiveGroupId();
+    if (!gid) {
+      showToast("Select a target group first", "error");
+      return;
+    }
+    const btn = document.getElementById('btn-run-recon');
+    const wrap = document.getElementById('recon-table-wrap');
+    btn.innerHTML = '<span class="loading-spin"></span> Scanning...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: parseInt(gid), limit: 2000 })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to scan members');
+
+      cachedReconMembers = data.members || [];
+      renderReconTable(cachedReconMembers);
+      showToast(`🎯 Scanned ${cachedReconMembers.length} members with forensic intelligence!`, 'success');
+    } catch (e) {
+      wrap.innerHTML = `<div style="color: var(--vermilion); padding: 20px;">Scan failed: ${escapeHtml(e.message)}</div>`;
+      showToast("Recon error: " + e.message, "error");
+    } finally {
+      btn.innerHTML = '<i data-lucide="scan" style="width: 14px; height: 14px;"></i> 🔍 SCAN MEMBERS';
+      btn.disabled = false;
+      safeCreateIcons();
+    }
+  }
+
+  function setReconFilter(flt) {
+    currentReconFilter = flt;
+    const btns = ['all', 'premium', 'verified', 'risky'];
+    btns.forEach(b => {
+      const el = document.getElementById(`recon-flt-${b}`);
+      if (el) {
+        if (b === flt) el.classList.add('active');
+        else el.classList.remove('active');
+      }
+    });
+    filterReconTable();
+  }
+
+  function filterReconTable() {
+    const query = (document.getElementById('recon-search-filter').value || '').toLowerCase();
+    let filtered = cachedReconMembers.filter(m => {
+      const name = (m.full_name || '').toLowerCase();
+      const user = (m.username || '').toLowerCase();
+      const idStr = String(m.id || '');
+      const matchesQ = !query || name.includes(query) || user.includes(query) || idStr.includes(query);
+      if (!matchesQ) return false;
+
+      if (currentReconFilter === 'premium') return m.is_premium;
+      if (currentReconFilter === 'verified') return (m.trust_score || 0) >= 80;
+      if (currentReconFilter === 'risky') return (m.trust_score || 100) < 50 || m.is_suspicious || m.is_scam;
+      return true;
+    });
+
+    renderReconTable(filtered);
+  }
+
+  function renderReconTable(members) {
+    const wrap = document.getElementById('recon-table-wrap');
+    const label = document.getElementById('recon-count-label');
+    if (label) label.innerText = `${members.length} members`;
+
+    if (!members || members.length === 0) {
+      wrap.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--muted);">No matching participants found.</div>';
+      return;
+    }
+
+    wrap.innerHTML = `
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--line); color: var(--muted); background: #070a0e;">
+            <th style="padding: 10px 12px;">PARTICIPANT</th>
+            <th style="padding: 10px 12px;">HANDLE / ID</th>
+            <th style="padding: 10px 12px;">VINTAGE / AGE</th>
+            <th style="padding: 10px 12px;">TRUST REPUTATION</th>
+            <th style="padding: 10px 12px;">STATUS</th>
+            <th style="padding: 10px 12px; text-align: right;">INTEL ACTION</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${members.slice(0, 150).map(m => {
+            const initial = (m.full_name || 'U').charAt(0).toUpperCase();
+            const color = m.trust_color || '#38bdf8';
+            return `
+              <tr style="border-bottom: 1px solid var(--line-soft);">
+                <td style="padding: 10px 12px; display: flex; align-items: center; gap: 8px;">
+                  <div style="width: 24px; height: 24px; border-radius: 50%; background: #12181f; border: 1px solid var(--line); display: grid; place-items: center; font-size: 11px; color: var(--bone);">
+                    ${initial}
+                  </div>
+                  <div>
+                    <span style="font-weight: 600; color: var(--bone);">${escapeHtml(m.full_name || 'Anonymous')}</span>
+                    ${m.is_premium ? '<span style="color: #c084fc; margin-left: 4px;" title="Telegram Premium">⭐</span>' : ''}
+                    ${m.is_verified ? '<span style="color: #34d399; margin-left: 4px;" title="Telegram Verified">✓</span>' : ''}
+                  </div>
+                </td>
+                <td style="padding: 10px 12px; color: var(--bone-dim);">
+                  ${m.username ? '@' + escapeHtml(m.username) : '#' + m.id}
+                </td>
+                <td style="padding: 10px 12px; color: var(--muted); font-size: 10px;">
+                  ${m.vintage || 'Established'}
+                </td>
+                <td style="padding: 10px 12px;">
+                  <span class="badge" style="font-size: 8px; padding: 2px 6px; background: rgba(5,7,10,0.8); border: 1px solid ${color}; color: ${color}; font-weight: 700;">
+                    ${m.trust_score || 70}% ${m.trust_level || 'NEUTRAL'}
+                  </span>
+                </td>
+                <td style="padding: 10px 12px; color: var(--muted); font-size: 10px;">
+                  ${m.last_seen || 'Recently'}
+                </td>
+                <td style="padding: 10px 12px; text-align: right;">
+                  <button type="button" onclick="openWiretapDossier(${m.id}, '${escapeQuote(m.full_name)}', '${m.username || ''}')" class="act-pill" style="border-color: rgba(56,189,248,0.3); color: #38bdf8; padding: 3px 8px;">
+                    Dossier
+                  </button>
+                  <button type="button" onclick="quickAddWatchdog('user', '${m.username ? '@' + m.username : m.id}')" class="act-pill" style="border-color: rgba(245,158,11,0.3); color: #f59e0b; padding: 3px 8px;">
+                    Track
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+      ${members.length > 150 ? `<div style="padding: 10px; text-align: center; font-size: 10px; color: var(--muted);">Showing top 150 of ${members.length} participants. Use search filter or export CSV for full callset.</div>` : ''}
+    `;
+    safeCreateIcons();
+  }
+
+  function exportReconMembers() {
+    if (!cachedReconMembers || cachedReconMembers.length === 0) {
+      showToast("Scan members first before exporting", "error");
+      return;
+    }
+    const header = ["User ID", "Full Name", "Username", "Vintage", "Trust Score", "Trust Level", "Is Premium", "Last Seen"];
+    const rows = cachedReconMembers.map(m => [
+      m.id,
+      `"${(m.full_name || '').replace(/"/g, '""')}"`,
+      m.username || "",
+      `"${m.vintage || ''}"`,
+      m.trust_score || 70,
+      `"${m.trust_level || ''}"`,
+      m.is_premium ? "YES" : "NO",
+      `"${m.last_seen || ''}"`
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," + [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `superban_member_recon_${getActiveGroupId() || 'group'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    showToast(`📥 Exported ${cachedReconMembers.length} members to CSV!`, "success");
+  }
+
+  async function refreshAlphaRadar() {
+    const list = document.getElementById('alpha-radar-list');
+    if (!list) return;
+    const gid = getActiveGroupId();
+    list.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--muted);"><span class="loading-spin"></span> Scanning intercepted crypto IOCs & contracts...</div>';
+
+    try {
+      const res = await fetch(`/api/entities/radar?limit=50${gid ? `&group_id=${gid}` : ''}`);
+      const data = await res.json();
+      const items = data.items || [];
+      if (items.length === 0) {
+        list.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--muted);">No crypto addresses or cashtags intercepted yet in current group buffer.</div>';
+        return;
+      }
+
+      list.innerHTML = items.map((it, idx) => {
+        let badgeColor = "#34d399";
+        let explorerLink = "";
+        const val = it.entity_value || "";
+        const domId = `dex-stat-${idx}`;
+        if (it.entity_type === 'crypto_sol') {
+          badgeColor = "#14F195";
+          explorerLink = `https://solscan.io/account/${val}`;
+        } else if (it.entity_type === 'crypto_eth') {
+          badgeColor = "#627EEA";
+          explorerLink = `https://etherscan.io/address/${val}`;
+        } else if (it.entity_type === 'crypto_ton') {
+          badgeColor = "#0088CC";
+          explorerLink = `https://tonscan.org/address/${val}`;
+        }
+
+        return `
+          <div style="background: #080c10; border: 1px solid var(--line-soft); border-radius: 6px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+              <div style="min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                  <span class="badge" style="font-size: 8px; padding: 2px 6px; background: rgba(5,7,10,0.8); border: 1px solid ${badgeColor}; color: ${badgeColor}; font-weight: 700;">
+                    ${(it.entity_type || 'SIGNAL').toUpperCase()}
+                  </span>
+                  <span style="font-size: 11px; color: var(--muted);">${it.group_title ? escapeHtml(it.group_title) : ''} · ${it.timestamp || ''}</span>
+                </div>
+                <code style="font-size: 12px; color: var(--bone); font-weight: 600; word-break: break-all;">${escapeHtml(val)}</code>
+                ${it.context ? `<div style="font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'Onest', sans-serif;">"${escapeHtml(it.context)}"</div>` : ''}
+              </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(val)}'); showToast('Copied address to clipboard!', 'success');" class="btn-xs-outline" style="border-color: ${badgeColor}; color: ${badgeColor};">
+                  COPY
+                </button>
+                <button type="button" onclick="fetchDexStats('${escapeHtml(val)}', '${domId}')" class="btn-xs-outline" style="border-color: #f59e0b; color: #f59e0b;">
+                  ⚡ LIVE QUOTE
+                </button>
+                <a href="https://dexscreener.com/search?q=${escapeHtml(val)}" target="_blank" class="btn-xs-outline" style="border-color: rgba(245,158,11,0.4); color: #f59e0b; text-decoration: none;">
+                  DEXSCREENER ↗
+                </a>
+                ${explorerLink ? `
+                  <a href="${explorerLink}" target="_blank" class="btn-xs-outline" style="border-color: var(--line-soft); color: var(--bone); text-decoration: none;">
+                    EXPLORER ↗
+                  </a>
+                ` : ''}
+              </div>
+            </div>
+            <div id="${domId}" style="display: none;"></div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      list.innerHTML = `<div style="color: var(--vermilion); padding: 20px;">Failed to load alpha radar: ${escapeHtml(e.message)}</div>`;
+    } finally {
+      safeCreateIcons();
+    }
+  }
+
+  async function fetchDexStats(val, targetId) {
+    const el = document.getElementById(targetId);
+    if (!el) return;
+    el.style.display = 'block';
+    el.innerHTML = '<span class="loading-spin"></span> Querying DexScreener market pools...';
+    try {
+      const res = await fetch(`/api/crypto/dexscreener?address=${encodeURIComponent(val)}`);
+      const data = await res.json();
+      if (data.found) {
+        el.innerHTML = `
+          <div style="margin-top: 4px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 8px 12px; font-size: 11px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+            <span style="font-weight: 700; color: #f59e0b;">💎 ${escapeHtml(data.name)} ($${escapeHtml(data.symbol)})</span>
+            <span style="color: var(--bone);">Price: <b>$${data.price_usd}</b></span>
+            <span style="color: #34d399;">Liq: <b>$${Number(data.liquidity_usd).toLocaleString()}</b></span>
+            <span style="color: var(--bone);">FDV: <b>$${Number(data.fdv).toLocaleString()}</b></span>
+            <span style="color: ${Number(data.price_change_24h) >= 0 ? '#34d399' : '#ef4444'};">24h: <b>${data.price_change_24h}%</b></span>
+            <a href="${data.url}" target="_blank" style="color: #38bdf8; text-decoration: underline; margin-left: auto;">Trade Pair ↗</a>
+          </div>
+        `;
+      } else {
+        el.innerHTML = `
+          <div style="margin-top: 4px; background: rgba(255,255,255,0.02); border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 10px; font-size: 11px; color: var(--muted);">
+            No active DexScreener liquidity pools registered. <a href="${data.url}" target="_blank" style="color: #38bdf8;">Search DexScreener ↗</a>
+          </div>
+        `;
+      }
+    } catch (e) {
+      el.innerHTML = `<span style="color: var(--ember); font-size: 10px;">DexScreener lookup error: ${escapeHtml(e.message)}</span>`;
     }
   }
 
   function openWiretapDossier(userId, fullName, username) {
-    openDossier({
-      id: userId,
-      full_name: fullName,
-      username: username,
-      is_bot: false,
-      is_premium: false,
-      verified: false
-    });
+    openOSINTModal(userId);
   }
 
   function filterWiretap(mode) {
@@ -6056,7 +6686,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       const data = await res.json();
       appendCopilotMessage('bot', data.reply || "Directive executed.");
 
-      if (data.action === 'defcon') {
+      if (data.action === 'switch_tab' && data.tab) {
+        switchCenterTab(data.tab);
+        if (data.tab === 'intel') generateIntelBriefing();
+        if (data.tab === 'recon') runMemberRecon();
+      } else if (data.action === 'defcon') {
         updateDefconUI(data.level);
         playZenSound(data.level <= 2 ? 'gong' : 'clack');
       } else if (data.action === 'filter') {
@@ -6673,6 +7307,17 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       const usernames = (p.username_history || []).map(u => `<span class="badge badge-muted" style="font-size: 10px; margin-right: 4px;">@${escapeHtml(u)}</span>`).join('') || '<span class="text-muted">None recorded</span>';
       const groups = (p.spotted_groups || []).map(g => `<span class="badge badge-emerald" style="font-size: 10px; margin-right: 4px;">Group #${escapeHtml(String(g))}</span>`).join('') || '<span class="text-muted">Monitored group</span>';
 
+      const mutualChats = p.mutual_chats || [];
+      const mutualHtml = mutualChats.length > 0 ? mutualChats.map(c => `
+        <div style="background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 4px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <b style="color: var(--bone); font-size: 12px;">${escapeHtml(c.title)}</b>
+            ${c.username ? `<span style="font-size: 11px; color: var(--muted); margin-left: 6px;">@${escapeHtml(c.username)}</span>` : ''}
+          </div>
+          <span class="badge badge-muted" style="font-size: 9px;">${c.participants_count ? c.participants_count.toLocaleString() + ' members' : 'Mutual Chat'}</span>
+        </div>
+      `).join('') : '<span style="font-size: 11px; color: var(--muted);">No other mutual groups detected with this userbot account.</span>';
+
       let sleepInsight = 'Insufficient message spread for sleep cycle calculation';
       if (p.active_hours && Object.keys(p.active_hours).length > 0) {
         const peakHour = Object.entries(p.active_hours).sort((a,b) => b[1] - a[1])[0][0];
@@ -6690,8 +7335,14 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
                 ${p.phone ? ` • <span style="color: #34d399;">+${escapeHtml(p.phone)}</span>` : ''}
               </div>
             </div>
-            <div style="display: flex; gap: 6px;">
-              ${p.is_premium ? '<span class="badge badge-amber">⭐ TELEGRAM PREMIUM</span>' : ''}
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <span class="badge" style="font-size: 9px; padding: 3px 8px; background: rgba(5,7,10,0.8); border: 1px solid #34d399; color: #34d399; font-weight: 700;">
+                ${p.trust_score || 70}% ${p.trust_level || 'NEUTRAL CITIZEN'}
+              </span>
+              <span class="badge" style="font-size: 9px; padding: 3px 8px; background: rgba(5,7,10,0.8); border: 1px solid #38bdf8; color: #38bdf8;">
+                ${escapeHtml(p.vintage || 'Standard Account')}
+              </span>
+              ${p.is_premium ? '<span class="badge badge-amber">⭐ PREMIUM</span>' : ''}
               ${p.is_verified ? '<span class="badge badge-emerald">✓ VERIFIED</span>' : ''}
             </div>
           </div>
@@ -6703,13 +7354,19 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
               <span class="eyebrow" style="font-size: 8px; color: var(--muted);">MESSAGES WIRETAPPED</span>
             </div>
             <div style="background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); padding: 12px; border-radius: 3px; text-align: center;">
-              <div style="font-size: 20px; font-weight: bold; color: #10b981;">${p.vc_participations || 0}</div>
-              <span class="eyebrow" style="font-size: 8px; color: var(--muted);">VC SESSIONS ATTENDED</span>
+              <div style="font-size: 20px; font-weight: bold; color: #10b981;">${p.mutual_chats_count || 0}</div>
+              <span class="eyebrow" style="font-size: 8px; color: var(--muted);">MUTUAL GROUPS WITH BOT</span>
             </div>
             <div style="background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); padding: 12px; border-radius: 3px; text-align: center;">
               <div style="font-size: 20px; font-weight: bold; color: #38bdf8;">${(p.spotted_groups || []).length || 1}</div>
               <span class="eyebrow" style="font-size: 8px; color: var(--muted);">COMMUNITIES INFILTRATED</span>
             </div>
+          </div>
+
+          <!-- Mutual Chats Detected -->
+          <div style="background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); padding: 12px; border-radius: 3px;">
+            <span class="eyebrow" style="color: #34d399; font-size: 9px; margin-bottom: 8px; display: block;">MUTUAL GROUPS DISCOVERED VIA TELEGRAM MTPROTO</span>
+            <div style="display: flex; flex-direction: column; gap: 6px;">${mutualHtml}</div>
           </div>
 
           <!-- Historical Name Changes -->
@@ -6728,6 +7385,18 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <div style="background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); padding: 12px; border-radius: 3px;">
             <span class="eyebrow" style="color: var(--bone); font-size: 9px; margin-bottom: 6px; display: block;">ESTIMATED TIMEZONE &amp; SLEEP CYCLE</span>
             <div style="font-size: 11px; color: #38bdf8;">${escapeHtml(sleepInsight)}</div>
+          </div>
+
+          <!-- Action buttons -->
+          <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; flex-wrap: wrap;">
+            <button type="button" onclick="quickAddWatchdog('user', '${p.current_username ? '@' + p.current_username : p.user_id}'); showToast('Watchdog armed for ' + (p.current_username ? '@' + p.current_username : p.user_id), 'success');" class="btn-xs-outline" style="border-color: #f59e0b; color: #f59e0b; padding: 6px 12px;">
+              🎯 ARM WATCHDOG
+            </button>
+            ${p.current_username ? `
+              <a href="https://t.me/${p.current_username}" target="_blank" class="btn-xs-outline" style="border-color: var(--line-soft); color: var(--bone); text-decoration: none; padding: 6px 12px;">
+                OPEN TELEGRAM ↗
+              </a>
+            ` : ''}
           </div>
         </div>
       `;
