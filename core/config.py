@@ -1,5 +1,7 @@
 import os
 import json
+import hashlib
+import secrets
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -75,6 +77,41 @@ class Config:
             f.write(f"TELEGRAM_API_ID={api_id}\nTELEGRAM_API_HASH={api_hash}\nTELEGRAM_PHONE={phone}\n")
 
     @staticmethod
+    def hash_pin(pin: str, salt: bytes = None) -> str:
+        """Hash a PIN using PBKDF2-HMAC-SHA256 with 600,000 iterations and a cryptographically secure salt."""
+        pin_str = str(pin).strip()
+        if not pin_str:
+            return ""
+        if salt is None:
+            salt = secrets.token_bytes(16)
+        iterations = 600000
+        key = hashlib.pbkdf2_hmac("sha256", pin_str.encode("utf-8"), salt, iterations)
+        return f"pbkdf2_sha256${iterations}${salt.hex()}${key.hex()}"
+
+    @staticmethod
+    def verify_pin(candidate_pin: str, stored_hash_or_plain: str) -> bool:
+        """Constant-time verification of a candidate PIN against a PBKDF2 hash or legacy plaintext."""
+        candidate = str(candidate_pin).strip()
+        stored = str(stored_hash_or_plain).strip()
+        if not candidate or not stored:
+            return False
+
+        if stored.startswith("pbkdf2_sha256$"):
+            try:
+                parts = stored.split("$")
+                if len(parts) == 4:
+                    iterations = int(parts[1])
+                    salt = bytes.fromhex(parts[2])
+                    expected_key = parts[3]
+                    computed = hashlib.pbkdf2_hmac("sha256", candidate.encode("utf-8"), salt, iterations).hex()
+                    return secrets.compare_digest(computed, expected_key)
+            except Exception:
+                return False
+
+        # Legacy fallback: constant-time comparison for plaintext PINs
+        return secrets.compare_digest(candidate, stored)
+
+    @staticmethod
     def get_owner_pin() -> str:
         load_dotenv(ENV_PATH, override=True)
         pin = os.environ.get("OWNER_PIN", "").strip() or os.environ.get("OWNER_PASSWORD", "").strip()
@@ -91,7 +128,15 @@ class Config:
 
     @staticmethod
     def save_owner_pin(pin: str):
-        pin = str(pin).strip()
+        raw = str(pin).strip()
+        if not raw:
+            return
+        # If already hashed with PBKDF2, keep as-is; otherwise hash before saving
+        if raw.startswith("pbkdf2_sha256$"):
+            stored_val = raw
+        else:
+            stored_val = Config.hash_pin(raw)
+
         data = {}
         if CONFIG_PATH.exists():
             try:
@@ -99,7 +144,7 @@ class Config:
                     data = json.load(f)
             except Exception:
                 data = {}
-        data["owner_pin"] = pin
+        data["owner_pin"] = stored_val
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
@@ -109,12 +154,12 @@ class Config:
             with open(ENV_PATH, "r", encoding="utf-8") as f:
                 for line in f:
                     if line.startswith("OWNER_PIN="):
-                        env_lines.append(f"OWNER_PIN={pin}\n")
+                        env_lines.append(f"OWNER_PIN={stored_val}\n")
                         found = True
                     else:
                         env_lines.append(line)
         if not found:
-            env_lines.append(f"OWNER_PIN={pin}\n")
+            env_lines.append(f"OWNER_PIN={stored_val}\n")
         with open(ENV_PATH, "w", encoding="utf-8") as f:
             f.writelines(env_lines)
-        os.environ["OWNER_PIN"] = pin
+        os.environ["OWNER_PIN"] = stored_val

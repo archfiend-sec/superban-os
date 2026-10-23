@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import aiohttp
 from telethon.sessions import StringSession
@@ -28,7 +29,21 @@ logger = logging.getLogger("WebMissionControl")
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 def create_app(engine: SuperBanEngine):
-    app = FastAPI(title="SuperBan Mission Control", version="3.2")
+    app = FastAPI(
+        title="SuperBan Mission Control",
+        version="3.2",
+        docs_url="/api/docs",
+        redoc_url=None,
+        openapi_url="/api/openapi.json"
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|superban-os\.onrender\.com)(:[0-9]+)?$",
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Owner-Token"],
+    )
     
     connected_clients = set()
     cached_members: Dict[int, list] = {}
@@ -55,22 +70,74 @@ def create_app(engine: SuperBanEngine):
     #   OWNER GATEKEEPER & VERIFICATION SYSTEM
     # ═══════════════════════════════════════════════════════
     OWNER_TOKENS: Dict[str, float] = {}
+    FAILED_VERIFY_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+
+    def get_client_ip(req: Request) -> str:
+        forwarded = req.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return req.client.host if req.client else "127.0.0.1"
+
+    @app.middleware("http")
+    async def security_headers_and_limits_middleware(request: Request, call_next):
+        # 1. Enforce payload size limit (reject payloads > 10MB to mitigate DoS)
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > 10 * 1024 * 1024:
+                    return JSONResponse(status_code=413, content={"detail": "Payload exceeds maximum allowed size (10MB)."})
+            except ValueError:
+                pass
+
+        response = await call_next(request)
+
+        # 2. Strict Defense-in-Depth Security Headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        
+        is_tls = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+        if is_tls:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "img-src 'self' data: https: blob:; "
+            "media-src 'self' blob: data:; "
+            "connect-src 'self' ws: wss: https://api.dexscreener.com; "
+            "frame-ancestors 'none'; "
+            "object-src 'none'; "
+            "base-uri 'self';"
+        )
+        response.headers["Content-Security-Policy"] = csp
+        response.headers["Server"] = "SuperBan-Shield/3.2"
+        return response
 
     @app.middleware("http")
     async def owner_guard_middleware(request: Request, call_next):
         path = request.url.path
 
         # Unprotected static routes, owner authentication, and uptime health probes
-        if (
-            path in ("/", "/health", "/ping", "/favicon.ico", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png")
-            or path.startswith("/static")
-            or path.startswith("/api/owner/")
-            or path == "/ws"
-            or request.method == "HEAD"
-        ):
+        public_paths = (
+            "/", "/health", "/ping", "/favicon.ico", 
+            "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"
+        )
+        if path in public_paths or path.startswith("/static") or path.startswith("/api/owner/"):
             return await call_next(request)
 
-        token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
+        # Allow HEAD strictly for audio stream probing
+        if request.method == "HEAD" and path == "/api/vc/audio_stream":
+            return await call_next(request)
+
+        token = (
+            request.query_params.get("token")
+            or request.headers.get("X-Owner-Token")
+            or request.cookies.get("owner_token")
+        )
         pin_configured = bool(Config.get_owner_pin())
         
         # If no PIN configured, force setup via /api/owner/status or /api/owner/setup
@@ -103,7 +170,7 @@ def create_app(engine: SuperBanEngine):
         }
 
     @app.post("/api/owner/setup")
-    async def setup_owner_pin(req: OwnerPinReq, response: Response):
+    async def setup_owner_pin(req: OwnerPinReq, request: Request, response: Response):
         current_pin = Config.get_owner_pin()
         if current_pin:
             raise HTTPException(status_code=400, detail="Owner PIN already configured. Please verify.")
@@ -113,19 +180,76 @@ def create_app(engine: SuperBanEngine):
         Config.save_owner_pin(pin)
         token = secrets.token_hex(32)
         OWNER_TOKENS[token] = time.time() + (7 * 86400)
-        response.set_cookie(key="owner_token", value=token, max_age=7*86400, samesite="lax")
+        is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+        response.set_cookie(
+            key="owner_token",
+            value=token,
+            max_age=7 * 86400,
+            httponly=True,
+            secure=is_secure,
+            samesite="lax"
+        )
         return {"status": "success", "token": token}
 
     @app.post("/api/owner/verify")
-    async def verify_owner_pin(req: OwnerPinReq, response: Response):
+    async def verify_owner_pin(req: OwnerPinReq, request: Request, response: Response):
+        client_ip = get_client_ip(request)
+        now = time.time()
+        record = FAILED_VERIFY_ATTEMPTS.get(client_ip, {"count": 0, "lockout_until": 0.0, "last_attempt": 0.0})
+
+        # Check if currently locked out
+        if record["lockout_until"] > now:
+            retry_after = max(1, int(record["lockout_until"] - now))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Security lockout active due to excessive failed attempts. Try again in {retry_after} seconds.",
+                headers={"Retry-After": str(retry_after)}
+            )
+
         current_pin = Config.get_owner_pin()
         if not current_pin:
             raise HTTPException(status_code=400, detail="No PIN configured. Run setup first.")
-        if req.pin.strip() != current_pin:
-            raise HTTPException(status_code=403, detail="Invalid Owner PIN. Clearance Denied.")
+
+        # Constant-time PBKDF2 / legacy verification
+        if not Config.verify_pin(req.pin.strip(), current_pin):
+            # Progressive micro-delay to deter high-frequency automated brute-force attacks
+            await asyncio.sleep(0.5)
+            record["count"] += 1
+            record["last_attempt"] = now
+            if record["count"] >= 5:
+                record["lockout_until"] = now + 900  # 15-minute lockout
+                FAILED_VERIFY_ATTEMPTS[client_ip] = record
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many failed clearance attempts. Account locked for 15 minutes.",
+                    headers={"Retry-After": "900"}
+                )
+            FAILED_VERIFY_ATTEMPTS[client_ip] = record
+            remaining = 5 - record["count"]
+            raise HTTPException(
+                status_code=403,
+                detail=f"Invalid Owner PIN. Clearance Denied. ({remaining} attempts remaining before temporary lockout)"
+            )
+
+        # Successful verification: reset failed attempt counter
+        FAILED_VERIFY_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
+
+        # Auto-upgrade legacy plaintext PIN to PBKDF2 hash on successful login
+        if not current_pin.startswith("pbkdf2_sha256$"):
+            Config.save_owner_pin(req.pin.strip())
+
         token = secrets.token_hex(32)
-        OWNER_TOKENS[token] = time.time() + (7 * 86400)
-        response.set_cookie(key="owner_token", value=token, max_age=7*86400, samesite="lax")
+        OWNER_TOKENS[token] = now + (7 * 86400)
+        
+        is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+        response.set_cookie(
+            key="owner_token",
+            value=token,
+            max_age=7 * 86400,
+            httponly=True,
+            secure=is_secure,
+            samesite="lax"
+        )
         return {"status": "authorized", "token": token}
 
     @app.post("/api/owner/logout")
@@ -133,7 +257,8 @@ def create_app(engine: SuperBanEngine):
         token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
         if token and token in OWNER_TOKENS:
             del OWNER_TOKENS[token]
-        response.delete_cookie(key="owner_token")
+        is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+        response.delete_cookie(key="owner_token", httponly=True, secure=is_secure, samesite="lax")
         return {"status": "logged_out"}
 
     @app.get("/", response_class=HTMLResponse)
@@ -968,6 +1093,15 @@ def create_app(engine: SuperBanEngine):
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
+        token = (
+            websocket.query_params.get("token")
+            or websocket.cookies.get("owner_token")
+            or websocket.headers.get("X-Owner-Token")
+        )
+        if not token or token not in OWNER_TOKENS or OWNER_TOKENS[token] < time.time():
+            await websocket.close(code=1008, reason="Owner clearance required")
+            return
+
         await websocket.accept()
         connected_clients.add(websocket)
         try:
@@ -1219,7 +1353,14 @@ def create_app(engine: SuperBanEngine):
 
     @app.get("/api/crypto/dexscreener")
     async def get_dexscreener_info(address: str):
-        cleaned_addr = address.strip()
+        import re
+        cleaned_addr = re.sub(r"[^a-zA-Z0-9_-]", "", address.strip())
+        if not cleaned_addr or len(cleaned_addr) > 128:
+            return {
+                "found": False,
+                "address": address,
+                "url": "https://dexscreener.com"
+            }
         url = f"https://api.dexscreener.com/latest/dex/tokens/{cleaned_addr}"
         try:
             async with aiohttp.ClientSession() as session:
@@ -1316,10 +1457,15 @@ def create_app(engine: SuperBanEngine):
 
     @app.post("/api/terminal/launch")
     async def launch_native_terminal():
+        import platform
         import subprocess
+        if platform.system() != "Darwin":
+            return {"status": "disabled", "message": "Native Terminal is only available in local macOS console mode."}
         try:
-            cmd_path = "/Users/archfiend/.gemini/antigravity/scratch/telegram_group_manager/launch_bot.command"
-            subprocess.Popen(["open", cmd_path])
+            cmd_path = Path(__file__).resolve().parent.parent / "launch_bot.command"
+            if not cmd_path.exists():
+                return {"status": "error", "message": "Console launch script not found."}
+            subprocess.Popen(["open", str(cmd_path)])
             return {"status": "launched", "message": "Mac Terminal.app opened with Afterlight Console."}
         except Exception as e:
             logger.error(f"Failed to launch terminal: {e}")

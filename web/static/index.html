@@ -5485,9 +5485,20 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   }
 
   function initWebSocket() {
+    if (!isOwnerVerified) return;
+    const token = sessionStorage.getItem('owner_token') || '';
     const loc = window.location;
-    const wsUri = (loc.protocol === "https:" ? "wss://" : "ws://") + loc.host + "/ws";
-    ws = new WebSocket(wsUri);
+    const proto = loc.protocol === "https:" ? "wss://" : "ws://";
+    const wsUri = proto + loc.host + "/ws" + (token ? ("?token=" + encodeURIComponent(token)) : "");
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    try {
+      ws = new WebSocket(wsUri);
+    } catch (e) {
+      console.warn("WebSocket init error:", e);
+      return;
+    }
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
@@ -5539,7 +5550,15 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         }
       } catch (e) {}
     };
-    ws.onclose = () => setTimeout(initWebSocket, 2500);
+    ws.onclose = (e) => {
+      if (e.code === 1008 || e.code === 4001) {
+        console.warn("WebSocket authorization clearance rejected (1008).");
+        return;
+      }
+      if (isOwnerVerified) {
+        setTimeout(initWebSocket, 3000);
+      }
+    };
   }
 
   // Active nav highlighting on scroll
@@ -9591,6 +9610,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     } catch (e) {}
     sessionStorage.removeItem('owner_token');
     isOwnerVerified = false;
+    if (ws) {
+      try { ws.close(); } catch(e) {}
+    }
     window.location.reload();
   }
 
