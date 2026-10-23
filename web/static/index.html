@@ -13,6 +13,22 @@
 <!-- Three.js CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
+<!-- Immediate Pre-Render Device Classification (Mobile vs Tablet vs Monitor) -->
+<script>
+(function() {
+  try {
+    var w = window.innerWidth || screen.width;
+    var h = window.innerHeight || screen.height;
+    var ratio = w / h;
+    var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    var dev = (w < 768 || (ratio < 0.92 && w < 920) || (isTouch && w < 820 && h > w)) ? 'mobile' : ((w <= 1180 || (isTouch && w <= 1366 && ratio >= 0.68 && ratio <= 1.48)) ? 'tablet' : 'monitor');
+    document.documentElement.setAttribute('data-device', dev);
+    document.documentElement.setAttribute('data-orientation', w >= h ? 'landscape' : 'portrait');
+    document.documentElement.className = (document.documentElement.className + ' device-' + dev).trim();
+  } catch(e) {}
+})();
+</script>
+
 <style>
 /* KAGE Component Customization:
    headingFont: 'Onest', sans-serif, weight 400, size 46px, letter-spacing -0.012em
@@ -1474,15 +1490,408 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   font-family: 'JetBrains Mono', monospace;
 }
 
-@media (max-width: 1080px) {
-  .hud-body {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
+/* ═══════════════════════════════════════════════════════
+   ADAPTIVE FORM FACTOR & RESPONSIVE COCKPIT ARCHITECTURE
+   (Auto-detects Mobile, Tablet & Monitor across Screen & Ratio)
+   ═══════════════════════════════════════════════════════ */
+
+/* DEVICE TELEMETRY BADGE PILL */
+.kage-device-pill {
+  cursor: pointer;
+  border: 1px solid var(--line-soft);
+  background: rgba(5,7,10,0.65);
+  padding: 3px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--bone-dim);
+  border-radius: 2px;
+  transition: all .2s ease;
+  touch-action: manipulation;
+  user-select: none;
+}
+.kage-device-pill:hover, .kage-device-pill:active {
+  border-color: var(--vermilion);
+  color: var(--bone);
+  background: rgba(224, 35, 28, 0.1);
+}
+.device-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+}
+.device-dot.mobile {
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+}
+.device-dot.tablet {
+  background: #a855f7;
+  box-shadow: 0 0 6px #a855f7;
+}
+.device-dot.monitor {
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+/* FLOATING KYOTO MOBILE BOTTOM DOCK */
+#kage-mobile-dock {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: rgba(8, 12, 16, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--line-soft);
+  z-index: 999;
+  align-items: center;
+  justify-content: space-around;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.6);
+}
+.kage-dock-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  height: 100%;
+  color: var(--muted);
+  font-size: 9px;
+  font-family: 'Onest', sans-serif;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  transition: all .2s ease;
+  touch-action: manipulation;
+  background: transparent;
+  border: none;
+}
+.kage-dock-item i {
+  width: 17px;
+  height: 17px;
+  transition: transform .2s ease, color .2s ease;
+}
+.kage-dock-item.active {
+  color: var(--bone);
+}
+.kage-dock-item.active i {
+  color: var(--vermilion);
+  transform: translateY(-2px);
+}
+.kage-dock-item.danger.active i, .kage-dock-item.danger i {
+  color: var(--vermilion);
+}
+.kage-dock-badge {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 14px);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vermilion);
+  box-shadow: 0 0 8px var(--vermilion);
+  display: none;
+  animation: pulseDot 1.2s infinite;
+}
+
+/* MOBILE WAR ROOM NAVIGATION SEGMENT */
+.hud-mobile-nav {
+  display: none;
+  background: rgba(8, 12, 16, 0.95);
+  border-bottom: 1px solid var(--line-soft);
+  padding: 6px 8px;
+  gap: 6px;
+  align-items: center;
+  justify-content: stretch;
+}
+.hud-mobile-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 6px;
+  background: rgba(15, 20, 26, 0.6);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s ease;
+  touch-action: manipulation;
+}
+.hud-mobile-tab.active {
+  background: rgba(224, 35, 28, 0.16);
+  border-color: var(--vermilion);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(224, 35, 28, 0.25);
+}
+.hud-mobile-tab.active i {
+  color: var(--vermilion);
+}
+
+/* MOBILE TOOLS BOTTOM SHEET */
+.mobile-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  overflow-y: auto;
+  max-height: 62vh;
+  padding-bottom: 24px;
+  -webkit-overflow-scrolling: touch;
+}
+.mobile-tool-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: rgba(12, 16, 22, 0.85);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  color: var(--bone);
+  text-align: left;
+  cursor: pointer;
+  transition: all .2s ease;
+  touch-action: manipulation;
+}
+.mobile-tool-card:active {
+  background: rgba(224, 35, 28, 0.15);
+  border-color: var(--vermilion);
+  transform: scale(0.98);
+}
+.mobile-tool-card i {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.mobile-tool-card b {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bone);
+  display: block;
+  font-family: 'Onest', sans-serif;
+}
+.mobile-tool-card span {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: .06em;
+  margin-top: 2px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.mobile-tool-card.danger i {
+  color: var(--vermilion);
+}
+
+/* ═══════════════════════════════════════════════════════
+   MEDIA QUERIES: MOBILE & TALL RATIO (SMARTPHONES)
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 768px), (max-aspect-ratio: 9/10) and (max-width: 920px) {
+  :root {
+    --nav-h: 54px;
+    --pad: 14px;
   }
-  .hud-col-left, .hud-col-right {
-    max-height: 380px;
-    border: none;
-    border-bottom: 1px solid var(--line-soft);
+  body {
+    font-size: 14px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent iOS Safari auto-zoom on form focus */
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  button, a, input, select {
+    touch-action: manipulation;
+  }
+
+  /* Compact Mobile Nav Header */
+  .nav {
+    height: var(--nav-h);
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .brand-tx i { display: none; }
+  .brand-tx b { font-size: 11px; letter-spacing: .15em; }
+  .brand svg { width: 26px; height: 26px; }
+  .nav-links { display: none !important; }
+  .op-badge { display: none !important; }
+  .view-mode-pill {
+    margin-left: auto;
+    transform: scale(0.9);
+    transform-origin: right center;
+  }
+  .view-pill-btn {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  .view-pill-btn .hotkey-badge { display: none; }
+  .kage-btn-pill {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+  .kage-btn-pill span {
+    display: none;
+  }
+  .kage-btn-pill i {
+    margin: 0;
+  }
+
+  /* Floating Bottom Dock Active */
+  #kage-mobile-dock {
+    display: flex !important;
+  }
+  .page {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* War Room HUD Mobile Experience */
+  .war-room-hud {
+    height: calc(100vh - var(--nav-h) - 56px - env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .hud-top-bar {
+    padding: 0 10px;
+    height: 36px;
+    flex: 0 0 36px;
+    overflow-x: auto;
+    font-size: 10px;
+  }
+  .hud-top-bar::-webkit-scrollbar { display: none; }
+  .hud-ticker-left { gap: 6px; }
+  .hud-ticker-center { display: none; }
+  .hud-ticker-right { font-size: 10px; }
+  .hud-mobile-nav {
+    display: flex !important;
+  }
+  .hud-body {
+    display: flex !important;
+    flex-direction: column !important;
+    height: calc(100% - 36px - 44px) !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+  .hud-body .hud-col {
+    display: none;
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 1 auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    border: none !important;
+    padding: 12px 10px 40px 10px !important;
+  }
+  .hud-body .hud-col.mobile-active {
+    display: flex !important;
+  }
+  .wiretap-stream-wrap {
+    padding-right: 0 !important;
+  }
+
+  /* Mobile Modals: Elegant Bottom-Sheet / Full-Screen */
+  .kage-modal-overlay {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+  .kage-modal {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: calc(100dvh - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 14px 14px 0 0 !important;
+    padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 16px)) 14px !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .kage-modal .display {
+    font-size: 16px !important;
+  }
+
+  /* Voice Chamber Apex Mobile Polish */
+  #vc-live-panel > div:first-child {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  #vc-audio-suite > div:first-child {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  #btn-toggle-vc-audio {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 10px 14px !important;
+  }
+  #vc-spectrum-canvas {
+    max-width: 100% !important;
+  }
+  #btn-vc-send-saved, #btn-vc-download, #btn-vc-replay-30s, #btn-vc-send-replay-saved {
+    flex: 1 1 calc(50% - 6px) !important;
+    min-height: 40px !important;
+    justify-content: center !important;
+  }
+
+  /* Table horizontal scroll wrappers */
+  .kage-modal table, table.kage-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* Sanctuary Landing Page Mobile Sizing */
+  .hero-top {
+    max-width: 100% !important;
+  }
+  .chapters {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .gate-stats {
+    flex-wrap: wrap !important;
+    gap: 16px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MEDIA QUERIES: TABLET COCKPIT (769px - 1180px)
+   ═══════════════════════════════════════════════════════ */
+@media (min-width: 769px) and (max-width: 1180px) {
+  :root {
+    --nav-h: 68px;
+    --pad: 20px;
+  }
+  .hud-body {
+    grid-template-columns: 280px minmax(0, 1fr) !important;
+  }
+  .hud-col-right {
+    display: none;
+  }
+  .chapters {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .cards {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 }
 
@@ -1570,6 +1979,12 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   </div>
 
   <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+    <!-- Form Factor Device Telemetry Badge -->
+    <button type="button" onclick="showDeviceDiagnostics()" class="kage-device-pill badge badge-muted" title="Auto-Detected Device Form Factor (Tap for Diagnostics)">
+      <span class="device-dot"></span>
+      <span class="device-label">AUTO</span>
+    </button>
+
     <!-- Voice Chamber Apex -->
     <button type="button" onclick="openVCModal()" class="kage-btn-pill" title="Group Voice Chat Apex Controls">
       <i data-lucide="mic" style="width: 12px; height: 12px; color: var(--vermilion);"></i>
@@ -1655,6 +2070,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         <span id="hud-vc-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--muted);"></span>
         <span id="hud-vc-label">VC: RADAR</span>
       </button>
+      <span class="hud-divider">/</span>
+      <button type="button" onclick="showDeviceDiagnostics()" class="kage-device-pill badge badge-muted" title="Auto-Detected Device Form Factor (Tap for Diagnostics)">
+        <span class="device-dot"></span>
+        <span class="device-label">AUTO</span>
+      </button>
     </div>
     <div class="hud-ticker-center">
       <span id="hud-target-group-name" class="font-mono" style="font-size: 11px; color: var(--bone);">Surveillance Active</span>
@@ -1665,6 +2085,22 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       <button type="button" onclick="clearWiretapFeed()" class="btn-xs-outline" title="Clear Stream History">CLEAR FEED</button>
       <button type="button" onclick="toggleWiretapScroll()" id="btn-wiretap-scroll" class="btn-xs-outline active" title="Toggle Auto-Scroll Lock">SCROLL: AUTO</button>
     </div>
+  </div>
+
+  <!-- MOBILE WAR ROOM NAVIGATION SEGMENTED SWITCHER -->
+  <div id="hud-mobile-col-switcher" class="hud-mobile-nav">
+    <button type="button" class="hud-mobile-tab active" onclick="switchMobileHUDCol('center')" id="hud-mob-tab-center">
+      <i data-lucide="radio" style="width: 12px; height: 12px;"></i>
+      <span>Wiretap Feed</span>
+    </button>
+    <button type="button" class="hud-mobile-tab" onclick="switchMobileHUDCol('left')" id="hud-mob-tab-left">
+      <i data-lucide="shield" style="width: 12px; height: 12px;"></i>
+      <span>Targets &amp; DEFCON</span>
+    </button>
+    <button type="button" class="hud-mobile-tab" onclick="switchMobileHUDCol('right')" id="hud-mob-tab-right">
+      <i data-lucide="cpu" style="width: 12px; height: 12px;"></i>
+      <span>Copilot &amp; Intel</span>
+    </button>
   </div>
 
   <!-- 3-COLUMN COCKPIT -->
@@ -1858,7 +2294,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     </aside>
 
     <!-- CENTER COLUMN: POWER INTELLIGENCE SUITE (flex-1) -->
-    <main class="hud-col hud-col-center">
+    <main class="hud-col hud-col-center mobile-active">
       <!-- CENTER NAVIGATION TABS: KYOTO ZEN CHAPTERS -->
       <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line-soft); background: rgba(5,7,10,0.85); flex-wrap: wrap; gap: 8px; padding-right: 12px;">
         <div class="kage-hud-tabs">
@@ -3649,6 +4085,107 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
 <div id="toast-container"></div>
 
+<!-- MODAL: MOBILE TACTICAL TOOLS BOTTOM SHEET -->
+<div id="mobile-tools-sheet" class="kage-modal-overlay" style="display: none; z-index: 10005;" onclick="if(event.target===this) closeMobileToolsSheet()">
+  <div class="kage-modal font-mono" style="padding: 18px 14px; width: 100vw; max-width: 100vw; max-height: 82vh; border-radius: 16px 16px 0 0; background: #080c10; border-top: 1px solid var(--line);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 12px; margin-bottom: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <i data-lucide="grid" style="width: 16px; height: 16px; color: var(--vermilion);"></i>
+        <h4 style="font-size: 15px; color: var(--bone); margin: 0; font-family: 'Onest', sans-serif;">TACTICAL OPERATIONS // 術策</h4>
+      </div>
+      <button onclick="closeMobileToolsSheet()" class="kage-btn-pill">✕ Close</button>
+    </div>
+    
+    <div class="mobile-tools-grid">
+      <button type="button" onclick="openVCModal(); closeMobileToolsSheet();" class="mobile-tool-card danger">
+        <i data-lucide="mic"></i>
+        <b>Voice Chamber</b>
+        <span>Live VC Wiretap</span>
+      </button>
+      <button type="button" onclick="sendVCToSavedChat(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="bookmark-check" style="color: #10b981;"></i>
+        <b>Save VC Recording</b>
+        <span>Send to Saved Chat</span>
+      </button>
+      <button type="button" onclick="openGhostModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="eye"></i>
+        <b>Ghost Vault</b>
+        <span>Anti-Delete Wiretap</span>
+      </button>
+      <button type="button" onclick="openEntitiesModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="wallet"></i>
+        <b>Signal Radar</b>
+        <span>Crypto / IOC Sniffer</span>
+      </button>
+      <button type="button" onclick="openGraphModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="share-2"></i>
+        <b>Social Graph</b>
+        <span>Network Topology</span>
+      </button>
+      <button type="button" onclick="openSiphonModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="send"></i>
+        <b>Siphon Matrix</b>
+        <span>Target Siphoning</span>
+      </button>
+      <button type="button" onclick="openLeadsModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="gem"></i>
+        <b>Premium Leads</b>
+        <span>Scrape Top Users</span>
+      </button>
+      <button type="button" onclick="openSearchModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="search"></i>
+        <b>Archive Search</b>
+        <span>Forensic Query</span>
+      </button>
+      <button type="button" onclick="openSentimentModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="sparkles"></i>
+        <b>Vibe Radar</b>
+        <span>Linguistic Sentiment</span>
+      </button>
+      <button type="button" onclick="openHeatmapModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="activity"></i>
+        <b>Heatmap Radar</b>
+        <span>24/7 Group Timing</span>
+      </button>
+      <button type="button" onclick="openBroadcastModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="radio"></i>
+        <b>Drip Outreach</b>
+        <span>Mass Message</span>
+      </button>
+      <button type="button" onclick="showDeviceDiagnostics(); closeMobileToolsSheet();" class="mobile-tool-card">
+        <i data-lucide="smartphone"></i>
+        <b>Device Intel</b>
+        <span>Screen &amp; Ratio</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- FLOATING KYOTO MOBILE BOTTOM COMMAND DOCK -->
+<nav id="kage-mobile-dock" aria-label="Mobile Navigation">
+  <button type="button" onclick="switchViewMode('sanctuary')" id="mob-dock-sanctuary" class="kage-dock-item active">
+    <i data-lucide="compass"></i>
+    <span>Sanctuary</span>
+  </button>
+  <button type="button" onclick="switchViewMode('warroom')" id="mob-dock-warroom" class="kage-dock-item">
+    <i data-lucide="shield-alert"></i>
+    <span>War Room</span>
+  </button>
+  <button type="button" onclick="openVCModal()" id="mob-dock-vc" class="kage-dock-item danger">
+    <span class="kage-dock-badge" id="mob-vc-badge"></span>
+    <i data-lucide="mic"></i>
+    <span>Voice</span>
+  </button>
+  <button type="button" onclick="quickJumpWiretap()" id="mob-dock-wiretap" class="kage-dock-item">
+    <i data-lucide="radio"></i>
+    <span>Wiretap</span>
+  </button>
+  <button type="button" onclick="openMobileToolsSheet()" id="mob-dock-tools" class="kage-dock-item">
+    <i data-lucide="grid"></i>
+    <span>Tools</span>
+  </button>
+</nav>
+
 <!-- THREE.JS 3D SANCTUARY SCRIPT -->
 <script>
 (function() {
@@ -5433,6 +5970,12 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         if (recPill) recPill.style.display = 'none';
       }
 
+      // Update Mobile Bottom Dock VC Indicator
+      const mobVcBadge = document.getElementById('mob-vc-badge');
+      if (mobVcBadge) {
+        mobVcBadge.style.display = (data.has_call || vcIsConnected) ? 'inline-block' : 'none';
+      }
+
       if (data.has_call) {
         if (modalBadge) {
           modalBadge.innerText = `LIVE // ${data.participants_count || data.participants?.length || 0} SPEAKERS`;
@@ -6219,11 +6762,16 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const warRoomBtn = document.getElementById('mode-btn-warroom');
     const navLinks = document.getElementById('main-nav-links');
 
+    const mobSanctuary = document.getElementById('mob-dock-sanctuary');
+    const mobWarroom = document.getElementById('mob-dock-warroom');
+
     if (mode === 'warroom') {
       if (sanctuaryView) sanctuaryView.style.display = 'none';
       if (warRoomView) warRoomView.style.display = 'flex';
       if (sanctuaryBtn) sanctuaryBtn.classList.remove('active');
       if (warRoomBtn) warRoomBtn.classList.add('active');
+      if (mobSanctuary) mobSanctuary.classList.remove('active');
+      if (mobWarroom) mobWarroom.classList.add('active');
       if (navLinks) navLinks.style.display = 'none';
 
       refreshWiretap();
@@ -6233,6 +6781,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       if (warRoomView) warRoomView.style.display = 'none';
       if (sanctuaryBtn) sanctuaryBtn.classList.add('active');
       if (warRoomBtn) warRoomBtn.classList.remove('active');
+      if (mobSanctuary) mobSanctuary.classList.add('active');
+      if (mobWarroom) mobWarroom.classList.remove('active');
       if (navLinks) navLinks.style.display = 'flex';
     }
     safeCreateIcons();
@@ -9044,9 +9594,145 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     window.location.reload();
   }
 
+  // ═══════════════════════════════════════════════════════
+  //   ADAPTIVE FORM FACTOR DETECTION (MOBILE / TABLET / MONITOR)
+  // ═══════════════════════════════════════════════════════
+  let currentDeviceProfile = null;
+
+  function detectDeviceProfile() {
+    const w = window.innerWidth || document.documentElement.clientWidth || screen.width;
+    const h = window.innerHeight || document.documentElement.clientHeight || screen.height;
+    const ratio = w / h;
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+    let device = 'monitor';
+    let ratioLabel = '16:9';
+
+    if (ratio >= 2.05) ratioLabel = '21:9';
+    else if (ratio >= 1.7) ratioLabel = '16:9';
+    else if (ratio >= 1.5) ratioLabel = '16:10';
+    else if (ratio >= 1.25) ratioLabel = '4:3';
+    else if (ratio >= 0.95 && ratio < 1.25) ratioLabel = '1:1';
+    else if (ratio >= 0.7 && ratio < 0.95) ratioLabel = '3:4';
+    else if (ratio >= 0.52 && ratio < 0.7) ratioLabel = '9:16';
+    else ratioLabel = '9:19.5';
+
+    // Form Factor Classification:
+    // Mobile: phones in portrait/landscape (width < 768 or tall phone aspect ratio or touch phone)
+    // Tablet: iPad / Android tablet (768px - 1180px or touch tablet)
+    // Monitor: Desktop / widescreen monitors (> 1180px or > 1024px with mouse pointer)
+    if (w < 768 || (ratio < 0.92 && w < 920) || (isTouch && w < 820 && h > w)) {
+      device = 'mobile';
+    } else if (w <= 1180 || (isTouch && w <= 1366 && ratio >= 0.68 && ratio <= 1.48)) {
+      device = 'tablet';
+    } else {
+      device = 'monitor';
+    }
+
+    const orientation = w >= h ? 'landscape' : 'portrait';
+    const root = document.documentElement;
+    root.setAttribute('data-device', device);
+    root.setAttribute('data-orientation', orientation);
+    root.setAttribute('data-aspect-ratio', ratio.toFixed(2));
+    root.setAttribute('data-ratio-name', ratioLabel);
+    root.setAttribute('data-touch', isTouch ? 'true' : 'false');
+
+    if (document.body) {
+      document.body.classList.remove('device-mobile', 'device-tablet', 'device-monitor');
+      document.body.classList.add(`device-${device}`);
+      document.body.classList.toggle('orientation-portrait', orientation === 'portrait');
+      document.body.classList.toggle('orientation-landscape', orientation === 'landscape');
+      document.body.classList.toggle('is-touch', isTouch);
+    }
+
+    // Update all Device Pills across UI
+    const pills = document.querySelectorAll('.kage-device-pill');
+    pills.forEach(pill => {
+      const icon = device === 'mobile' ? 'smartphone' : (device === 'tablet' ? 'tablet' : 'monitor');
+      const name = device.toUpperCase();
+      pill.innerHTML = `
+        <span class="device-dot ${device}"></span>
+        <i data-lucide="${icon}" style="width: 10px; height: 10px; display: inline;"></i>
+        <span>${name} [${ratioLabel}]</span>
+      `;
+      pill.title = `Auto-Detected: ${name} (${w}×${h}px · Ratio ${ratio.toFixed(2)} · DPR ${window.devicePixelRatio || 1}x · ${orientation.toUpperCase()})`;
+    });
+
+    safeCreateIcons();
+
+    currentDeviceProfile = { device, width: w, height: h, ratio, ratioLabel, orientation, isTouch };
+    return currentDeviceProfile;
+  }
+
+  function showDeviceDiagnostics() {
+    const p = currentDeviceProfile || detectDeviceProfile();
+    const dpr = window.devicePixelRatio || 1;
+    const screenW = screen.width;
+    const screenH = screen.height;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const ratio = (viewportW / viewportH).toFixed(2);
+    const pointerType = p.isTouch ? "Touch Capable (Smartphone/Tablet)" : "Fine Mouse Pointer";
+    
+    showToast(`📱 FORM FACTOR: ${p.device.toUpperCase()}\n• Screen: ${screenW}×${screenH} (DPR ${dpr}x)\n• Viewport: ${viewportW}×${viewportH} px\n• Aspect Ratio: ${ratio} [${p.ratioLabel}]\n• Orientation: ${p.orientation.toUpperCase()}\n• Pointer: ${pointerType}`, "info");
+    playZenSound('bell');
+  }
+
+  function switchMobileHUDCol(col) {
+    playZenSound('click');
+    const cols = {
+      left: document.querySelector('.hud-col-left'),
+      center: document.querySelector('.hud-col-center'),
+      right: document.querySelector('.hud-col-right')
+    };
+    const tabs = {
+      left: document.getElementById('hud-mob-tab-left'),
+      center: document.getElementById('hud-mob-tab-center'),
+      right: document.getElementById('hud-mob-tab-right')
+    };
+    
+    Object.keys(cols).forEach(k => {
+      if (cols[k]) cols[k].classList.toggle('mobile-active', k === col);
+      if (tabs[k]) tabs[k].classList.toggle('active', k === col);
+    });
+    safeCreateIcons();
+  }
+
+  function quickJumpWiretap() {
+    switchViewMode('warroom');
+    switchMobileHUDCol('center');
+    playZenSound('clack');
+  }
+
+  function openMobileToolsSheet() {
+    playZenSound('clack');
+    const modal = document.getElementById('mobile-tools-sheet');
+    if (modal) modal.style.display = 'flex';
+    safeCreateIcons();
+  }
+
+  function closeMobileToolsSheet() {
+    const modal = document.getElementById('mobile-tools-sheet');
+    if (modal) modal.style.display = 'none';
+  }
+
+  // Reactive listeners for rotation & viewport resizing
+  window.addEventListener('resize', () => {
+    if (window.kageResizeTimer) cancelAnimationFrame(window.kageResizeTimer);
+    window.kageResizeTimer = requestAnimationFrame(detectDeviceProfile);
+  }, { passive: true });
+
+  window.addEventListener('orientationchange', () => {
+    setTimeout(detectDeviceProfile, 120);
+  });
+
   window.onload = () => {
     safeCreateIcons();
     checkOwnerStatus();
+    detectDeviceProfile();
+    if (window.innerWidth < 768) {
+      switchMobileHUDCol('center');
+    }
     if (currentViewMode === 'warroom') {
       switchViewMode('warroom');
     }
