@@ -1984,13 +1984,17 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     </p>
 
     <div id="owner-pin-container">
-      <div style="margin-bottom: 20px;">
+      <div style="margin-bottom: 20px; position: relative; display: flex; align-items: center;">
         <input type="password" id="owner-pin-input" placeholder="••••" maxlength="32" autofocus
-          style="width: 100%; text-align: center; font-size: 22px; letter-spacing: 8px; background: #030609; border: 1px solid rgba(223, 231, 224, 0.15); border-radius: 6px; padding: 14px 16px; color: #34d399; outline: none; transition: border-color 0.2s;"
+          style="width: 100%; text-align: center; font-size: 22px; letter-spacing: 8px; background: #030609; border: 1px solid rgba(223, 231, 224, 0.15); border-radius: 6px; padding: 14px 44px 14px 16px; color: #34d399; outline: none; transition: border-color 0.2s;"
           onfocus="this.style.borderColor='#34d399'"
           onblur="this.style.borderColor='rgba(223, 231, 224, 0.15)'"
           onkeydown="if(event.key==='Enter') submitOwnerPin()"
         />
+        <button type="button" onclick="toggleOwnerPinVisibility()" title="Toggle PIN visibility"
+          style="position: absolute; right: 12px; background: transparent; border: none; color: #78837c; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center;">
+          <i id="owner-pin-eye-icon" data-lucide="eye" style="width: 18px; height: 18px;"></i>
+        </button>
       </div>
 
       <button id="owner-unlock-btn" onclick="submitOwnerPin()" class="kage-btn"
@@ -8675,9 +8679,6 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       }
     }
   }
-    showToast(`✏️ Ghost Vault: Edit revision captured by ${escapeHtml(data.sender_name || 'User')}`, "info");
-    refreshGhostVault();
-  }
 
   // ==========================================
   // SURVEILLANCE RADAR & WATCHLIST
@@ -10078,20 +10079,40 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     }
   }
 
+  function toggleOwnerPinVisibility() {
+    const input = document.getElementById('owner-pin-input');
+    const icon = document.getElementById('owner-pin-eye-icon');
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (icon) icon.setAttribute('data-lucide', 'eye-off');
+    } else {
+      input.type = 'password';
+      if (icon) icon.setAttribute('data-lucide', 'eye');
+    }
+    safeCreateIcons();
+  }
+
   async function submitOwnerPin() {
     const input = document.getElementById('owner-pin-input');
     const errBox = document.getElementById('owner-error-msg');
     const btn = document.getElementById('owner-unlock-btn');
-    const pin = input.value.trim();
+    const pin = input ? input.value.trim() : '';
 
     if (!pin || pin.length < 4) {
-      errBox.innerText = 'Master PIN must be at least 4 characters.';
-      errBox.style.display = 'block';
+      if (errBox) {
+        errBox.innerText = 'Master PIN must be at least 4 characters.';
+        errBox.style.display = 'block';
+      }
       return;
     }
 
-    errBox.style.display = 'none';
-    btn.disabled = true;
+    if (errBox) errBox.style.display = 'none';
+    const origBtnHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<span style="display:inline-block; width:12px; height:12px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.6s linear infinite; margin-right:8px; vertical-align:middle;"></span> VERIFYING CLEARANCE...`;
+    }
 
     try {
       const endpoint = isOwnerSetupMode ? '/api/owner/setup' : '/api/owner/verify';
@@ -10120,12 +10141,20 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       initWebSocket();
       loadQuickWatchdogs();
     } catch (err) {
-      errBox.innerText = `ACCESS DENIED: ${err.message}`;
-      errBox.style.display = 'block';
-      input.value = '';
-      input.focus();
+      if (errBox) {
+        errBox.innerText = `ACCESS DENIED: ${err.message}`;
+        errBox.style.display = 'block';
+      }
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
     } finally {
-      btn.disabled = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origBtnHtml;
+        safeCreateIcons();
+      }
     }
   }
 
