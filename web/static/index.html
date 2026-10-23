@@ -2144,6 +2144,58 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   </div>
 </div>
 
+<!-- MODAL: TELEGRAM ACCOUNT AUTHENTICATION / LINK -->
+<div id="auth-modal" class="kage-modal-overlay">
+  <div class="kage-modal font-mono" style="padding: 30px; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); border: 1px solid rgba(224, 86, 36, 0.4);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
+      <div>
+        <span class="eyebrow" style="color: var(--vermilion);"><span class="dot"></span> TELEGRAM CLOUD AUTHORIZATION</span>
+        <h3 class="display" style="font-size: 20px; color: var(--bone); margin-top: 4px;">Link Userbot Account</h3>
+      </div>
+    </div>
+
+    <p id="auth-status-desc" style="font-size: 13px; color: var(--bone-dim); font-family: 'Onest', sans-serif; line-height: 1.6; margin-bottom: 20px;">
+      Your cloud instance needs to link to your Telegram account to load groups and enable surveillance features.
+    </p>
+
+    <!-- STEP 1: PHONE DISPLAY & SEND CODE BUTTON -->
+    <div id="auth-step-1">
+      <div style="background: #05070a; border: 1px solid var(--line); padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;">
+        <div style="font-size: 11px; color: var(--muted); margin-bottom: 4px;">TARGET TELEGRAM PHONE</div>
+        <div id="auth-phone-display" style="color: #34d399; font-size: 16px; font-weight: 600;">+263 78 831 1244</div>
+      </div>
+
+      <button id="auth-send-code-btn" onclick="sendAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 20px; font-size: 12px; justify-content: center;">
+        <i data-lucide="send" style="width: 15px; height: 15px;"></i> 📨 Send Telegram Verification Code
+      </button>
+      <div id="auth-send-error" style="color: var(--vermilion); font-size: 12px; margin-top: 12px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 10px; border-radius: 4px;"></div>
+    </div>
+
+    <!-- STEP 2: ENTER CODE & 2FA -->
+    <div id="auth-step-2" style="display: none;">
+      <div style="margin-bottom: 15px;">
+        <label style="font-size: 11px; color: var(--muted); display: block; margin-bottom: 6px;">ENTER 5-DIGIT TELEGRAM CODE</label>
+        <input type="text" id="auth-code-input" placeholder="12345" style="width: 100%; background: #05070a; border: 1px solid var(--line); color: var(--bone); padding: 12px 14px; font-size: 18px; border-radius: 4px; letter-spacing: 4px; text-align: center;" />
+      </div>
+
+      <div id="auth-password-group" style="margin-bottom: 20px; display: none;">
+        <label style="font-size: 11px; color: var(--muted); display: block; margin-bottom: 6px;">TWO-STEP VERIFICATION (2FA) PASSWORD</label>
+        <input type="password" id="auth-password-input" placeholder="Enter 2FA password" style="width: 100%; background: #05070a; border: 1px solid var(--line); color: var(--bone); padding: 12px 14px; font-size: 13px; border-radius: 4px;" />
+      </div>
+
+      <button id="auth-verify-btn" onclick="verifyAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 20px; font-size: 12px; margin-bottom: 12px; justify-content: center;">
+        <i data-lucide="check-circle" style="width: 15px; height: 15px;"></i> ⚡ Verify &amp; Authorize Cloud Instance
+      </button>
+
+      <button onclick="document.getElementById('auth-step-2').style.display='none'; document.getElementById('auth-step-1').style.display='block';" class="kage-btn-pill" style="width: 100%; text-align: center; justify-content: center;">
+        ← Back / Resend Code
+      </button>
+      <div id="auth-verify-error" style="color: var(--vermilion); font-size: 12px; margin-top: 12px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 10px; border-radius: 4px;"></div>
+    </div>
+
+  </div>
+</div>
+
 <!-- MODAL: PARTICIPANT DOSSIER -->
 <div id="dossier-modal" class="kage-modal-overlay" onclick="closeDossierModal(event)">
   <div class="kage-modal font-mono" style="padding: 30px;">
@@ -3385,9 +3437,104 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         const label = data.user.username ? `@${data.user.username}` : (data.user.first_name || 'Operator');
         const phone = data.phone || '+263 78 831 1244';
         document.getElementById('user-display').innerText = `${label} (${phone})`;
+        const modal = document.getElementById('auth-modal');
+        if (modal) modal.style.display = 'none';
         fetchDialogs();
+      } else {
+        document.getElementById('user-display').innerText = '⚠️ Account Not Linked';
+        const modal = document.getElementById('auth-modal');
+        if (modal) {
+          if (data.phone) {
+            const phoneEl = document.getElementById('auth-phone-display');
+            if (phoneEl) phoneEl.innerText = data.phone;
+          }
+          modal.style.display = 'flex';
+          if (window.lucide) window.lucide.createIcons();
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Check auth error:', e);
+    }
+  }
+
+  async function sendAuthCode() {
+    const btn = document.getElementById('auth-send-code-btn');
+    const errBox = document.getElementById('auth-send-error');
+    btn.innerHTML = '<span class="loading-spin"></span> Sending Telegram Code...';
+    btn.disabled = true;
+    errBox.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/auth/send_code', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || data.error || 'Failed to send code');
+      }
+      document.getElementById('auth-step-1').style.display = 'none';
+      document.getElementById('auth-step-2').style.display = 'block';
+      document.getElementById('auth-status-desc').innerText = 'A 5-digit login code was sent to your official Telegram app. Enter it below:';
+      document.getElementById('auth-code-input').focus();
+      if (window.lucide) window.lucide.createIcons();
+    } catch (err) {
+      errBox.innerText = `Error: ${err.message}`;
+      errBox.style.display = 'block';
+    } finally {
+      btn.innerHTML = '<i data-lucide="send" style="width: 15px; height: 15px;"></i> 📨 Send Telegram Verification Code';
+      btn.disabled = false;
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
+  async function verifyAuthCode() {
+    const code = document.getElementById('auth-code-input').value.trim();
+    const password = document.getElementById('auth-password-input').value;
+    const btn = document.getElementById('auth-verify-btn');
+    const errBox = document.getElementById('auth-verify-error');
+
+    if (!code) {
+      errBox.innerText = 'Please enter the 5-digit code.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    btn.innerHTML = '<span class="loading-spin"></span> Verifying...';
+    btn.disabled = true;
+    errBox.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/auth/verify_code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, password: password || null })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || data.error || 'Verification failed');
+      }
+
+      if (data.status === 'password_needed') {
+        document.getElementById('auth-password-group').style.display = 'block';
+        document.getElementById('auth-password-input').focus();
+        errBox.innerText = '2-Step Verification password is required. Please enter your password above and click Verify again.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      // Success!
+      document.getElementById('auth-modal').style.display = 'none';
+      if (window.showToast) {
+        showToast('⚡ Telegram Connected! Loading groups...', 'success');
+      }
+      await checkAuth();
+      await fetchDialogs();
+    } catch (err) {
+      errBox.innerText = `Error: ${err.message}`;
+      errBox.style.display = 'block';
+    } finally {
+      btn.innerHTML = '<i data-lucide="check-circle" style="width: 15px; height: 15px;"></i> ⚡ Verify &amp; Authorize Cloud Instance';
+      btn.disabled = false;
+      if (window.lucide) window.lucide.createIcons();
+    }
   }
 
   function normalizeGroupId(gid) {

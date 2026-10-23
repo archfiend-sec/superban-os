@@ -28,18 +28,32 @@ async def init_client():
 
     string_session = Config.get_string_session()
     if string_session:
-        client = TelegramClient(StringSession(string_session), creds["api_id"], creds["api_hash"])
+        try:
+            client = TelegramClient(StringSession(string_session), creds["api_id"], creds["api_hash"])
+            await client.connect()
+            if await client.is_user_authorized():
+                print("⚡ Restored Telegram session instantly!")
+                return client
+            else:
+                print("⚠️ Provided string session is not authorized.")
+                await client.disconnect()
+        except Exception as e:
+            print(f"⚠️ String session error: {e}")
+
+    try:
+        client = TelegramClient(str(SESSION_FILE), creds["api_id"], creds["api_hash"])
         await client.connect()
         if await client.is_user_authorized():
-            print("⚡ Restored Telegram session instantly!")
+            print("⚡ Restored permanent session file!")
             return client
+        else:
+            await client.disconnect()
+    except Exception as e:
+        print(f"⚠️ Session file error: {e}")
 
-    client = TelegramClient(str(SESSION_FILE), creds["api_id"], creds["api_hash"])
+    print("ℹ️  Starting fresh session client for in-browser authentication...\n")
+    client = TelegramClient(StringSession(), creds["api_id"], creds["api_hash"])
     await client.connect()
-    if await client.is_user_authorized():
-        print("⚡ Restored permanent session file!")
-    else:
-        print("ℹ️  Authentication can be completed in the browser or terminal.\n")
     return client
 
 async def main():

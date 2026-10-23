@@ -86,7 +86,22 @@ def create_app(engine: SuperBanEngine):
         try:
             if not engine.client.is_connected():
                 await engine.client.connect()
-            res = await engine.client.send_code_request(creds["phone"])
+            try:
+                res = await engine.client.send_code_request(creds["phone"])
+            except Exception as e:
+                err_str = str(e).lower()
+                if "different ip" in err_str or "auth_key" in err_str or "session" in err_str or "security" in err_str or "unregistered" in err_str:
+                    logger.warning(f"Resetting invalid session due to: {e}")
+                    try:
+                        await engine.client.disconnect()
+                    except Exception:
+                        pass
+                    engine.client = TelegramClient(StringSession(), creds["api_id"], creds["api_hash"])
+                    await engine.client.connect()
+                    res = await engine.client.send_code_request(creds["phone"])
+                else:
+                    raise e
+
             auth_state["phone"] = creds["phone"]
             auth_state["phone_code_hash"] = res.phone_code_hash
             logger.info(f"Telegram login code dispatched to {creds['phone']}")
@@ -110,14 +125,15 @@ def create_app(engine: SuperBanEngine):
             else:
                 try:
                     await engine.client.sign_in(
-                        phone=auth_state["phone"] or Config.get_credentials()["phone"],
+                        phone=auth_state.get("phone") or Config.get_credentials()["phone"],
                         code=req.code,
-                        phone_code_hash=auth_state["phone_code_hash"]
+                        phone_code_hash=auth_state.get("phone_code_hash")
                     )
                 except SessionPasswordNeededError:
                     return {"status": "password_needed", "message": "2-Step Verification password is required."}
 
             # Export StringSession to .env permanently!
+            saved_str = ""
             try:
                 temp_s = StringSession()
                 temp_s.set_dc(engine.client.session.dc_id, engine.client.session.server_address, engine.client.session.port)
@@ -129,9 +145,16 @@ def create_app(engine: SuperBanEngine):
             except Exception as e:
                 logger.debug(f"Save string session note: {e}")
 
+            # Force clear dialogs cache so groups load immediately
+            try:
+                await engine.get_dialogs(force=True)
+            except Exception:
+                pass
+
             me = await engine.client.get_me()
             return {
                 "status": "authorized",
+                "session_string": saved_str,
                 "user": {
                     "id": me.id,
                     "first_name": me.first_name,
