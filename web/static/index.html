@@ -827,36 +827,40 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   color: var(--bone);
 }
 .hud-defcon-btn.active {
-  background: rgba(52, 211, 153, 0.15);
-  border-color: #34d399;
-  color: #34d399;
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.3);
+  background: rgba(223, 231, 224, 0.08);
+  border-color: var(--line);
+  color: var(--bone);
+  box-shadow: 0 0 10px rgba(223, 231, 224, 0.15);
 }
 #hud-defcon-4.active {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: #38bdf8;
-  color: #38bdf8;
-}
-#hud-defcon-3.active {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.12);
   border-color: #fbbf24;
   color: #fbbf24;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
 }
-#hud-defcon-2.active {
-  background: rgba(249, 115, 22, 0.18);
+#hud-defcon-3.active {
+  background: rgba(249, 115, 22, 0.15);
   border-color: #f97316;
   color: #f97316;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.3);
 }
-#hud-defcon-1.active, .hud-defcon-btn.defcon-nuclear.active {
-  background: rgba(224, 35, 28, 0.25);
+#hud-defcon-2.active {
+  background: rgba(224, 35, 28, 0.18);
   border-color: var(--vermilion);
   color: #ff5a3c;
+  box-shadow: 0 0 12px rgba(224, 35, 28, 0.35);
+}
+#hud-defcon-1.active, .hud-defcon-btn.defcon-nuclear.active {
+  background: rgba(224, 35, 28, 0.28);
+  border-color: var(--vermilion);
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(224, 35, 28, 0.6);
   animation: pulseNuclear 1.4s infinite;
 }
 .hud-action-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 .hud-action-btn {
   display: flex;
@@ -864,35 +868,210 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   gap: 10px;
   width: 100%;
   padding: 8px 12px;
-  background: rgba(10, 14, 18, 0.7);
+  background: rgba(10, 14, 18, 0.75);
   border: 1px solid var(--line-soft);
+  border-left: 2px solid transparent;
   color: var(--bone-dim);
   border-radius: 2px;
   font-size: 11px;
   text-align: left;
   cursor: pointer;
   transition: all .2s ease;
+  font-family: 'Onest', sans-serif;
+}
+.hud-action-btn i {
+  color: var(--muted);
+  transition: color .2s;
+  flex-shrink: 0;
 }
 .hud-action-btn:hover {
-  background: rgba(223, 231, 224, 0.06);
+  background: rgba(223, 231, 224, 0.04);
   border-color: var(--line);
+  border-left-color: var(--vermilion);
   color: var(--bone);
   transform: translateX(2px);
 }
+.hud-action-btn:hover i {
+  color: var(--vermilion);
+}
+.hud-action-btn.danger {
+  border-color: rgba(224, 35, 28, 0.25);
+}
 .hud-action-btn.danger:hover {
-  background: rgba(224, 35, 28, 0.15);
+  background: rgba(224, 35, 28, 0.12);
   border-color: var(--vermilion);
+  border-left-color: var(--vermilion);
   color: #ff6a50;
 }
-.hud-action-btn.success:hover {
-  background: rgba(52, 211, 153, 0.15);
-  border-color: #34d399;
-  color: #34d399;
-}
 .hud-action-btn.terminal {
-  border-color: rgba(224, 35, 28, 0.3);
+  border-color: rgba(224, 35, 28, 0.35);
   color: var(--bone);
 }
+.hud-action-btn.terminal:hover {
+  border-color: var(--vermilion);
+  background: rgba(224, 35, 28, 0.12);
+}
+.hud-tag-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  color: var(--muted);
+  border: 1px solid var(--line-soft);
+  background: rgba(5, 7, 10, 0.6);
+  padding: 1px 5px;
+  border-radius: 2px;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+.hud-action-btn:hover .hud-tag-pill {
+  border-color: rgba(224, 35, 28, 0.4);
+  color: var(--bone);
+}
+.hud-tag-pill.danger {
+  border-color: rgba(224, 35, 28, 0.4);
+  color: #ff6a50;
+  background: rgba(224, 35, 28, 0.1);
+}
+
+/* KAGE HUD ARCHITECTURAL CHAPTER TABS */
+.kage-hud-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  background: transparent;
+  overflow-x: auto;
+}
+.kage-hud-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--bone-dim);
+  cursor: pointer;
+  transition: all .2s ease;
+  font-family: 'Onest', sans-serif;
+  text-align: left;
+  white-space: nowrap;
+}
+.kage-hud-tab:hover {
+  background: rgba(223, 231, 224, 0.03);
+  color: var(--bone);
+}
+.kage-hud-tab.active {
+  background: rgba(224, 35, 28, 0.05);
+  border-bottom: 2px solid var(--vermilion);
+  color: var(--bone);
+}
+.kage-tab-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: color .2s;
+}
+.kage-hud-tab.active .kage-tab-num {
+  color: var(--vermilion);
+}
+.kage-tab-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.kage-tab-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: inherit;
+}
+.kage-tab-jp {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 9px;
+  letter-spacing: .18em;
+  color: var(--muted);
+}
+.kage-hud-tab.active .kage-tab-jp {
+  color: var(--bone-dim);
+}
+
+/* UNIFIED KAGE ACTION & SUB BUTTONS */
+.kage-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--vermilion);
+  border: 1px solid var(--vermilion);
+  color: #ffffff !important;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all .2s ease;
+  box-shadow: 0 0 14px rgba(224, 35, 28, 0.25);
+  text-decoration: none;
+}
+.kage-action-btn:hover {
+  background: #ff3b30;
+  border-color: #ff3b30;
+  box-shadow: 0 0 20px rgba(224, 35, 28, 0.45);
+  transform: translateY(-1px);
+}
+.kage-sub-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(10, 14, 18, 0.7);
+  border: 1px solid var(--line);
+  color: var(--bone);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .08em;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all .2s ease;
+  text-decoration: none;
+}
+.kage-sub-btn:hover {
+  border-color: var(--vermilion);
+  background: rgba(224, 35, 28, 0.08);
+  color: #ffffff;
+}
+
+/* NAV DROPDOWN ITEMS */
+.kage-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--bone-dim);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .15s ease;
+  width: 100%;
+  text-align: left;
+  font-family: 'Onest', sans-serif;
+}
+.kage-dropdown-item:hover {
+  background: rgba(224, 35, 28, 0.08);
+  border-color: var(--line-soft);
+  color: var(--bone);
+  transform: translateX(2px);
+}
+
 .hud-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1380,61 +1559,81 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   <div class="view-mode-pill" style="margin-left: 10px;">
     <button type="button" id="mode-btn-sanctuary" class="view-pill-btn active" onclick="switchViewMode('sanctuary')" title="Sanctuary 3D Kyoto View">
       <i data-lucide="compass" style="width: 12px; height: 12px;"></i>
-      <span>Sanctuary</span>
+      <span>Sanctuary // 閑雅</span>
     </button>
     <button type="button" id="mode-btn-warroom" class="view-pill-btn" onclick="switchViewMode('warroom')" title="Cyber War Room HUD (Hotkey: W)">
       <span class="live-dot-pulse"></span>
       <i data-lucide="shield-alert" style="width: 12px; height: 12px; color: var(--vermilion);"></i>
-      <span>War Room HUD</span>
+      <span>War Room // 影</span>
       <span class="hotkey-badge">W</span>
     </button>
   </div>
 
   <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-    <button onclick="openGhostModal()" class="kage-btn-pill" title="Ghost Vault: Anti-Delete & Anti-Edit Wiretap">
-      <i data-lucide="eye" style="width: 12px; height: 12px; color: #c084fc;"></i>
-      <span>Ghost Vault</span>
-    </button>
-    <button onclick="openEntitiesModal()" class="kage-btn-pill" title="Signal & IOC Entity Radar: Crypto Wallets & Invites">
-      <i data-lucide="wallet" style="width: 12px; height: 12px; color: #10b981;"></i>
-      <span>Signal Radar</span>
-    </button>
-    <button onclick="openGraphModal()" class="kage-btn-pill" title="Social Interaction & Influence Topology Graph">
-      <i data-lucide="share-2" style="width: 12px; height: 12px; color: #ec4899;"></i>
-      <span>Social Graph</span>
-    </button>
-    <button onclick="openSiphonModal()" class="kage-btn-pill" title="Autonomous Signal Siphon & Phone Push Matrix">
-      <i data-lucide="send" style="width: 12px; height: 12px; color: #38bdf8;"></i>
-      <span>Siphon Matrix</span>
-    </button>
-    <button onclick="openSearchModal()" class="kage-btn-pill" title="Global Forensic Full-Text Archive Search">
-      <i data-lucide="search" style="width: 12px; height: 12px; color: #f59e0b;"></i>
-      <span>Search</span>
-    </button>
-    <button onclick="openSurveillanceModal()" class="kage-btn-pill" title="Tactical Surveillance Radar & Watchlist">
-      <i data-lucide="radar" style="width: 12px; height: 12px; color: #eab308;"></i>
-      <span>Surveillance</span>
-    </button>
-    <button onclick="openSentimentModal()" class="kage-btn-pill" title="Group Vibe & Sentiment Radar">
-      <i data-lucide="sparkles" style="width: 12px; height: 12px; color: #38bdf8;"></i>
-      <span>Vibe Radar</span>
-    </button>
-    <button onclick="openVCModal()" class="kage-btn-pill" title="Group Voice Chat Apex Controls">
-      <i data-lucide="mic" style="width: 12px; height: 12px; color: var(--ember);"></i>
+    <!-- Voice Chamber Apex -->
+    <button type="button" onclick="openVCModal()" class="kage-btn-pill" title="Group Voice Chat Apex Controls">
+      <i data-lucide="mic" style="width: 12px; height: 12px; color: var(--vermilion);"></i>
       <span>Voice Chamber</span>
     </button>
-    <button onclick="openTerminalModal()" class="kage-btn-pill" title="Option 1: Launch bot on Terminal">
-      <i data-lucide="terminal" style="width: 12px; height: 12px; color: var(--vermilion);"></i>
-      <span>Terminal Method</span>
+
+    <!-- Forensic Search Engine -->
+    <button type="button" onclick="openSearchModal()" class="kage-btn-pill" title="Global Forensic Full-Text Archive Search">
+      <i data-lucide="search" style="width: 12px; height: 12px;"></i>
+      <span>Search</span>
     </button>
+
+    <!-- Tactical Tools Dropdown -->
+    <div class="kage-nav-dropdown-wrap" style="position: relative;">
+      <button type="button" onclick="toggleNavToolsDropdown(event)" class="kage-btn-pill" title="Tactical Intelligence Modals">
+        <i data-lucide="layers" style="width: 12px; height: 12px;"></i>
+        <span>Tools // 術策</span>
+        <i data-lucide="chevron-down" style="width: 10px; height: 10px; opacity: 0.6;"></i>
+      </button>
+      <div id="nav-tools-dropdown" class="kage-nav-dropdown font-mono" style="display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #080c10; border: 1px solid var(--line); border-radius: 4px; padding: 6px; min-width: 230px; box-shadow: 0 16px 40px rgba(0,0,0,0.85); z-index: 1000; flex-direction: column; gap: 3px;">
+        <button type="button" onclick="openGhostModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
+          <i data-lucide="eye" style="width: 13px; height: 13px;"></i>
+          <span>Ghost Vault (Anti-Delete)</span>
+        </button>
+        <button type="button" onclick="openEntitiesModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
+          <i data-lucide="wallet" style="width: 13px; height: 13px;"></i>
+          <span>Signal Radar (Crypto/IOCs)</span>
+        </button>
+        <button type="button" onclick="openGraphModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
+          <i data-lucide="share-2" style="width: 13px; height: 13px;"></i>
+          <span>Social Graph Topology</span>
+        </button>
+        <button type="button" onclick="openSiphonModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
+          <i data-lucide="send" style="width: 13px; height: 13px;"></i>
+          <span>Autonomous Siphon Matrix</span>
+        </button>
+        <button type="button" onclick="openSurveillanceModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
+          <i data-lucide="radar" style="width: 13px; height: 13px;"></i>
+          <span>Surveillance Radar</span>
+        </button>
+        <button type="button" onclick="openSentimentModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
+          <i data-lucide="sparkles" style="width: 13px; height: 13px;"></i>
+          <span>Vibe &amp; Sentiment Radar</span>
+        </button>
+        <button type="button" onclick="openTerminalModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
+          <i data-lucide="terminal" style="width: 13px; height: 13px; color: var(--vermilion);"></i>
+          <span>Terminal Launch Method</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Operator Badge -->
     <div class="op-badge">
       <span class="dot"></span>
       <span id="user-display">@archfynd (+263 78 831 1244)</span>
     </div>
+
+    <!-- Owner Lock Button -->
     <button id="owner-logout-btn" onclick="logoutOwner()" class="kage-btn-pill" style="border-color: rgba(224,35,28,0.4); color: #e0231c; display: none;" title="Lock War Room">
       <i data-lucide="lock" style="width: 12px; height: 12px;"></i>
       <span>Lock</span>
     </button>
+
+    <!-- Audio FX Toggle -->
     <button onclick="toggleAudio()" id="btn-audio" class="btn-round" title="Atmospheric Audio FX">
       <i data-lucide="volume-2" style="width: 14px; height: 14px;"></i>
     </button>
@@ -1446,11 +1645,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   <!-- TOP TICKER / STATUS BAR -->
   <div class="hud-top-bar">
     <div class="hud-ticker-left">
-      <span class="hud-sys-tag">CYBERNETIC SENTINEL APEX</span>
+      <span class="hud-sys-tag">KAGE // 影の司令室 — WAR ROOM HUD</span>
       <span class="hud-divider">/</span>
       <span class="hud-status-live"><span class="hud-blink-dot"></span> MTPROTO STREAM ACTIVE</span>
       <span class="hud-divider">/</span>
-      <span id="hud-defcon-display" class="badge badge-emerald">DEFCON 5 // PEACE</span>
+      <span id="hud-defcon-display" class="badge badge-muted">DEFCON 5 // 平穏</span>
       <span class="hud-divider">/</span>
       <button type="button" onclick="openVCModal()" id="hud-vc-pill" class="badge badge-muted" style="cursor: pointer; border: 1px solid var(--line-soft); background: rgba(5,7,10,0.6); padding: 3px 8px; font-family: 'JetBrains Mono', monospace; display: inline-flex; align-items: center; gap: 6px;" title="Open Voice Chamber Apex">
         <span id="hud-vc-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--muted);"></span>
@@ -1473,7 +1672,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     <!-- LEFT COLUMN: TARGET RECON & DEFCON MATRIX (310px) -->
     <aside class="hud-col hud-col-left">
       <div class="hud-panel-title">
-        <span><i data-lucide="crosshair" style="width: 12px; height: 12px; color: var(--vermilion);"></i> TARGET RECON &amp; DEFCON</span>
+        <span><b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">01</b> // TARGET RECON &amp; DEFCON</span>
+        <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">防衛態勢</span>
         <button type="button" onclick="fetchDialogs()" class="btn-icon-xs" title="Refresh Dialogs"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i></button>
       </div>
 
@@ -1489,7 +1689,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       <div class="hud-box" style="margin-bottom: 14px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <span class="hud-label" style="margin: 0;">DEFCON DEFENSE POSTURE</span>
-          <span id="hud-defcon-tag" class="badge badge-emerald" style="font-size: 9px;">DEFCON 5</span>
+          <span id="hud-defcon-tag" class="badge badge-muted" style="font-size: 9px;">DEFCON 5</span>
         </div>
         <div class="hud-defcon-grid">
           <button type="button" onclick="setDefconLevel(5)" id="hud-defcon-5" class="hud-defcon-btn active" title="DEFCON 5: Peace"><b>5</b><span>PEACE</span></button>
@@ -1502,91 +1702,112 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
       <!-- Tactical Quick Strike Buttons -->
       <div class="hud-panel-title" style="margin-top: 10px;">
-        <span><i data-lucide="zap" style="width: 12px; height: 12px; color: var(--vermilion);"></i> RAPID TACTICAL STRIKES</span>
+        <span><b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">02</b> // RAPID TACTICAL STRIKES</span>
+        <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">術策</span>
       </div>
       <div class="hud-action-list">
-        <button type="button" onclick="openVCModal()" class="hud-action-btn danger" style="background: rgba(224,35,28,0.12); border: 1px solid rgba(224,35,28,0.35);">
-          <i data-lucide="mic" style="width: 13px; height: 13px; color: var(--ember);"></i>
-          <span>Voice Chamber Apex</span>
+        <button type="button" onclick="openVCModal()" class="hud-action-btn danger">
+          <i data-lucide="mic" style="width: 13px; height: 13px;"></i>
+          <span style="flex: 1;">Voice Chamber Apex</span>
+          <span class="hud-tag-pill danger">AUDIO</span>
         </button>
-        <button type="button" onclick="openGhostModal()" class="hud-action-btn" style="border-color: rgba(168,85,247,0.35); background: rgba(168,85,247,0.08);">
-          <i data-lucide="eye" style="width: 13px; height: 13px; color: #c084fc;"></i>
-          <span>Ghost Vault (Anti-Delete)</span>
+        <button type="button" onclick="openGhostModal()" class="hud-action-btn">
+          <i data-lucide="eye" style="width: 13px; height: 13px;"></i>
+          <span style="flex: 1;">Ghost Vault (Anti-Delete)</span>
+          <span class="hud-tag-pill">VAULT</span>
         </button>
-        <button type="button" onclick="openEntitiesModal()" class="hud-action-btn" style="border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.08);">
-          <i data-lucide="wallet" style="width: 13px; height: 13px; color: #10b981;"></i>
-          <span>Signal Radar (Crypto/Invites)</span>
+        <button type="button" onclick="openEntitiesModal()" class="hud-action-btn">
+          <i data-lucide="wallet" style="width: 13px; height: 13px;"></i>
+          <span style="flex: 1;">Signal Radar (Crypto/IOCs)</span>
+          <span class="hud-tag-pill">IOC</span>
         </button>
-        <button type="button" onclick="openGraphModal()" class="hud-action-btn" style="border-color: rgba(236,72,153,0.35); background: rgba(236,72,153,0.08);">
-          <i data-lucide="share-2" style="width: 13px; height: 13px; color: #ec4899;"></i>
-          <span>Social Influence Graph</span>
+        <button type="button" onclick="openGraphModal()" class="hud-action-btn">
+          <i data-lucide="share-2" style="width: 13px; height: 13px;"></i>
+          <span style="flex: 1;">Social Influence Graph</span>
+          <span class="hud-tag-pill">GRAPH</span>
         </button>
-        <button type="button" onclick="openSiphonModal()" class="hud-action-btn" style="border-color: rgba(56,189,248,0.35); background: rgba(56,189,248,0.08);">
-          <i data-lucide="send" style="width: 13px; height: 13px; color: #38bdf8;"></i>
-          <span>Autonomous Siphon Matrix</span>
+        <button type="button" onclick="openSiphonModal()" class="hud-action-btn">
+          <i data-lucide="send" style="width: 13px; height: 13px;"></i>
+          <span style="flex: 1;">Autonomous Siphon Matrix</span>
+          <span class="hud-tag-pill">SIPHON</span>
         </button>
-        <button type="button" onclick="openSearchModal()" class="hud-action-btn" style="border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.08);">
-          <i data-lucide="search" style="width: 13px; height: 13px; color: #f59e0b;"></i>
-          <span>Forensic Search Engine</span>
+        <button type="button" onclick="openSearchModal()" class="hud-action-btn">
+          <i data-lucide="search" style="width: 13px; height: 13px;"></i>
+          <span style="flex: 1;">Forensic Search Engine</span>
+          <span class="hud-tag-pill">ARCHIVE</span>
         </button>
-        <button type="button" onclick="pulsePresence('typing')" class="hud-action-btn" style="border-color: rgba(255,255,255,0.25);">
-          <i data-lucide="activity" style="width: 13px; height: 13px; color: #38bdf8;"></i>
-          <span>Pulse Stealth "Typing"</span>
+        <button type="button" onclick="pulsePresence('typing')" class="hud-action-btn">
+          <i data-lucide="activity" style="width: 13px; height: 13px;"></i>
+          <span style="flex: 1;">Pulse Stealth "Typing"</span>
+          <span class="hud-tag-pill">PULSE</span>
         </button>
-        <button type="button" onclick="openSurveillanceModal()" class="hud-action-btn" style="border-color: rgba(234,179,8,0.35); background: rgba(234,179,8,0.08);">
-          <i data-lucide="radar" style="width: 13px; height: 13px; color: #eab308;"></i>
-          <span>Surveillance Radar</span>
+        <button type="button" onclick="openSurveillanceModal()" class="hud-action-btn">
+          <i data-lucide="radar" style="width: 13px; height: 13px;"></i>
+          <span style="flex: 1;">Surveillance Radar</span>
+          <span class="hud-tag-pill">WATCH</span>
         </button>
-        <button type="button" onclick="openSentimentModal()" class="hud-action-btn" style="border-color: rgba(56,189,248,0.35); background: rgba(56,189,248,0.08);">
-          <i data-lucide="sparkles" style="width: 13px; height: 13px; color: #38bdf8;"></i>
-          <span>Group Vibe &amp; Sentiment</span>
+        <button type="button" onclick="openSentimentModal()" class="hud-action-btn">
+          <i data-lucide="sparkles" style="width: 13px; height: 13px;"></i>
+          <span style="flex: 1;">Group Vibe &amp; Sentiment</span>
+          <span class="hud-tag-pill">VIBE</span>
         </button>
         <button type="button" onclick="quickExecuteDirective('lockdown')" class="hud-action-btn danger">
           <i data-lucide="lock" style="width: 13px; height: 13px;"></i>
-          <span>Instant Panic Lockdown</span>
+          <span style="flex: 1;">Instant Panic Lockdown</span>
+          <span class="hud-tag-pill danger">LOCK</span>
         </button>
-        <button type="button" onclick="quickExecuteDirective('unlock')" class="hud-action-btn success">
+        <button type="button" onclick="quickExecuteDirective('unlock')" class="hud-action-btn">
           <i data-lucide="unlock" style="width: 13px; height: 13px;"></i>
-          <span>Restore Peace &amp; Unlock</span>
+          <span style="flex: 1;">Restore Peace &amp; Unlock</span>
+          <span class="hud-tag-pill">PEACE</span>
         </button>
         <button type="button" onclick="quickExecuteDirective('purge ghosts')" class="hud-action-btn">
           <i data-lucide="ghost" style="width: 13px; height: 13px;"></i>
-          <span>Purge Ghost Accounts</span>
+          <span style="flex: 1;">Purge Ghost Accounts</span>
+          <span class="hud-tag-pill">PURGE</span>
         </button>
         <button type="button" onclick="quickExecuteDirective('sweep 1500')" class="hud-action-btn">
           <i data-lucide="brush" style="width: 13px; height: 13px;"></i>
-          <span>Sweep Service Clutter</span>
+          <span style="flex: 1;">Sweep Service Clutter</span>
+          <span class="hud-tag-pill">SWEEP</span>
         </button>
         <button type="button" onclick="openLeadsModal()" class="hud-action-btn">
           <i data-lucide="gem" style="width: 13px; height: 13px;"></i>
-          <span>Scrape Premium Leads</span>
+          <span style="flex: 1;">Scrape Premium Leads</span>
+          <span class="hud-tag-pill">LEADS</span>
         </button>
         <button type="button" onclick="openHeatmapModal()" class="hud-action-btn">
           <i data-lucide="activity" style="width: 13px; height: 13px;"></i>
-          <span>24/7 Activity Heatmap Radar</span>
+          <span style="flex: 1;">24/7 Activity Heatmap Radar</span>
+          <span class="hud-tag-pill">HEAT</span>
         </button>
         <button type="button" onclick="openBroadcastModal()" class="hud-action-btn">
           <i data-lucide="radio" style="width: 13px; height: 13px;"></i>
-          <span>High-Velocity Drip Broadcast</span>
+          <span style="flex: 1;">High-Velocity Drip Broadcast</span>
+          <span class="hud-tag-pill">CAST</span>
         </button>
         <button type="button" onclick="launchNativeTerminal()" class="hud-action-btn terminal">
           <i data-lucide="terminal" style="width: 13px; height: 13px; color: var(--vermilion);"></i>
-          <span>Launch Mac Terminal.app</span>
+          <span style="flex: 1;">Launch Mac Terminal.app</span>
+          <span class="hud-tag-pill" style="border-color: var(--vermilion); color: var(--vermilion);">CLI</span>
         </button>
       </div>
 
       <!-- SOVEREIGN FORENSIC EXPORTS (1-CLICK) -->
       <div class="hud-panel-title" style="margin-top: 14px;">
-        <span><i data-lucide="download" style="width: 12px; height: 12px; color: #34d399;"></i> 1-CLICK FORENSIC EXPORTS</span>
+        <span><b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">03</b> // FORENSIC EXPORTS</span>
+        <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">証跡</span>
       </div>
       <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;">
-        <button type="button" onclick="exportData('entities')" class="hud-action-btn" style="border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.06);">
-          <i data-lucide="file-spreadsheet" style="width: 12px; height: 12px; color: #10b981;"></i>
-          <span>Export Crypto IOCs (CSV)</span>
+        <button type="button" onclick="exportData('entities')" class="hud-action-btn">
+          <i data-lucide="file-spreadsheet" style="width: 12px; height: 12px;"></i>
+          <span style="flex: 1;">Export Crypto IOCs (CSV)</span>
+          <span class="hud-tag-pill">IOC</span>
         </button>
-        <button type="button" onclick="exportData('ghost')" class="hud-action-btn" style="border-color: rgba(168,85,247,0.35); background: rgba(168,85,247,0.06);">
-          <i data-lucide="file-text" style="width: 12px; height: 12px; color: #c084fc;"></i>
-          <span>Export Deleted Vault (CSV)</span>
+        <button type="button" onclick="exportData('ghost')" class="hud-action-btn">
+          <i data-lucide="file-text" style="width: 12px; height: 12px;"></i>
+          <span style="flex: 1;">Export Deleted Vault (CSV)</span>
+          <span class="hud-tag-pill">VAULT</span>
         </button>
       </div>
 
@@ -1623,28 +1844,43 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
     <!-- CENTER COLUMN: POWER INTELLIGENCE SUITE (flex-1) -->
     <main class="hud-col hud-col-center">
-      <!-- CENTER NAVIGATION TABS -->
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line-soft); padding: 8px 12px; background: rgba(5,7,10,0.6); flex-wrap: wrap; gap: 8px;">
-        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-          <button type="button" onclick="switchCenterTab('wiretap')" id="tab-btn-wiretap" class="flt-btn active" style="font-size: 11px; padding: 6px 12px;">
-            <i data-lucide="radio" style="width: 12px; height: 12px;"></i>
-            <span>Live Wiretap</span>
+      <!-- CENTER NAVIGATION TABS: KYOTO ZEN CHAPTERS -->
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line-soft); background: rgba(5,7,10,0.85); flex-wrap: wrap; gap: 8px; padding-right: 12px;">
+        <div class="kage-hud-tabs">
+          <button type="button" onclick="switchCenterTab('wiretap')" id="tab-btn-wiretap" class="kage-hud-tab active">
+            <span class="kage-tab-num">01</span>
+            <div class="kage-tab-meta">
+              <span class="kage-tab-title">Live Wiretap</span>
+              <span class="kage-tab-jp">盗聴 // 影の耳</span>
+            </div>
           </button>
-          <button type="button" onclick="switchCenterTab('intel')" id="tab-btn-intel" class="flt-btn" style="font-size: 11px; padding: 6px 12px; border-color: rgba(56,189,248,0.3); color: #38bdf8;">
-            <i data-lucide="sparkles" style="width: 12px; height: 12px;"></i>
-            <span>AI Intel Briefing</span>
+          <button type="button" onclick="switchCenterTab('intel')" id="tab-btn-intel" class="kage-hud-tab">
+            <span class="kage-tab-num">02</span>
+            <div class="kage-tab-meta">
+              <span class="kage-tab-title">AI Intel</span>
+              <span class="kage-tab-jp">知謀 // 観照</span>
+            </div>
           </button>
-          <button type="button" onclick="switchCenterTab('ghost')" id="tab-btn-ghost" class="flt-btn" style="font-size: 11px; padding: 6px 12px; border-color: rgba(192,132,252,0.3); color: #c084fc;">
-            <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
-            <span>Ghost Vault (Anti-Delete)</span>
+          <button type="button" onclick="switchCenterTab('ghost')" id="tab-btn-ghost" class="kage-hud-tab">
+            <span class="kage-tab-num">03</span>
+            <div class="kage-tab-meta">
+              <span class="kage-tab-title">Ghost Vault</span>
+              <span class="kage-tab-jp">幽霊 // 痕跡</span>
+            </div>
           </button>
-          <button type="button" onclick="switchCenterTab('recon')" id="tab-btn-recon" class="flt-btn" style="font-size: 11px; padding: 6px 12px; border-color: rgba(52,211,153,0.3); color: #34d399;">
-            <i data-lucide="users" style="width: 12px; height: 12px;"></i>
-            <span>Member Recon</span>
+          <button type="button" onclick="switchCenterTab('recon')" id="tab-btn-recon" class="kage-hud-tab">
+            <span class="kage-tab-num">04</span>
+            <div class="kage-tab-meta">
+              <span class="kage-tab-title">Member Recon</span>
+              <span class="kage-tab-jp">偵察 // 衆生</span>
+            </div>
           </button>
-          <button type="button" onclick="switchCenterTab('alpha')" id="tab-btn-alpha" class="flt-btn" style="font-size: 11px; padding: 6px 12px; border-color: rgba(245,158,11,0.3); color: #f59e0b;">
-            <i data-lucide="wallet" style="width: 12px; height: 12px;"></i>
-            <span>Alpha Radar</span>
+          <button type="button" onclick="switchCenterTab('alpha')" id="tab-btn-alpha" class="kage-hud-tab">
+            <span class="kage-tab-num">05</span>
+            <div class="kage-tab-meta">
+              <span class="kage-tab-title">Alpha Radar</span>
+              <span class="kage-tab-jp">探知 // 金策</span>
+            </div>
           </button>
         </div>
 
@@ -1663,6 +1899,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
       <!-- TAB 1: WIRETAP MESSAGE STREAM CONTAINER -->
       <div id="tab-content-wiretap" class="wiretap-stream-wrap">
+        <div class="sec-head" style="margin-bottom: 14px; padding: 12px 14px 0 14px;">
+          <span class="k"><b>01</b> — REAL-TIME WIRETAP STREAM</span>
+          <span class="rule"></span>
+          <span class="k jp">盗聴 // 影の耳</span>
+        </div>
         <div id="wiretap-stream" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
           <div class="wiretap-init-state">
             <i data-lucide="radio" style="width: 28px; height: 28px; color: var(--muted); opacity: 0.6;"></i>
@@ -1674,19 +1915,24 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
       <!-- TAB 2: AI CHAT INTEL SYNTHESIZER CONTAINER -->
       <div id="tab-content-intel" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+        <div class="sec-head" style="margin-bottom: 18px;">
+          <span class="k"><b>02</b> — TACTICAL AI INTEL SYNTHESIS</span>
+          <span class="rule"></span>
+          <span class="k jp">知謀 // 観照</span>
+        </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
           <div>
-            <div style="font-size: 10px; letter-spacing: 0.2em; color: #38bdf8; text-transform: uppercase;">TACTICAL AI BRIEFING ENGINE</div>
-            <h3 style="font-size: 18px; color: var(--bone); font-weight: 700; margin-top: 4px;">Group Narrative &amp; Alpha Synthesis</h3>
+            <div style="font-size: 10px; letter-spacing: 0.2em; color: var(--vermilion); text-transform: uppercase;">TACTICAL AI BRIEFING ENGINE</div>
+            <h3 style="font-size: 18px; color: var(--bone); font-weight: 500; margin-top: 4px; font-family: 'Onest', sans-serif;">Group Narrative &amp; Alpha Synthesis</h3>
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <select id="intel-depth-select" style="background: #080c10; border: 1px solid var(--line-soft); color: var(--bone); font-size: 11px; padding: 6px 10px; border-radius: 4px;">
+            <select id="intel-depth-select" class="kage-select font-mono" style="padding: 8px 12px; font-size: 11px;">
               <option value="100" selected>Recent 100 Msgs</option>
               <option value="250">Deep 250 Msgs</option>
               <option value="500">Exhaustive 500 Msgs</option>
             </select>
-            <button type="button" onclick="generateIntelBriefing()" id="btn-run-briefing" class="kage-btn" style="padding: 10px 18px; font-size: 11px; background: #38bdf8; border-color: #38bdf8; color: #020406;">
-              <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i> ⚡ SYNTHESIZE INTEL
+            <button type="button" onclick="generateIntelBriefing()" id="btn-run-briefing" class="kage-action-btn">
+              <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i> SYNTHESIZE INTEL
             </button>
           </div>
         </div>
@@ -1702,16 +1948,21 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
       <!-- TAB 3: GHOST VAULT CONTAINER (ANTI-DELETE & ANTI-EDIT) -->
       <div id="tab-content-ghost" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+        <div class="sec-head" style="margin-bottom: 18px;">
+          <span class="k"><b>03</b> — GHOST VAULT SURVEILLANCE ARCHIVE</span>
+          <span class="rule"></span>
+          <span class="k jp">幽霊 // 痕跡</span>
+        </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
           <div>
-            <div style="font-size: 10px; letter-spacing: 0.2em; color: #c084fc; text-transform: uppercase;">ANTI-DELETE &amp; TAMPER DETECTION ENGINE</div>
-            <h3 style="font-size: 18px; color: var(--bone); font-weight: 700; margin-top: 4px;">Ghost Vault Surveillance Archive</h3>
+            <div style="font-size: 10px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase;">ANTI-DELETE &amp; TAMPER DETECTION ENGINE</div>
+            <h3 style="font-size: 18px; color: var(--bone); font-weight: 500; margin-top: 4px; font-family: 'Onest', sans-serif;">Ghost Vault Surveillance Archive</h3>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button type="button" onclick="refreshCenterGhostVault()" class="kage-btn-pill">
+            <button type="button" onclick="refreshCenterGhostVault()" class="kage-sub-btn">
               <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> Refresh
             </button>
-            <button type="button" onclick="exportData('ghost')" class="kage-btn" style="padding: 10px 18px; font-size: 11px; background: #c084fc; border-color: #c084fc; color: #020406;">
+            <button type="button" onclick="exportData('ghost')" class="kage-action-btn">
               <i data-lucide="download" style="width: 14px; height: 14px;"></i> EXPORT CSV
             </button>
           </div>
@@ -1721,7 +1972,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <input type="text" id="center-ghost-search" oninput="renderCenterGhostVault()" placeholder="Search deleted or edited text / user..." style="background: #030609; border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 260px;" />
           <button type="button" onclick="setCenterGhostFilter('all')" id="center-ghost-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
           <button type="button" onclick="setCenterGhostFilter('deleted')" id="center-ghost-flt-deleted" class="flt-btn danger" style="font-size: 10px;">🚨 DELETED ONLY</button>
-          <button type="button" onclick="setCenterGhostFilter('edited')" id="center-ghost-flt-edited" class="flt-btn" style="font-size: 10px; color: #38bdf8;">✏️ EDITED ONLY</button>
+          <button type="button" onclick="setCenterGhostFilter('edited')" id="center-ghost-flt-edited" class="flt-btn" style="font-size: 10px;">✏️ EDITED ONLY</button>
           <span id="center-ghost-count-tag" style="margin-left: auto; font-size: 11px; color: var(--muted);">0 events</span>
         </div>
 
@@ -1732,16 +1983,21 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
       <!-- TAB 4: MEMBER RECON MATRIX CONTAINER -->
       <div id="tab-content-recon" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+        <div class="sec-head" style="margin-bottom: 18px;">
+          <span class="k"><b>04</b> — MEMBER RECONNAISSANCE GRID</span>
+          <span class="rule"></span>
+          <span class="k jp">偵察 // 衆生</span>
+        </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
           <div>
-            <div style="font-size: 10px; letter-spacing: 0.2em; color: #34d399; text-transform: uppercase;">DEEP PARTICIPANT RECONNAISSANCE</div>
-            <h3 style="font-size: 18px; color: var(--bone); font-weight: 700; margin-top: 4px;">Target Member Surveillance Grid</h3>
+            <div style="font-size: 10px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase;">DEEP PARTICIPANT RECONNAISSANCE</div>
+            <h3 style="font-size: 18px; color: var(--bone); font-weight: 500; margin-top: 4px; font-family: 'Onest', sans-serif;">Target Member Surveillance Grid</h3>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button type="button" onclick="runMemberRecon()" id="btn-run-recon" class="kage-btn" style="padding: 10px 18px; font-size: 11px; background: #34d399; border-color: #34d399; color: #020406;">
-              <i data-lucide="scan" style="width: 14px; height: 14px;"></i> 🔍 SCAN MEMBERS
+            <button type="button" onclick="runMemberRecon()" id="btn-run-recon" class="kage-action-btn">
+              <i data-lucide="scan" style="width: 14px; height: 14px;"></i> SCAN MEMBERS
             </button>
-            <button type="button" onclick="exportReconMembers()" class="kage-btn-pill" style="border-color: rgba(52,211,153,0.4); color: #34d399;">
+            <button type="button" onclick="exportReconMembers()" class="kage-sub-btn">
               <i data-lucide="download" style="width: 12px; height: 12px;"></i> CSV Export
             </button>
           </div>
@@ -1750,8 +2006,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;">
           <input type="text" id="recon-search-filter" oninput="filterReconTable()" placeholder="Filter by name, @handle, or ID..." style="background: #030609; border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 240px;" />
           <button type="button" onclick="setReconFilter('all')" id="recon-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
-          <button type="button" onclick="setReconFilter('premium')" id="recon-flt-premium" class="flt-btn" style="font-size: 10px; color: #c084fc;">⭐ PREMIUM ONLY</button>
-          <button type="button" onclick="setReconFilter('verified')" id="recon-flt-verified" class="flt-btn" style="font-size: 10px; color: #34d399;">🛡️ HIGH TRUST (80%+)</button>
+          <button type="button" onclick="setReconFilter('premium')" id="recon-flt-premium" class="flt-btn" style="font-size: 10px;">⭐ PREMIUM ONLY</button>
+          <button type="button" onclick="setReconFilter('verified')" id="recon-flt-verified" class="flt-btn" style="font-size: 10px;">🛡️ HIGH TRUST (80%+)</button>
           <button type="button" onclick="setReconFilter('risky')" id="recon-flt-risky" class="flt-btn danger" style="font-size: 10px;">⚠️ SUSPICIOUS</button>
           <span id="recon-count-label" style="margin-left: auto; font-size: 11px; color: var(--muted);">0 members</span>
         </div>
@@ -1766,16 +2022,21 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
       <!-- TAB 5: ALPHA & SIGNAL RADAR CONTAINER (WITH DEXSCREENER) -->
       <div id="tab-content-alpha" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+        <div class="sec-head" style="margin-bottom: 18px;">
+          <span class="k"><b>05</b> — ALPHA &amp; SIGNAL HARVESTER</span>
+          <span class="rule"></span>
+          <span class="k jp">探知 // 金策</span>
+        </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
           <div>
-            <div style="font-size: 10px; letter-spacing: 0.2em; color: #f59e0b; text-transform: uppercase;">CRYPTO ASSET &amp; INVITE HARVESTER</div>
-            <h3 style="font-size: 18px; color: var(--bone); font-weight: 700; margin-top: 4px;">Live Extracted Alpha &amp; DexScreener Radar</h3>
+            <div style="font-size: 10px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase;">CRYPTO ASSET &amp; INVITE HARVESTER</div>
+            <h3 style="font-size: 18px; color: var(--bone); font-weight: 500; margin-top: 4px; font-family: 'Onest', sans-serif;">Live Extracted Alpha &amp; DexScreener Radar</h3>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button type="button" onclick="refreshAlphaRadar()" class="kage-btn-pill">
+            <button type="button" onclick="refreshAlphaRadar()" class="kage-sub-btn">
               <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> Refresh
             </button>
-            <button type="button" onclick="exportData('entities')" class="kage-btn" style="padding: 10px 18px; font-size: 11px; background: #f59e0b; border-color: #f59e0b; color: #020406;">
+            <button type="button" onclick="exportData('entities')" class="kage-action-btn">
               <i data-lucide="download" style="width: 14px; height: 14px;"></i> EXPORT CSV
             </button>
           </div>
@@ -1791,8 +2052,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     <aside class="hud-col hud-col-right">
       <!-- AI COPILOT INTERACTIVE TERMINAL -->
       <div class="hud-panel-title">
-        <span><i data-lucide="bot" style="width: 12px; height: 12px; color: var(--vermilion);"></i> NEURAL AI COPILOT</span>
-        <span class="badge badge-emerald" style="font-size: 9px;">ONLINE</span>
+        <span><b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">04</b> // NEURAL AI COPILOT</span>
+        <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">知能</span>
+        <span class="badge badge-muted" style="font-size: 8px; border-color: rgba(52,211,153,0.3); color: #34d399;">ONLINE</span>
       </div>
 
       <div class="copilot-terminal-card">
@@ -1816,7 +2078,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         <form onsubmit="handleCopilotSubmit(event)" class="copilot-input-form">
           <div class="copilot-input-wrap">
             <span class="copilot-prompt-sym">&gt;</span>
-            <input type="text" id="copilot-input" class="copilot-text-input" placeholder="Directive (e.g. lockdown, sweep 500)..." autocomplete="off" />
+            <input type="text" id="copilot-input" class="copilot-text-input" placeholder="Directive (e.g. briefing, scan members)..." autocomplete="off" />
             <button type="submit" class="copilot-send-btn" title="Send Directive">
               <i data-lucide="corner-down-left" style="width: 13px; height: 13px;"></i>
             </button>
@@ -1827,9 +2089,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       <!-- NEURAL THREAT INTERCEPT FEED -->
       <div class="hud-panel-title" style="margin-top: 14px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <i data-lucide="shield-alert" style="width: 12px; height: 12px; color: var(--ember);"></i>
-          <span>INTERCEPTED NEURAL THREATS</span>
+          <b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">05</b>
+          <span>// INTERCEPTED THREAT LOG</span>
         </div>
+        <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">脅威</span>
         <button type="button" onclick="loadThreatsHistory()" class="btn-icon-xs" title="Reload Threat Logs"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i></button>
       </div>
 
@@ -1856,7 +2119,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px;">
         <button type="button" onclick="switchViewMode('warroom')" class="cta" style="background: var(--vermilion); color: #fff; padding: 12px 22px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; border-radius: 2px; box-shadow: 0 0 20px rgba(224,35,28,0.5); cursor: pointer;">
           <span class="live-dot-pulse"></span>
-          <span>Open Cyber War Room HUD</span>
+          <span>Enter War Room // 影の司令室</span>
         </button>
         <a href="#tactical-deck" class="cta" style="border: 1px solid var(--line); color: var(--bone); padding: 12px 20px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; border-radius: 2px;">
           <span>Command Deck ↓</span>
@@ -5862,6 +6125,27 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     safeCreateIcons();
   }
 
+  function toggleNavToolsDropdown(e) {
+    if (e) e.stopPropagation();
+    const d = document.getElementById('nav-tools-dropdown');
+    if (!d) return;
+    const isShown = d.style.display === 'flex';
+    d.style.display = isShown ? 'none' : 'flex';
+    playZenSound('click');
+    safeCreateIcons();
+  }
+
+  function closeNavToolsDropdown() {
+    const d = document.getElementById('nav-tools-dropdown');
+    if (d) d.style.display = 'none';
+  }
+
+  window.addEventListener('click', (e) => {
+    if (!e.target.closest('.kage-nav-dropdown-wrap')) {
+      closeNavToolsDropdown();
+    }
+  });
+
   // Global hotkey 'W' toggle
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
@@ -6283,15 +6567,15 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     container.innerHTML = list.map(m => {
       const isDel = m.is_deleted;
       const statusBadge = isDel 
-        ? '<span class="badge" style="font-size: 9px; padding: 2px 6px; background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #f87171; font-weight: 700;">🚨 DELETED MESSAGE (RECOVERED)</span>'
-        : '<span class="badge" style="font-size: 9px; padding: 2px 6px; background: rgba(56,189,248,0.2); border: 1px solid #38bdf8; color: #38bdf8; font-weight: 700;">✏️ EDITED MESSAGE REVISION</span>';
+        ? '<span class="badge" style="font-size: 9px; padding: 2px 6px; background: rgba(224,35,28,0.18); border: 1px solid var(--vermilion); color: #ff6a50; font-weight: 700;">🚨 DELETED MESSAGE (RECOVERED)</span>'
+        : '<span class="badge" style="font-size: 9px; padding: 2px 6px; background: rgba(223,231,224,0.08); border: 1px solid var(--line); color: var(--bone); font-weight: 600;">✏️ EDITED MESSAGE REVISION</span>';
       
       const cardBorder = isDel
-        ? 'border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.04);'
-        : 'border: 1px solid rgba(56,189,248,0.3); background: rgba(56,189,248,0.04);';
+        ? 'border: 1px solid rgba(224,35,28,0.3); background: rgba(224,35,28,0.04);'
+        : 'border: 1px solid var(--line-soft); background: rgba(10,14,18,0.6);';
 
       return `
-        <div style="border-radius: 6px; padding: 12px 16px; ${cardBorder}">
+        <div style="border-radius: 3px; padding: 12px 16px; ${cardBorder}">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 8px;">
               ${statusBadge}
@@ -6302,27 +6586,27 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           </div>
 
           ${isDel ? `
-            <div style="font-size: 12px; color: #fca5a5; line-height: 1.5; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 4px; word-break: break-word;">
+            <div style="font-size: 12px; color: #ff8570; line-height: 1.5; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 2px; word-break: break-word;">
               ${escapeHtml(m.message_text || '[Empty Content]')}
             </div>
           ` : `
             <div style="display: flex; flex-direction: column; gap: 6px;">
               <div style="font-size: 11px; color: var(--muted);">Original text before edit:</div>
-              <div style="font-size: 12px; color: #94a3b8; text-decoration: line-through; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 4px; word-break: break-word;">
+              <div style="font-size: 12px; color: #88958c; text-decoration: line-through; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 2px; word-break: break-word;">
                 ${escapeHtml(m.original_text || '')}
               </div>
-              <div style="font-size: 11px; color: #38bdf8; margin-top: 4px;">Revised new text:</div>
-              <div style="font-size: 12px; color: var(--bone); background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 4px; word-break: break-word;">
+              <div style="font-size: 11px; color: var(--vermilion); margin-top: 4px;">Revised new text:</div>
+              <div style="font-size: 12px; color: var(--bone); background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 2px; word-break: break-word;">
                 ${escapeHtml(m.message_text || '')}
               </div>
             </div>
           `}
 
           <div style="display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end;">
-            <button type="button" onclick="navigator.clipboard.writeText('${escapeQuote(m.message_text || '')}'); showToast('Copied to clipboard!', 'success');" class="btn-xs-outline" style="border-color: var(--line-soft); color: var(--bone);">
+            <button type="button" onclick="navigator.clipboard.writeText('${escapeQuote(m.message_text || '')}'); showToast('Copied to clipboard!', 'success');" class="btn-xs-outline">
               COPY
             </button>
-            <button type="button" onclick="openWiretapDossier(${m.sender_id || 0}, '${escapeQuote(m.sender_name || '')}', '${m.sender_username || ''}')" class="btn-xs-outline" style="border-color: rgba(56,189,248,0.4); color: #38bdf8;">
+            <button type="button" onclick="openWiretapDossier(${m.sender_id || 0}, '${escapeQuote(m.sender_name || '')}', '${m.sender_username || ''}')" class="btn-xs-outline" style="border-color: var(--line); color: var(--bone);">
               DOSSIER
             </button>
           </div>
@@ -6355,10 +6639,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       const signals = data.extracted_signals || [];
 
       container.innerHTML = `
-        <div style="background: rgba(56,189,248,0.06); border: 1px solid rgba(56,189,248,0.3); border-radius: 6px; padding: 18px 20px; margin-bottom: 20px;">
+        <div style="background: rgba(10, 14, 18, 0.7); border: 1px solid var(--line); border-left: 2px solid var(--vermilion); border-radius: 2px; padding: 18px 20px; margin-bottom: 20px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-            <span style="font-size: 11px; color: #38bdf8; font-weight: 700; letter-spacing: 0.15em;">TACTICAL EXECUTIVE SUMMARY</span>
-            <span class="badge" style="background: #030609; border: 1px solid rgba(56,189,248,0.4); color: #38bdf8; font-size: 9px;">${data.message_count} MESSAGES ANALYZED</span>
+            <span style="font-size: 11px; color: var(--vermilion); font-weight: 700; letter-spacing: 0.15em;">TACTICAL EXECUTIVE SUMMARY // 要約</span>
+            <span class="badge badge-muted" style="font-size: 9px;">${data.message_count} MESSAGES ANALYZED</span>
           </div>
           <p style="font-size: 13px; color: var(--bone); line-height: 1.7; font-family: 'Onest', sans-serif;">
             ${escapeHtml(data.executive_summary)}
@@ -6366,49 +6650,49 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
-          <div style="background: #05070a; border: 1px solid var(--line); border-radius: 6px; padding: 16px;">
-            <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px;">COMMUNITY SENTIMENT & MOMENTUM</div>
+          <div style="background: rgba(10, 14, 18, 0.6); border: 1px solid var(--line-soft); border-radius: 2px; padding: 16px;">
+            <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.12em; text-transform: uppercase;">COMMUNITY SENTIMENT &amp; MOMENTUM</div>
             <div style="font-size: 15px; font-weight: 700; color: ${s.bullish > s.bearish ? '#34d399' : '#e0231c'}; margin-bottom: 12px;">
               ${s.mood || 'NEUTRAL CONSENSUS'}
             </div>
-            <div style="height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: #12181f; margin-bottom: 8px;">
+            <div style="height: 6px; border-radius: 2px; overflow: hidden; display: flex; background: #05070a; margin-bottom: 8px;">
               <div style="width: ${s.bullish || 50}%; background: #34d399;" title="Bullish: ${s.bullish}%"></div>
-              <div style="width: ${s.neutral || 30}%; background: #38bdf8;" title="Neutral: ${s.neutral}%"></div>
-              <div style="width: ${s.bearish || 20}%; background: #e0231c;" title="Bearish: ${s.bearish}%"></div>
+              <div style="width: ${s.neutral || 30}%; background: var(--muted);" title="Neutral: ${s.neutral}%"></div>
+              <div style="width: ${s.bearish || 20}%; background: var(--vermilion);" title="Bearish: ${s.bearish}%"></div>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--muted);">
               <span style="color: #34d399;">Bull: ${s.bullish || 0}%</span>
-              <span style="color: #38bdf8;">Neutral: ${s.neutral || 0}%</span>
-              <span style="color: #e0231c;">Bear: ${s.bearish || 0}%</span>
+              <span style="color: var(--bone-dim);">Neutral: ${s.neutral || 0}%</span>
+              <span style="color: var(--ember);">Bear: ${s.bearish || 0}%</span>
             </div>
           </div>
 
-          <div style="background: #05070a; border: 1px solid var(--line); border-radius: 6px; padding: 16px;">
-            <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px;">MENTIONED TOKENS & CASHTAGS</div>
+          <div style="background: rgba(10, 14, 18, 0.6); border: 1px solid var(--line-soft); border-radius: 2px; padding: 16px;">
+            <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.12em; text-transform: uppercase;">MENTIONED TOKENS &amp; CASHTAGS</div>
             <div style="display: flex; flex-wrap: wrap; gap: 6px;">
               ${cashtags.length > 0 ? cashtags.map(t => `
-                <span class="badge" style="font-size: 11px; padding: 4px 8px; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: #34d399; font-weight: 700;">
-                  $${escapeHtml(t.tag)} <span style="font-size: 9px; opacity: 0.7;">${t.count}x</span>
+                <span class="badge" style="font-size: 11px; padding: 4px 8px; background: rgba(10,14,18,0.8); border: 1px solid var(--line); color: var(--bone); font-weight: 700;">
+                  $${escapeHtml(t.tag)} <span style="font-size: 9px; opacity: 0.7; color: var(--vermilion);">${t.count}x</span>
                 </span>
               `).join('') : '<span style="font-size: 11px; color: var(--muted);">No $cashtags detected in recent sample.</span>'}
             </div>
           </div>
         </div>
 
-        <div style="background: #05070a; border: 1px solid var(--line); border-radius: 6px; padding: 16px; margin-bottom: 20px;">
-          <div style="font-size: 10px; color: var(--muted); margin-bottom: 12px; letter-spacing: 0.1em; text-transform: uppercase;">TOP DISCUSSION LEADERS & CONVERSATION DRIVERS</div>
+        <div style="background: rgba(10, 14, 18, 0.6); border: 1px solid var(--line-soft); border-radius: 2px; padding: 16px; margin-bottom: 20px;">
+          <div style="font-size: 10px; color: var(--muted); margin-bottom: 12px; letter-spacing: 0.12em; text-transform: uppercase;">TOP DISCUSSION LEADERS &amp; CONVERSATION DRIVERS</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
             ${influencers.map(inf => `
-              <div style="background: #080c10; border: 1px solid var(--line-soft); border-radius: 4px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+              <div style="background: rgba(5, 7, 10, 0.7); border: 1px solid var(--line-soft); border-radius: 2px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
                 <div>
                   <div style="font-size: 12px; font-weight: 600; color: var(--bone);">${escapeHtml(inf.name)}</div>
                   <div style="font-size: 10px; color: var(--muted);">${inf.handle ? '@' + inf.handle : '#' + inf.user_id}</div>
-                  <span class="badge" style="font-size: 8px; margin-top: 4px; padding: 1px 4px; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.3); color: #38bdf8;">
+                  <span class="badge" style="font-size: 8px; margin-top: 4px; padding: 1px 4px; background: rgba(10,14,18,0.8); border: 1px solid var(--line-soft); color: var(--bone-dim);">
                     ${inf.trust_score}% TRUST
                   </span>
                 </div>
                 <div style="text-align: right;">
-                  <div style="font-size: 14px; font-weight: 700; color: #38bdf8;">${inf.share_pct}%</div>
+                  <div style="font-size: 14px; font-weight: 700; color: var(--vermilion);">${inf.share_pct}%</div>
                   <div style="font-size: 9px; color: var(--muted);">${inf.message_count} msgs</div>
                 </div>
               </div>
@@ -6417,13 +6701,13 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         </div>
 
         ${signals.length > 0 ? `
-          <div style="background: #05070a; border: 1px solid var(--line); border-radius: 6px; padding: 16px;">
-            <div style="font-size: 10px; color: #f59e0b; margin-bottom: 8px; font-weight: 700;">HARVESTED CONTRACT / WALLET SIGNALS (${signals.length})</div>
+          <div style="background: rgba(10, 14, 18, 0.6); border: 1px solid var(--line-soft); border-radius: 2px; padding: 16px;">
+            <div style="font-size: 10px; color: var(--bone-dim); margin-bottom: 8px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">HARVESTED CONTRACT / WALLET SIGNALS (${signals.length})</div>
             <div style="display: flex; flex-direction: column; gap: 6px;">
               ${signals.map(sig => `
-                <div style="display: flex; justify-content: space-between; align-items: center; background: #080c10; border: 1px solid var(--line-soft); padding: 8px 12px; border-radius: 4px;">
-                  <code style="font-size: 11px; color: #34d399;">${escapeHtml(sig)}</code>
-                  <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(sig)}'); showToast('Copied address!', 'success');" class="btn-xs-outline" style="border-color: #34d399; color: #34d399;">COPY</button>
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); padding: 8px 12px; border-radius: 2px;">
+                  <code style="font-size: 11px; color: var(--bone);">${escapeHtml(sig)}</code>
+                  <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(sig)}'); showToast('Copied address!', 'success');" class="btn-xs-outline">COPY</button>
                 </div>
               `).join('')}
             </div>
@@ -6558,10 +6842,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
                   ${m.last_seen || 'Recently'}
                 </td>
                 <td style="padding: 10px 12px; text-align: right;">
-                  <button type="button" onclick="openWiretapDossier(${m.id}, '${escapeQuote(m.full_name)}', '${m.username || ''}')" class="act-pill" style="border-color: rgba(56,189,248,0.3); color: #38bdf8; padding: 3px 8px;">
+                  <button type="button" onclick="openWiretapDossier(${m.id}, '${escapeQuote(m.full_name)}', '${m.username || ''}')" class="act-pill">
                     Dossier
                   </button>
-                  <button type="button" onclick="quickAddWatchdog('user', '${m.username ? '@' + m.username : m.id}')" class="act-pill" style="border-color: rgba(245,158,11,0.3); color: #f59e0b; padding: 3px 8px;">
+                  <button type="button" onclick="quickAddWatchdog('user', '${m.username ? '@' + m.username : m.id}')" class="act-pill danger">
                     Track
                   </button>
                 </td>
@@ -6619,27 +6903,23 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       }
 
       list.innerHTML = items.map((it, idx) => {
-        let badgeColor = "#34d399";
         let explorerLink = "";
         const val = it.entity_value || "";
         const domId = `dex-stat-${idx}`;
         if (it.entity_type === 'crypto_sol') {
-          badgeColor = "#14F195";
           explorerLink = `https://solscan.io/account/${val}`;
         } else if (it.entity_type === 'crypto_eth') {
-          badgeColor = "#627EEA";
           explorerLink = `https://etherscan.io/address/${val}`;
         } else if (it.entity_type === 'crypto_ton') {
-          badgeColor = "#0088CC";
           explorerLink = `https://tonscan.org/address/${val}`;
         }
 
         return `
-          <div style="background: #080c10; border: 1px solid var(--line-soft); border-radius: 6px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="background: rgba(10, 14, 18, 0.7); border: 1px solid var(--line-soft); border-radius: 2px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
               <div style="min-width: 0;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                  <span class="badge" style="font-size: 8px; padding: 2px 6px; background: rgba(5,7,10,0.8); border: 1px solid ${badgeColor}; color: ${badgeColor}; font-weight: 700;">
+                  <span class="badge" style="font-size: 8px; padding: 2px 6px; background: rgba(5,7,10,0.8); border: 1px solid var(--line); color: var(--bone); font-weight: 700;">
                     ${(it.entity_type || 'SIGNAL').toUpperCase()}
                   </span>
                   <span style="font-size: 11px; color: var(--muted);">${it.group_title ? escapeHtml(it.group_title) : ''} · ${it.timestamp || ''}</span>
@@ -6648,17 +6928,17 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
                 ${it.context ? `<div style="font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'Onest', sans-serif;">"${escapeHtml(it.context)}"</div>` : ''}
               </div>
               <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(val)}'); showToast('Copied address to clipboard!', 'success');" class="btn-xs-outline" style="border-color: ${badgeColor}; color: ${badgeColor};">
+                <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(val)}'); showToast('Copied address to clipboard!', 'success');" class="btn-xs-outline">
                   COPY
                 </button>
-                <button type="button" onclick="fetchDexStats('${escapeHtml(val)}', '${domId}')" class="btn-xs-outline" style="border-color: #f59e0b; color: #f59e0b;">
+                <button type="button" onclick="fetchDexStats('${escapeHtml(val)}', '${domId}')" class="btn-xs-outline" style="border-color: var(--vermilion); color: #ff5a3c;">
                   ⚡ LIVE QUOTE
                 </button>
-                <a href="https://dexscreener.com/search?q=${escapeHtml(val)}" target="_blank" class="btn-xs-outline" style="border-color: rgba(245,158,11,0.4); color: #f59e0b; text-decoration: none;">
+                <a href="https://dexscreener.com/search?q=${escapeHtml(val)}" target="_blank" class="btn-xs-outline" style="text-decoration: none;">
                   DEXSCREENER ↗
                 </a>
                 ${explorerLink ? `
-                  <a href="${explorerLink}" target="_blank" class="btn-xs-outline" style="border-color: var(--line-soft); color: var(--bone); text-decoration: none;">
+                  <a href="${explorerLink}" target="_blank" class="btn-xs-outline" style="text-decoration: none;">
                     EXPLORER ↗
                   </a>
                 ` : ''}
