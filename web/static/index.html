@@ -2356,52 +2356,80 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 </div>
 
 <!-- MODAL: TELEGRAM ACCOUNT AUTHENTICATION / LINK -->
-<div id="auth-modal" class="kage-modal-overlay">
-  <div class="kage-modal font-mono" style="padding: 30px; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); border: 1px solid rgba(224, 86, 36, 0.4);">
+<div id="auth-modal" class="kage-modal-overlay" onclick="closeAuthModalBackdrop(event)">
+  <div class="kage-modal font-mono" style="padding: 30px; max-width: 540px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); border: 1px solid rgba(224, 86, 36, 0.4);">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
       <div>
         <span class="eyebrow" style="color: var(--vermilion);"><span class="dot"></span> TELEGRAM CLOUD AUTHORIZATION</span>
         <h3 class="display" style="font-size: 20px; color: var(--bone); margin-top: 4px;">Link Userbot Account</h3>
       </div>
+      <button type="button" onclick="closeAuthModal()" class="kage-btn-pill" style="padding: 4px 10px; cursor: pointer;">✕ Close</button>
     </div>
 
-    <p id="auth-status-desc" style="font-size: 13px; color: var(--bone-dim); font-family: 'Onest', sans-serif; line-height: 1.6; margin-bottom: 20px;">
-      Your cloud instance needs to link to your Telegram account to load groups and enable surveillance features.
-    </p>
-
-    <!-- STEP 1: PHONE DISPLAY & SEND CODE BUTTON -->
-    <div id="auth-step-1">
-      <div style="background: #05070a; border: 1px solid var(--line); padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;">
-        <div style="font-size: 11px; color: var(--muted); margin-bottom: 4px;">TARGET TELEGRAM PHONE</div>
-        <div id="auth-phone-display" style="color: #34d399; font-size: 16px; font-weight: 600;">+263 78 831 1244</div>
-      </div>
-
-      <button id="auth-send-code-btn" onclick="sendAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 20px; font-size: 12px; justify-content: center;">
-        <i data-lucide="send" style="width: 15px; height: 15px;"></i> 📨 Send Telegram Verification Code
+    <div style="display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--line-soft); padding-bottom: 12px;">
+      <button type="button" onclick="switchAuthTab('otp')" id="auth-tab-btn-otp" class="flt-btn active" style="font-size: 11px;">
+        📨 Telegram Verification Code
       </button>
-      <div id="auth-send-error" style="color: var(--vermilion); font-size: 12px; margin-top: 12px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 10px; border-radius: 4px;"></div>
+      <button type="button" onclick="switchAuthTab('string')" id="auth-tab-btn-string" class="flt-btn" style="font-size: 11px; color: #38bdf8;">
+        ⚡ String Session Direct Import
+      </button>
     </div>
 
-    <!-- STEP 2: ENTER CODE & 2FA -->
-    <div id="auth-step-2" style="display: none;">
-      <div style="margin-bottom: 15px;">
-        <label style="font-size: 11px; color: var(--muted); display: block; margin-bottom: 6px;">ENTER 5-DIGIT TELEGRAM CODE</label>
-        <input type="text" id="auth-code-input" placeholder="12345" style="width: 100%; background: #05070a; border: 1px solid var(--line); color: var(--bone); padding: 12px 14px; font-size: 18px; border-radius: 4px; letter-spacing: 4px; text-align: center;" />
+    <!-- TAB 1: PHONE OTP FLOW -->
+    <div id="auth-tab-content-otp">
+      <p id="auth-status-desc" style="font-size: 12px; color: var(--bone-dim); font-family: 'Onest', sans-serif; line-height: 1.6; margin-bottom: 16px;">
+        Send a verification code to your phone or Telegram app to authorize this cloud instance.
+      </p>
+
+      <!-- STEP 1: PHONE DISPLAY & SEND CODE BUTTON -->
+      <div id="auth-step-1">
+        <div style="background: #05070a; border: 1px solid var(--line); padding: 12px 16px; border-radius: 4px; margin-bottom: 16px;">
+          <div style="font-size: 10px; color: var(--muted); margin-bottom: 4px;">TARGET TELEGRAM PHONE</div>
+          <div id="auth-phone-display" style="color: #34d399; font-size: 15px; font-weight: 600;">+263 78 831 1244</div>
+        </div>
+
+        <button id="auth-send-code-btn" onclick="sendAuthCode()" class="kage-btn" style="width: 100%; padding: 12px 18px; font-size: 11px; justify-content: center;">
+          <i data-lucide="send" style="width: 14px; height: 14px;"></i> 📨 Send Telegram Verification Code
+        </button>
+        <div id="auth-send-error" style="color: var(--vermilion); font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 8px; border-radius: 4px;"></div>
       </div>
 
-      <div id="auth-password-group" style="margin-bottom: 20px; display: none;">
-        <label style="font-size: 11px; color: var(--muted); display: block; margin-bottom: 6px;">TWO-STEP VERIFICATION (2FA) PASSWORD</label>
-        <input type="password" id="auth-password-input" placeholder="Enter 2FA password" style="width: 100%; background: #05070a; border: 1px solid var(--line); color: var(--bone); padding: 12px 14px; font-size: 13px; border-radius: 4px;" />
+      <!-- STEP 2: ENTER CODE & 2FA -->
+      <div id="auth-step-2" style="display: none;">
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 10px; color: var(--muted); display: block; margin-bottom: 6px;">ENTER 5-DIGIT TELEGRAM CODE</label>
+          <input type="text" id="auth-code-input" placeholder="12345" style="width: 100%; background: #05070a; border: 1px solid var(--line); color: var(--bone); padding: 10px 14px; font-size: 16px; border-radius: 4px; letter-spacing: 4px; text-align: center;" />
+        </div>
+
+        <div id="auth-password-group" style="margin-bottom: 16px; display: none;">
+          <label style="font-size: 10px; color: var(--muted); display: block; margin-bottom: 6px;">TWO-STEP VERIFICATION (2FA) PASSWORD</label>
+          <input type="password" id="auth-password-input" placeholder="Enter 2FA password" style="width: 100%; background: #05070a; border: 1px solid var(--line); color: var(--bone); padding: 10px 14px; font-size: 12px; border-radius: 4px;" />
+        </div>
+
+        <button id="auth-verify-btn" onclick="verifyAuthCode()" class="kage-btn" style="width: 100%; padding: 12px 18px; font-size: 11px; margin-bottom: 10px; justify-content: center;">
+          <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i> ⚡ Verify &amp; Authorize Cloud Instance
+        </button>
+
+        <button onclick="document.getElementById('auth-step-2').style.display='none'; document.getElementById('auth-step-1').style.display='block';" class="kage-btn-pill" style="width: 100%; text-align: center; justify-content: center; font-size: 10px;">
+          ← Back / Resend Code
+        </button>
+        <div id="auth-verify-error" style="color: var(--vermilion); font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 8px; border-radius: 4px;"></div>
       </div>
+    </div>
 
-      <button id="auth-verify-btn" onclick="verifyAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 20px; font-size: 12px; margin-bottom: 12px; justify-content: center;">
-        <i data-lucide="check-circle" style="width: 15px; height: 15px;"></i> ⚡ Verify &amp; Authorize Cloud Instance
+    <!-- TAB 2: DIRECT STRING SESSION IMPORT -->
+    <div id="auth-tab-content-string" style="display: none;">
+      <p style="font-size: 12px; color: var(--bone-dim); font-family: 'Onest', sans-serif; line-height: 1.6; margin-bottom: 14px;">
+        If you already have a Telethon string session, paste it below to link your Telegram session instantly without waiting for an SMS:
+      </p>
+
+      <textarea id="auth-string-session-input" rows="4" placeholder="Paste 1BJWap1sBu6f4gzV..." style="width: 100%; background: #05070a; border: 1px solid var(--line); color: #34d399; font-size: 11px; padding: 10px 12px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; resize: vertical; margin-bottom: 14px;"></textarea>
+
+      <button id="auth-import-string-btn" onclick="submitImportSessionString()" class="kage-btn" style="width: 100%; padding: 12px 18px; font-size: 11px; justify-content: center; background: #38bdf8; border-color: #38bdf8; color: #020406;">
+        <i data-lucide="key" style="width: 14px; height: 14px;"></i> ⚡ Connect Instantly via String Session
       </button>
 
-      <button onclick="document.getElementById('auth-step-2').style.display='none'; document.getElementById('auth-step-1').style.display='block';" class="kage-btn-pill" style="width: 100%; text-align: center; justify-content: center;">
-        ← Back / Resend Code
-      </button>
-      <div id="auth-verify-error" style="color: var(--vermilion); font-size: 12px; margin-top: 12px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 10px; border-radius: 4px;"></div>
+      <div id="auth-string-error" style="color: var(--vermilion); font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 8px; border-radius: 4px;"></div>
     </div>
 
   </div>
@@ -3640,28 +3668,109 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     } catch (e) {}
   }
 
+  function openAuthModal() {
+    const modal = document.getElementById('auth-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      safeCreateIcons();
+    }
+  }
+
+  function closeAuthModal() {
+    const modal = document.getElementById('auth-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function closeAuthModalBackdrop(e) {
+    if (e.target.id === 'auth-modal') closeAuthModal();
+  }
+
+  function switchAuthTab(tab) {
+    const otpContent = document.getElementById('auth-tab-content-otp');
+    const stringContent = document.getElementById('auth-tab-content-string');
+    const otpBtn = document.getElementById('auth-tab-btn-otp');
+    const stringBtn = document.getElementById('auth-tab-btn-string');
+
+    if (tab === 'otp') {
+      if (otpContent) otpContent.style.display = 'block';
+      if (stringContent) stringContent.style.display = 'none';
+      if (otpBtn) otpBtn.classList.add('active');
+      if (stringBtn) stringBtn.classList.remove('active');
+    } else {
+      if (otpContent) otpContent.style.display = 'none';
+      if (stringContent) stringContent.style.display = 'block';
+      if (otpBtn) otpBtn.classList.remove('active');
+      if (stringBtn) stringBtn.classList.add('active');
+    }
+    safeCreateIcons();
+  }
+
+  async function submitImportSessionString() {
+    const input = document.getElementById('auth-string-session-input');
+    const errBox = document.getElementById('auth-string-error');
+    const btn = document.getElementById('auth-import-string-btn');
+    const sessionStr = input ? input.value.trim() : '';
+
+    if (!sessionStr) {
+      if (errBox) {
+        errBox.innerText = 'Please paste a valid Telethon string session.';
+        errBox.style.display = 'block';
+      }
+      return;
+    }
+
+    if (errBox) errBox.style.display = 'none';
+    if (btn) {
+      btn.innerHTML = '<span class="loading-spin"></span> Verifying Session String...';
+      btn.disabled = true;
+    }
+
+    try {
+      const res = await fetch('/api/auth/import_session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_string: sessionStr })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Invalid session string');
+
+      showToast('⚡ Session restored and linked successfully!', 'success');
+      closeAuthModal();
+      checkAuth();
+    } catch (e) {
+      if (errBox) {
+        errBox.innerText = 'Error: ' + e.message;
+        errBox.style.display = 'block';
+      }
+      showToast('Session error: ' + e.message, 'error');
+    } finally {
+      if (btn) {
+        btn.innerHTML = '<i data-lucide="key" style="width: 14px; height: 14px;"></i> ⚡ Connect Instantly via String Session';
+        btn.disabled = false;
+        safeCreateIcons();
+      }
+    }
+  }
+
   async function checkAuth() {
     try {
       const res = await fetch('/api/auth/status');
       const data = await res.json();
+      const userDisp = document.getElementById('user-display');
+      const modal = document.getElementById('auth-modal');
+
       if (data.authorized && data.user) {
         const label = data.user.username ? `@${data.user.username}` : (data.user.first_name || 'Operator');
         const phone = data.phone || '+263 78 831 1244';
-        document.getElementById('user-display').innerText = `${label} (${phone})`;
-        const modal = document.getElementById('auth-modal');
+        if (userDisp) userDisp.innerText = `${label} (${phone})`;
         if (modal) modal.style.display = 'none';
         fetchDialogs();
       } else {
-        document.getElementById('user-display').innerText = '⚠️ Account Not Linked';
-        const modal = document.getElementById('auth-modal');
-        if (modal) {
-          if (data.phone) {
-            const phoneEl = document.getElementById('auth-phone-display');
-            if (phoneEl) phoneEl.innerText = data.phone;
-          }
-          modal.style.display = 'flex';
-          if (window.lucide) window.lucide.createIcons();
+        if (userDisp) {
+          userDisp.innerHTML = `<span onclick="openAuthModal()" style="cursor: pointer; color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 600;" title="Click to link Telegram account">⚠️ Link Telegram Account</span>`;
         }
+        // NEVER auto-open the modal over the screen when user enters PIN!
+        if (modal) modal.style.display = 'none';
       }
     } catch (e) {
       console.error('Check auth error:', e);

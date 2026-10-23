@@ -269,6 +269,50 @@ def create_app(engine: SuperBanEngine):
             logger.error(f"Sign in error: {e}")
             raise HTTPException(status_code=400, detail=str(e))
 
+    class ImportSessionReq(BaseModel):
+        session_string: str
+
+    @app.post("/api/auth/import_session")
+    async def import_session(req: ImportSessionReq):
+        session_str = req.session_string.strip()
+        if not session_str:
+            raise HTTPException(status_code=400, detail="Session string cannot be empty")
+        creds = Config.get_credentials()
+        if not creds:
+            raise HTTPException(status_code=400, detail="Missing Telegram credentials in .env")
+        try:
+            test_client = TelegramClient(StringSession(session_str), creds["api_id"], creds["api_hash"])
+            await test_client.connect()
+            if not await test_client.is_user_authorized():
+                await test_client.disconnect()
+                raise HTTPException(status_code=400, detail="The provided session string is invalid or expired.")
+
+            me = await test_client.get_me()
+            await test_client.disconnect()
+
+            Config.save_string_session(session_str)
+
+            try:
+                await engine.client.disconnect()
+            except Exception:
+                pass
+            engine.client = TelegramClient(StringSession(session_str), creds["api_id"], creds["api_hash"])
+            await engine.client.connect()
+            await engine.get_dialogs(force=True)
+
+            return {
+                "status": "authorized",
+                "session_string": session_str,
+                "user": {
+                    "id": me.id,
+                    "first_name": me.first_name,
+                    "username": me.username
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error importing session string: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
+
     # ═══════════════════════════════════════════════════════
     #   OPERATIONAL ENDPOINTS
     # ═══════════════════════════════════════════════════════
