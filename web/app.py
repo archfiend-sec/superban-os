@@ -835,11 +835,12 @@ def create_app(engine: SuperBanEngine):
 
     class VCLeaveReq(BaseModel):
         group_id: Optional[int] = None
+        auto_send_saved: bool = False
 
     @app.post("/api/vc/leave")
     async def leave_vc(req: VCLeaveReq):
         try:
-            return await engine.leave_voice_call()
+            return await engine.leave_voice_call(group_entity=req.group_id, auto_send_saved=req.auto_send_saved)
         except Exception as e:
             logger.error(f"Failed to leave VC: {e}")
             raise HTTPException(status_code=400, detail=str(e))
@@ -996,14 +997,36 @@ def create_app(engine: SuperBanEngine):
             raise HTTPException(status_code=404, detail="No active replay buffer available for this group")
         return FileResponse(slice_path, media_type="audio/mpeg", headers={"Cache-Control": "no-cache"})
 
+    class VCSendSavedReq(BaseModel):
+        group_id: int
+        seconds: Optional[int] = None
+        as_voice_note: bool = False
+
+    @app.post("/api/vc/send_to_saved")
+    async def send_vc_to_saved(req: VCSendSavedReq):
+        try:
+            return await engine.send_vc_recording_to_saved(
+                group_id=req.group_id,
+                seconds=req.seconds,
+                as_voice_note=req.as_voice_note
+            )
+        except ValueError as ve:
+            raise HTTPException(status_code=404, detail=str(ve))
+        except Exception as e:
+            logger.error(f"Failed to send VC recording to Saved Messages: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @app.get("/api/vc/download_recording")
     async def download_vc_recording(group_id: int):
         clean_gid = str(group_id).replace("-100", "").replace("-", "")
         live_path = f"/tmp/vc_stream_{clean_gid}.mp3"
-        if not os.path.exists(live_path):
-            raise HTTPException(status_code=404, detail="No voice chat recording found for this group")
+        last_path = f"/tmp/vc_last_session_{clean_gid}.mp3"
+
+        target_path = live_path if (os.path.exists(live_path) and os.path.getsize(live_path) > 1024) else last_path
+        if not os.path.exists(target_path) or os.path.getsize(target_path) < 512:
+            raise HTTPException(status_code=404, detail="No voice chat recording archive found for this group")
         return FileResponse(
-            live_path,
+            target_path,
             media_type="audio/mpeg",
             filename=f"VC_Recording_{clean_gid}_{int(time.time())}.mp3"
         )

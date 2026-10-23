@@ -1721,6 +1721,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <span style="flex: 1;">Voice Chamber Apex</span>
           <span class="hud-tag-pill danger">AUDIO</span>
         </button>
+        <button type="button" onclick="sendVCToSavedChat()" class="hud-action-btn" title="Dispatch recorded VC audio directly to Telegram Saved Messages ('me')">
+          <i data-lucide="bookmark-check" style="width: 13px; height: 13px; color: #10b981;"></i>
+          <span style="flex: 1;">Send VC to Saved Chat</span>
+          <span class="hud-tag-pill" style="color: #10b981; border-color: rgba(16,185,129,0.3);">SAVED</span>
+        </button>
         <button type="button" onclick="openGhostModal()" class="hud-action-btn">
           <i data-lucide="eye" style="width: 13px; height: 13px;"></i>
           <span style="flex: 1;">Ghost Vault (Anti-Delete)</span>
@@ -3060,6 +3065,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         <b id="vc-modal-group-title" style="color: var(--bone);">Loading...</b>
       </div>
       <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+        <label style="font-size: 11px; color: #10b981; display: flex; align-items: center; gap: 6px; cursor: pointer;" title="Automatically send recorded VC audio to your Telegram Saved Messages when call ends or disconnecting">
+          <input type="checkbox" id="vc-auto-send-saved-toggle" checked onchange="toggleVCAutoSendSaved(this.checked)">
+          <span>Auto-Send to Saved Chat on End</span>
+        </label>
         <label style="font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer;" title="Automatically connect userbot into voice chat when radar scans">
           <input type="checkbox" id="vc-auto-join-toggle">
           <span>Auto-Join Stream on Radar</span>
@@ -3122,7 +3131,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           </div>
 
           <!-- TACTICAL DVR: INSTANT REPLAY & ARCHIVE -->
-          <div style="display: flex; align-items: center; gap: 6px; margin-left: 6px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-left: 6px; flex-wrap: wrap;">
+            <div id="vc-rec-pill" class="badge badge-muted" style="font-size: 10px; display: none; align-items: center; gap: 5px; background: rgba(224,35,28,0.12); border: 1px solid rgba(224,35,28,0.3); color: var(--vermilion);">
+              <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--vermilion); box-shadow: 0 0 6px var(--vermilion);" class="hud-blink-dot"></span>
+              <span id="vc-rec-timer">REC 00:00</span>
+            </div>
             <button id="btn-vc-replay-30s" type="button" onclick="triggerVCReplay(30)" class="kage-btn-pill" style="font-size: 10px; padding: 4px 10px; background: rgba(224,35,28,0.15); border: 1px solid rgba(224,35,28,0.4);" title="Instant Replay: rehear the last 30 seconds of speech">
               <i data-lucide="rotate-ccw" style="width: 11px; height: 11px; color: var(--vermilion);"></i>
               <span>Replay 30s</span>
@@ -3130,6 +3143,14 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
             <button id="btn-vc-download" type="button" onclick="downloadVCRecording()" class="kage-btn-pill" style="font-size: 10px; padding: 4px 10px;" title="Download recorded audio stream as MP3">
               <i data-lucide="hard-drive-download" style="width: 11px; height: 11px;"></i>
               <span>Save MP3</span>
+            </button>
+            <button id="btn-vc-send-saved" type="button" onclick="sendVCToSavedChat()" class="kage-btn-pill" style="font-size: 10px; padding: 4px 12px; background: rgba(16,185,129,0.18); border: 1px solid #10b981; color: #10b981; font-weight: 700; box-shadow: 0 0 10px rgba(16,185,129,0.25);" title="Send full VC recording directly to your Telegram Saved Messages ('me')">
+              <i data-lucide="bookmark-check" style="width: 11px; height: 11px; color: #10b981;"></i>
+              <span id="btn-vc-send-saved-text">Send to Saved Chat</span>
+            </button>
+            <button id="btn-vc-send-replay-saved" type="button" onclick="sendVCToSavedChat(30)" class="kage-btn-pill" style="font-size: 9px; padding: 3px 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--line);" title="Send last 30s highlight clip to Saved Messages">
+              <i data-lucide="zap" style="width: 10px; height: 10px; color: var(--ember);"></i>
+              <span>Clip 30s to Saved</span>
             </button>
           </div>
         </div>
@@ -5259,6 +5280,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   let vcPollTimer = null;
   let vcCurrentCallInfo = null;
   let vcIsConnected = false;
+  let vcConnectedStartTime = null;
 
   function openVCModal() {
     playZenSound('clack');
@@ -5268,6 +5290,13 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const group = dialogsList.find(d => isSameGroup(d.id, activeGid));
     const titleEl = document.getElementById('vc-modal-group-title');
     if (titleEl) titleEl.innerText = group ? `${group.title} (${group.members_count || '?'} members)` : `Group #${activeGid}`;
+
+    // Restore user preference for auto-sending VC recordings to Saved Messages
+    const autoSendToggle = document.getElementById('vc-auto-send-saved-toggle');
+    if (autoSendToggle) {
+      autoSendToggle.checked = localStorage.getItem('kage_vc_auto_send_saved') !== 'false';
+    }
+
     refreshVCStatus();
     startVCPoll();
     safeCreateIcons();
@@ -5385,6 +5414,23 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           joinBtn.style.background = "#059669";
           joinBtn.style.borderColor = "#10b981";
         }
+      }
+
+      // Update Live Recording Indicator & Elapsed Timer
+      const recPill = document.getElementById('vc-rec-pill');
+      const recTimer = document.getElementById('vc-rec-timer');
+      if (vcIsConnected) {
+        if (!vcConnectedStartTime) vcConnectedStartTime = Date.now();
+        if (recPill) recPill.style.display = 'inline-flex';
+        if (recTimer) {
+          const elapsed = Math.floor((Date.now() - vcConnectedStartTime) / 1000);
+          const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+          const s = String(elapsed % 60).padStart(2, '0');
+          recTimer.innerText = `REC ${m}:${s}`;
+        }
+      } else {
+        vcConnectedStartTime = null;
+        if (recPill) recPill.style.display = 'none';
       }
 
       if (data.has_call) {
@@ -5913,16 +5959,25 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
     stopVCLiveAudio();
     playZenSound('clack');
-    showToast("Disconnecting from Voice Chamber stream...");
+    const autoSend = document.getElementById('vc-auto-send-saved-toggle')?.checked ?? (localStorage.getItem('kage_vc_auto_send_saved') !== 'false');
+    showToast(autoSend ? "Disconnecting & archiving recording to Saved Messages..." : "Disconnecting from Voice Chamber stream...");
     try {
       const res = await fetch('/api/vc/leave', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ group_id: parseInt(gid) })
+        body: JSON.stringify({ 
+          group_id: parseInt(gid),
+          auto_send_saved: !!autoSend
+        })
       });
       const data = await res.json();
       if (res.ok) {
-        showToast("✓ Disconnected from Voice Chat stream.");
+        if (autoSend) {
+          playZenSound('gong');
+          showToast("✓ Disconnected. Recording dispatched to your Saved Messages!", "success");
+        } else {
+          showToast("✓ Disconnected from Voice Chat stream.");
+        }
         refreshVCStatus();
       } else {
         showToast(`Leave notice: ${data.detail || 'Error leaving VC'}`);
@@ -7304,6 +7359,54 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     }
     showToast("Downloading audio stream archive...", "info");
     window.open(`/api/vc/download_recording?group_id=${gid}`, '_blank');
+  }
+
+  async function sendVCToSavedChat(seconds = null) {
+    const gid = getActiveGroupId();
+    if (!gid) {
+      showToast("Select a target group first", "error");
+      return;
+    }
+    const btn = document.getElementById('btn-vc-send-saved');
+    const btnText = document.getElementById('btn-vc-send-saved-text');
+    const origText = btnText ? btnText.innerText : 'Send to Saved Chat';
+
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.innerText = seconds ? `Dispatching ${seconds}s Clip...` : 'Dispatching to Saved...';
+    playZenSound('clack');
+    showToast(seconds ? `Slicing last ${seconds}s and uploading to Saved Messages...` : "Preparing and uploading VC recording to your Telegram Saved Messages...", "info");
+
+    try {
+      const res = await fetch('/api/vc/send_to_saved', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          group_id: parseInt(gid),
+          seconds: seconds ? parseInt(seconds) : null,
+          as_voice_note: false
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.detail || "Failed to upload recording to Saved Messages", "error");
+        return;
+      }
+
+      playZenSound('gong');
+      showToast(`🎧 VC recording (${data.duration_str}, ${data.file_size_str}) sent directly to your Saved Messages!`, "success");
+    } catch (err) {
+      showToast("Dispatch failed: " + err.message, "error");
+    } finally {
+      if (btn) btn.disabled = false;
+      if (btnText) btnText.innerText = origText;
+      safeCreateIcons();
+    }
+  }
+
+  function toggleVCAutoSendSaved(enabled) {
+    localStorage.setItem('kage_vc_auto_send_saved', enabled ? 'true' : 'false');
+    showToast(enabled ? "✓ Auto-send to Saved Messages enabled on VC exit" : "Auto-send to Saved Messages disabled", "info");
   }
 
   function renderVCTalkerLeaderboard(leaderboard) {

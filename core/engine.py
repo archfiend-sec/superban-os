@@ -15,7 +15,8 @@ from telethon.tl.functions import phone
 from telethon.tl.types import (
     ChatBannedRights, ChannelParticipantsAdmins,
     InputGroupCall, GroupCall, GroupCallDiscarded,
-    DataJSON, InputPeerSelf, UpdateGroupCallConnection
+    DataJSON, InputPeerSelf, UpdateGroupCallConnection,
+    DocumentAttributeAudio, DocumentAttributeFilename
 )
 from telethon.errors import (
     FloodWaitError, ChatAdminRequiredError, 
@@ -23,12 +24,21 @@ from telethon.errors import (
 )
 
 import os
+import shutil
 from pathlib import Path
 
-# Ensure virtual environment bin (with ffmpeg) is always prioritized in PATH
+# Ensure virtual environment bin (with ffmpeg) and imageio_ffmpeg are prioritized in PATH
 _venv_bin = str(Path(__file__).resolve().parent.parent / "venv" / "bin")
 if _venv_bin not in os.environ.get("PATH", ""):
     os.environ["PATH"] = f"{_venv_bin}:{os.environ.get('PATH', '')}"
+
+try:
+    import imageio_ffmpeg
+    _imageio_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+    if _imageio_dir and _imageio_dir not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{_imageio_dir}:{os.environ.get('PATH', '')}"
+except Exception:
+    pass
 
 try:
     from pytgcalls import PyTgCalls
@@ -93,8 +103,9 @@ class SuperBanEngine:
         self.sentinel = SentinelShield(self.client, self.db)
         self.sentinel.register_callback(lambda evt: asyncio.create_task(self.emit_telemetry(evt["type"], evt.get("data", {}))))
 
-        # Active Voice Chat Tracking Session
+        # Active Voice Chat Tracking Session & Dispatch Policy
         self.active_vc_session: Optional[Dict[str, Any]] = None
+        self.auto_send_vc_to_saved: bool = True
 
         # Native PyTgCalls WebRTC Engine
         self.call_py: Optional[Any] = None
@@ -687,8 +698,8 @@ class SuperBanEngine:
             except Exception as e:
                 err_str = str(e).upper()
                 if "GROUPCALL_INVALID" in err_str or "CALL_ALREADY_ENDED" in err_str:
-                    logger.info("Voice call has ended on Telegram server.")
-                    self.active_vc_session = None
+                    logger.info("Voice call has ended on Telegram server. Auto-dispatching recording to Saved Messages if available...")
+                    asyncio.create_task(self.leave_voice_call(auto_send_saved=True))
                     break
                 logger.debug(f"Keepalive ping note: {e}")
 
@@ -921,8 +932,8 @@ class SuperBanEngine:
             "connection_data": server_conn
         }
 
-    async def leave_voice_call(self, group_entity = None) -> Dict[str, Any]:
-        """Disconnect and leave the active voice chat cleanly."""
+    async def leave_voice_call(self, group_entity = None, auto_send_saved: bool = False) -> Dict[str, Any]:
+        """Disconnect and leave the active voice chat cleanly, archiving and optionally auto-dispatching recording to Saved Messages."""
         if hasattr(self, '_vc_keepalive_task') and self._vc_keepalive_task and not self._vc_keepalive_task.done():
             self._vc_keepalive_task.cancel()
 
@@ -938,8 +949,30 @@ class SuperBanEngine:
             except Exception as e:
                 logger.debug(f"PyTgCalls leave_call note: {e}")
 
+        # Preserve the recording session buffer before cleanup
         if gid:
             clean_gid = str(gid).replace("-100", "").replace("-", "")
+            live_path = f"/tmp/vc_stream_{clean_gid}.mp3"
+            archive_path = f"/tmp/vc_last_session_{clean_gid}.mp3"
+
+            # Allow PyTgCalls / ffmpeg a brief moment to flush final buffer to disk
+            await asyncio.sleep(0.3)
+
+            if os.path.exists(live_path) and os.path.getsize(live_path) > 1024:
+                try:
+                    shutil.copyfile(live_path, archive_path)
+                    logger.info(f"📼 Preserved VC recording session archive: {archive_path} ({os.path.getsize(archive_path)} bytes)")
+                except Exception as e:
+                    logger.debug(f"Archive copy note: {e}")
+
+            # Auto-send recording to Saved Messages if requested or default-enabled
+            if auto_send_saved or getattr(self, 'auto_send_vc_to_saved', False):
+                try:
+                    logger.info(f"📤 Auto-dispatching VC recording to Saved Messages for group {gid}...")
+                    await self.send_vc_recording_to_saved(gid)
+                except Exception as e:
+                    logger.warning(f"Auto-dispatch VC recording to Saved Messages note: {e}")
+
             for ext in [".mp3", ".wav"]:
                 audio_path = f"/tmp/vc_stream_{clean_gid}{ext}"
                 if os.path.exists(audio_path):
@@ -1269,23 +1302,70 @@ class SuperBanEngine:
     # ═══════════════════════════════════════════════════════
     #   SOVEREIGN INTELLIGENCE & VC AUDIO FORENSICS
     # ═══════════════════════════════════════════════════════
+    def _get_ffmpeg_bin(self) -> str:
+        """Find the most robust available ffmpeg executable on system or venv."""
+        candidates = []
+        try:
+            import imageio_ffmpeg
+            candidates.append(imageio_ffmpeg.get_ffmpeg_exe())
+        except Exception:
+            pass
+        _venv_bin_ffmpeg = str(Path(__file__).resolve().parent.parent / "venv" / "bin" / "ffmpeg")
+        candidates.append(_venv_bin_ffmpeg)
+        which_ffmpeg = shutil.which("ffmpeg")
+        if which_ffmpeg:
+            candidates.append(which_ffmpeg)
+        candidates.extend(["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "ffmpeg"])
+        for c in candidates:
+            if c and os.path.exists(c) and os.access(c, os.X_OK):
+                return c
+        return "ffmpeg"
+
+    async def _get_audio_duration(self, file_path: str) -> float:
+        """Probe exact audio duration in seconds using ffmpeg/ffprobe with fallback."""
+        ffmpeg_bin = self._get_ffmpeg_bin()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                ffmpeg_bin, "-i", file_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            _, stderr = await proc.communicate()
+            err_text = stderr.decode('utf-8', errors='ignore')
+            m = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.?\d*)", err_text)
+            if m:
+                hours, minutes, seconds = m.groups()
+                return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+        except Exception as e:
+            logger.debug(f"Audio duration probe note: {e}")
+        try:
+            # Fallback estimation for 128kbps standard MP3
+            sz = os.path.getsize(file_path)
+            return max(1.0, sz / 16000.0)
+        except Exception:
+            return 0.0
+
     async def get_replay_audio_slice(self, group_id: int, seconds: int = 30) -> Optional[str]:
         """Extract the last N seconds of live voice chat audio for instant replay DVR."""
         clean_gid = str(group_id).replace("-100", "").replace("-", "")
         live_audio = f"/tmp/vc_stream_{clean_gid}.mp3"
+        last_audio = f"/tmp/vc_last_session_{clean_gid}.mp3"
         replay_audio = f"/tmp/vc_replay_{clean_gid}.mp3"
 
-        if not os.path.exists(live_audio) or os.path.getsize(live_audio) < 4096:
+        source_audio = None
+        if os.path.exists(live_audio) and os.path.getsize(live_audio) >= 4096:
+            source_audio = live_audio
+        elif os.path.exists(last_audio) and os.path.getsize(last_audio) >= 4096:
+            source_audio = last_audio
+
+        if not source_audio:
             return None
 
-        ffmpeg_bin = os.path.abspath("./venv/bin/ffmpeg")
-        if not os.path.exists(ffmpeg_bin):
-            ffmpeg_bin = "ffmpeg"
-
+        ffmpeg_bin = self._get_ffmpeg_bin()
         cmd = [
             ffmpeg_bin, "-y",
             "-sseof", f"-{seconds}",
-            "-i", live_audio,
+            "-i", source_audio,
             "-c", "copy",
             replay_audio
         ]
@@ -1300,6 +1380,147 @@ class SuperBanEngine:
         if os.path.exists(replay_audio) and os.path.getsize(replay_audio) > 0:
             return replay_audio
         return None
+
+    async def send_vc_recording_to_saved(
+        self, 
+        group_id: int, 
+        seconds: Optional[int] = None,
+        as_voice_note: bool = False
+    ) -> Dict[str, Any]:
+        """Finalize and send the recorded voice chat audio directly to Telegram Saved Messages ('me')."""
+        await self.ensure_connected()
+        clean_gid = str(group_id).replace("-100", "").replace("-", "")
+
+        live_audio = f"/tmp/vc_stream_{clean_gid}.mp3"
+        last_audio = f"/tmp/vc_last_session_{clean_gid}.mp3"
+        replay_audio = f"/tmp/vc_replay_{clean_gid}.mp3"
+
+        source_file = None
+        is_replay_clip = False
+
+        if seconds and seconds > 0:
+            slice_path = await self.get_replay_audio_slice(group_id, seconds=seconds)
+            if slice_path and os.path.exists(slice_path) and os.path.getsize(slice_path) > 1024:
+                source_file = slice_path
+                is_replay_clip = True
+
+        if not source_file:
+            if os.path.exists(live_audio) and os.path.getsize(live_audio) > 2048:
+                source_file = live_audio
+            elif os.path.exists(last_audio) and os.path.getsize(last_audio) > 2048:
+                source_file = last_audio
+            elif os.path.exists(replay_audio) and os.path.getsize(replay_audio) > 2048:
+                source_file = replay_audio
+
+        if not source_file:
+            raise ValueError("No recorded voice chat audio buffer found for this group. Join the voice chat or wait for speech to buffer.")
+
+        # Create a finalized, standalone dispatch file with valid MP3 headers & accurate duration
+        ts = int(time.time())
+        final_mp3 = f"/tmp/vc_saved_{clean_gid}_{ts}.mp3"
+        ffmpeg_bin = self._get_ffmpeg_bin()
+
+        try:
+            cmd = [ffmpeg_bin, "-y", "-i", source_file, "-c", "copy", final_mp3]
+            proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            await proc.communicate()
+        except Exception as e:
+            logger.debug(f"Remux notice: {e}")
+
+        if not os.path.exists(final_mp3) or os.path.getsize(final_mp3) < 512:
+            try:
+                shutil.copyfile(source_file, final_mp3)
+            except Exception as ce:
+                raise RuntimeError(f"Failed to prepare audio recording for dispatch: {ce}")
+
+        file_size = os.path.getsize(final_mp3)
+        duration_sec = await self._get_audio_duration(final_mp3)
+
+        group_title = f"Group #{clean_gid}"
+        try:
+            entity = await self.get_group_entity(group_id)
+            if entity and hasattr(entity, 'title'):
+                group_title = entity.title
+        except Exception:
+            pass
+
+        call_title = "Group Voice Chamber"
+        if self.active_vc_session and self.active_vc_session.get('group_id') == group_id:
+            call_title = self.active_vc_session.get('title', "Group Voice Chamber")
+
+        mins = int(duration_sec // 60)
+        secs = int(duration_sec % 60)
+        duration_str = f"{mins:02d}:{secs:02d}"
+
+        if file_size >= 1024 * 1024:
+            size_str = f"{file_size / (1024 * 1024):.2f} MB"
+        else:
+            size_str = f"{file_size / 1024:.1f} KB"
+
+        utc_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        speaker_lines = []
+        try:
+            if self.db:
+                leaderboard = await self.db.get_vc_talker_leaderboard(group_id)
+                if leaderboard:
+                    for idx, t in enumerate(leaderboard[:4], 1):
+                        spk_name = t.get('full_name') or f"User {t.get('user_id')}"
+                        talk_s = int(t.get('total_speaking_seconds', 0))
+                        speaker_lines.append(f"  {idx}. {spk_name} ({talk_s}s)")
+        except Exception:
+            pass
+
+        speaker_text = "\n".join(speaker_lines) if speaker_lines else "• Live MTProto Stream Capture"
+
+        clip_badge = f" [REPLAY {seconds}s]" if is_replay_clip else ""
+        caption = (
+            f"🎙️ **VC FORENSIC RECORDING{clip_badge} // 音声録音**\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👥 **Group:** `{group_title}`\n"
+            f"🏷️ **Call:** `{call_title}`\n"
+            f"⏱️ **Duration:** `{duration_str}` ({size_str})\n"
+            f"📅 **Timestamp:** `{utc_stamp}`\n"
+            f"🗣️ **Top Speakers:**\n{speaker_text}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛡️ *Captured via KAGE Sovereign Voice Chamber (Non-Admin)*"
+        )
+
+        try:
+            msg = await self.client.send_file(
+                'me',
+                file=final_mp3,
+                caption=caption,
+                voice_note=as_voice_note,
+                attributes=[
+                    DocumentAttributeAudio(
+                        duration=int(duration_sec),
+                        title=f"{call_title} ({duration_str})",
+                        performer=group_title,
+                        voice=as_voice_note
+                    )
+                ]
+            )
+            logger.info(f"✅ VC recording dispatched to Telegram Saved Messages (msg_id={msg.id}, size={size_str}, duration={duration_str})")
+        finally:
+            if os.path.exists(final_mp3):
+                try:
+                    os.remove(final_mp3)
+                except Exception:
+                    pass
+
+        return {
+            "success": True,
+            "status": "sent",
+            "chat": "Saved Messages",
+            "message_id": msg.id,
+            "file_size": file_size,
+            "file_size_str": size_str,
+            "duration_seconds": int(duration_sec),
+            "duration_str": duration_str,
+            "group_title": group_title,
+            "caption": caption
+        }
 
     async def get_group_sentiment_analysis(self, group_entity) -> Dict[str, Any]:
         """Deep linguistic sentiment and vibe diagnostics for any group without adminship."""
