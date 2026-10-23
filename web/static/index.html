@@ -1311,6 +1311,50 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 </head>
 
 <body>
+<!-- OWNER SECURITY CLEARANCE GATEKEEPER LOCKSCREEN -->
+<div id="owner-lockscreen" style="position: fixed; inset: 0; z-index: 999999; background: radial-gradient(circle at center, #0a0e14 0%, #020406 100%); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);">
+  <div style="max-width: 440px; width: 90%; background: rgba(10, 14, 20, 0.85); border: 1px solid rgba(224, 35, 28, 0.35); box-shadow: 0 25px 70px rgba(0, 0, 0, 0.95), 0 0 40px rgba(224, 35, 28, 0.15); border-radius: 8px; padding: 36px 32px; font-family: 'JetBrains Mono', monospace; text-align: center; position: relative; overflow: hidden;">
+    
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #e0231c, #34d399, transparent);"></div>
+
+    <div style="width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; background: rgba(224, 35, 28, 0.1); border: 1px solid rgba(224, 35, 28, 0.4); display: grid; place-items: center;">
+      <i data-lucide="shield-alert" style="width: 26px; height: 26px; color: #e0231c;"></i>
+    </div>
+
+    <div style="font-size: 10px; letter-spacing: 0.25em; color: #e0231c; text-transform: uppercase; margin-bottom: 6px;">
+      ● RESTRICTED WAR ROOM ACCESS
+    </div>
+    <h2 id="owner-gate-title" style="font-size: 20px; font-weight: 700; color: #dfe7e0; margin-bottom: 8px; letter-spacing: -0.02em;">
+      OWNER VERIFICATION
+    </h2>
+    <p id="owner-gate-desc" style="font-size: 12px; color: #78837c; line-height: 1.6; margin-bottom: 24px; font-family: 'Onest', sans-serif;">
+      Enter your Master Owner PIN to unlock mission control, live wiretaps, and group surveillance.
+    </p>
+
+    <div id="owner-pin-container">
+      <div style="margin-bottom: 20px;">
+        <input type="password" id="owner-pin-input" placeholder="••••" maxlength="32" autofocus
+          style="width: 100%; text-align: center; font-size: 22px; letter-spacing: 8px; background: #030609; border: 1px solid rgba(223, 231, 224, 0.15); border-radius: 6px; padding: 14px 16px; color: #34d399; outline: none; transition: border-color 0.2s;"
+          onfocus="this.style.borderColor='#34d399'"
+          onblur="this.style.borderColor='rgba(223, 231, 224, 0.15)'"
+          onkeydown="if(event.key==='Enter') submitOwnerPin()"
+        />
+      </div>
+
+      <button id="owner-unlock-btn" onclick="submitOwnerPin()" class="kage-btn"
+        style="width: 100%; padding: 14px 20px; font-size: 12px; justify-content: center; background: #e0231c; border-color: #e0231c;">
+        <i data-lucide="lock" style="width: 14px; height: 14px;"></i> 🔓 UNLOCK CLEARANCE
+      </button>
+
+      <div id="owner-error-msg" style="color: #e0231c; font-size: 11px; margin-top: 14px; display: none; line-height: 1.5; background: rgba(224, 35, 28, 0.08); padding: 8px; border-radius: 4px;"></div>
+    </div>
+
+    <div style="margin-top: 24px; font-size: 9px; color: #404843; letter-spacing: 0.1em; text-transform: uppercase;">
+      SUPERBAN OS // SOVEREIGN APEX SECURITY SHIELD
+    </div>
+  </div>
+</div>
+
 <!-- Three.js 3D Background Canvas -->
 <canvas id="gl"></canvas>
 <div id="vignette"></div>
@@ -1387,6 +1431,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       <span class="dot"></span>
       <span id="user-display">@archfynd (+263 78 831 1244)</span>
     </div>
+    <button id="owner-logout-btn" onclick="logoutOwner()" class="kage-btn-pill" style="border-color: rgba(224,35,28,0.4); color: #e0231c; display: none;" title="Lock War Room">
+      <i data-lucide="lock" style="width: 12px; height: 12px;"></i>
+      <span>Lock</span>
+    </button>
     <button onclick="toggleAudio()" id="btn-audio" class="btn-round" title="Atmospheric Audio FX">
       <i data-lucide="volume-2" style="width: 14px; height: 14px;"></i>
     </button>
@@ -7514,11 +7562,163 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     }
   }
 
+  // ==========================================
+  // OWNER SECURITY VERIFICATION SYSTEM
+  // ==========================================
+  let isOwnerVerified = false;
+  let isOwnerSetupMode = false;
+
+  // Global fetch interceptor to append X-Owner-Token & catch 401/403
+  const _rawFetch = window.fetch;
+  window.fetch = async function(url, options = {}) {
+    const token = sessionStorage.getItem('owner_token');
+    if (token) {
+      options.headers = options.headers || {};
+      if (options.headers instanceof Headers) {
+        if (!options.headers.has('X-Owner-Token')) options.headers.append('X-Owner-Token', token);
+      } else {
+        if (!options.headers['X-Owner-Token']) options.headers['X-Owner-Token'] = token;
+      }
+    }
+    const response = await _rawFetch(url, options);
+    if ((response.status === 401 || response.status === 403) && typeof url === 'string' && !url.includes('/api/owner/')) {
+      if (isOwnerVerified) {
+        isOwnerVerified = false;
+        showOwnerLockscreen(true);
+      }
+    }
+    return response;
+  };
+
+  async function checkOwnerStatus() {
+    try {
+      const res = await fetch('/api/owner/status');
+      const data = await res.json();
+      if (data.authenticated) {
+        isOwnerVerified = true;
+        hideOwnerLockscreen();
+        checkAuth();
+        initCharts();
+        initWebSocket();
+      } else {
+        isOwnerVerified = false;
+        showOwnerLockscreen(data.pin_configured);
+      }
+    } catch (e) {
+      console.error('Owner status check error:', e);
+      showOwnerLockscreen(true);
+    }
+  }
+
+  function showOwnerLockscreen(hasPin) {
+    const lock = document.getElementById('owner-lockscreen');
+    const title = document.getElementById('owner-gate-title');
+    const desc = document.getElementById('owner-gate-desc');
+    const btn = document.getElementById('owner-unlock-btn');
+    const input = document.getElementById('owner-pin-input');
+    const logoutBtn = document.getElementById('owner-logout-btn');
+
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (!lock) return;
+
+    lock.style.display = 'flex';
+    lock.style.opacity = '1';
+    lock.style.pointerEvents = 'auto';
+
+    if (!hasPin) {
+      isOwnerSetupMode = true;
+      if (title) title.innerText = 'INITIAL OWNER SETUP';
+      if (desc) desc.innerText = 'Set a secret Master PIN (min 4 characters) to guard this war room before anyone can access groups or data:';
+      if (btn) btn.innerHTML = '<i data-lucide="key" style="width: 14px; height: 14px;"></i> 🛡️ SET MASTER PIN';
+      input.placeholder = '••••';
+    } else {
+      isOwnerSetupMode = false;
+      if (title) title.innerText = 'OWNER VERIFICATION';
+      if (desc) desc.innerText = 'Enter your Master Owner PIN to unlock mission control, live wiretaps, and group surveillance:';
+      if (btn) btn.innerHTML = '<i data-lucide="lock" style="width: 14px; height: 14px;"></i> 🔓 UNLOCK CLEARANCE';
+      input.placeholder = '••••';
+    }
+
+    input.value = '';
+    setTimeout(() => {
+      input.focus();
+      if (window.lucide) window.lucide.createIcons();
+    }, 150);
+  }
+
+  function hideOwnerLockscreen() {
+    const lock = document.getElementById('owner-lockscreen');
+    const logoutBtn = document.getElementById('owner-logout-btn');
+    if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+    if (lock) {
+      lock.style.opacity = '0';
+      lock.style.pointerEvents = 'none';
+      setTimeout(() => { lock.style.display = 'none'; }, 400);
+    }
+  }
+
+  async function submitOwnerPin() {
+    const input = document.getElementById('owner-pin-input');
+    const errBox = document.getElementById('owner-error-msg');
+    const btn = document.getElementById('owner-unlock-btn');
+    const pin = input.value.trim();
+
+    if (!pin || pin.length < 4) {
+      errBox.innerText = 'Master PIN must be at least 4 characters.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    errBox.style.display = 'none';
+    btn.disabled = true;
+
+    try {
+      const endpoint = isOwnerSetupMode ? '/api/owner/setup' : '/api/owner/verify';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Clearance Denied');
+      }
+
+      if (data.token) {
+        sessionStorage.setItem('owner_token', data.token);
+      }
+
+      isOwnerVerified = true;
+      hideOwnerLockscreen();
+      if (window.showToast) {
+        showToast('🛡️ Owner clearance verified. War room unlocked.', 'success');
+      }
+      checkAuth();
+      initCharts();
+      initWebSocket();
+    } catch (err) {
+      errBox.innerText = `ACCESS DENIED: ${err.message}`;
+      errBox.style.display = 'block';
+      input.value = '';
+      input.focus();
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function logoutOwner() {
+    try {
+      await fetch('/api/owner/logout', { method: 'POST' });
+    } catch (e) {}
+    sessionStorage.removeItem('owner_token');
+    isOwnerVerified = false;
+    window.location.reload();
+  }
+
   window.onload = () => {
     safeCreateIcons();
-    checkAuth();
-    initCharts();
-    initWebSocket();
+    checkOwnerStatus();
     if (currentViewMode === 'warroom') {
       switchViewMode('warroom');
     }

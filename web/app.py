@@ -2,10 +2,12 @@ import asyncio
 import json
 import logging
 import os
+import secrets
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, Response
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from telethon.sessions import StringSession
 from telethon.errors import (
@@ -43,6 +45,90 @@ def create_app(engine: SuperBanEngine):
 
     engine.register_listener(broadcast_ws)
     engine.sentinel.register_callback(broadcast_ws)
+
+    # ═══════════════════════════════════════════════════════
+    #   OWNER GATEKEEPER & VERIFICATION SYSTEM
+    # ═══════════════════════════════════════════════════════
+    OWNER_TOKENS: Dict[str, float] = {}
+
+    @app.middleware("http")
+    async def owner_guard_middleware(request: Request, call_next):
+        path = request.url.path
+
+        # Unprotected static routes and owner authentication
+        if (
+            path == "/"
+            or path.startswith("/static")
+            or path.startswith("/api/owner/")
+            or path in ("/favicon.ico", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png")
+            or path == "/ws"
+        ):
+            return await call_next(request)
+
+        token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
+        pin_configured = bool(Config.get_owner_pin())
+        
+        # If no PIN configured, force setup via /api/owner/status or /api/owner/setup
+        if not pin_configured:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Owner verification PIN not configured. Please initialize master PIN."}
+            )
+
+        if not token or token not in OWNER_TOKENS or OWNER_TOKENS[token] < time.time():
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Owner clearance required. Access denied."}
+            )
+
+        return await call_next(request)
+
+    class OwnerPinReq(BaseModel):
+        pin: str
+
+    @app.get("/api/owner/status")
+    async def get_owner_status(request: Request):
+        token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
+        pin_configured = bool(Config.get_owner_pin())
+        is_authenticated = bool(token and token in OWNER_TOKENS and OWNER_TOKENS[token] >= time.time())
+        return {
+            "authenticated": is_authenticated,
+            "pin_configured": pin_configured
+        }
+
+    @app.post("/api/owner/setup")
+    async def setup_owner_pin(req: OwnerPinReq, response: Response):
+        current_pin = Config.get_owner_pin()
+        if current_pin:
+            raise HTTPException(status_code=400, detail="Owner PIN already configured. Please verify.")
+        pin = req.pin.strip()
+        if len(pin) < 4:
+            raise HTTPException(status_code=400, detail="Owner PIN must be at least 4 characters.")
+        Config.save_owner_pin(pin)
+        token = secrets.token_hex(32)
+        OWNER_TOKENS[token] = time.time() + (7 * 86400)
+        response.set_cookie(key="owner_token", value=token, max_age=7*86400, samesite="lax")
+        return {"status": "success", "token": token}
+
+    @app.post("/api/owner/verify")
+    async def verify_owner_pin(req: OwnerPinReq, response: Response):
+        current_pin = Config.get_owner_pin()
+        if not current_pin:
+            raise HTTPException(status_code=400, detail="No PIN configured. Run setup first.")
+        if req.pin.strip() != current_pin:
+            raise HTTPException(status_code=403, detail="Invalid Owner PIN. Clearance Denied.")
+        token = secrets.token_hex(32)
+        OWNER_TOKENS[token] = time.time() + (7 * 86400)
+        response.set_cookie(key="owner_token", value=token, max_age=7*86400, samesite="lax")
+        return {"status": "authorized", "token": token}
+
+    @app.post("/api/owner/logout")
+    async def logout_owner(request: Request, response: Response):
+        token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
+        if token and token in OWNER_TOKENS:
+            del OWNER_TOKENS[token]
+        response.delete_cookie(key="owner_token")
+        return {"status": "logged_out"}
 
     @app.get("/", response_class=HTMLResponse)
     async def get_index():

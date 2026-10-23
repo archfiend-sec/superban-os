@@ -73,3 +73,48 @@ class Config:
         # Update .env
         with open(ENV_PATH, "w", encoding="utf-8") as f:
             f.write(f"TELEGRAM_API_ID={api_id}\nTELEGRAM_API_HASH={api_hash}\nTELEGRAM_PHONE={phone}\n")
+
+    @staticmethod
+    def get_owner_pin() -> str:
+        load_dotenv(ENV_PATH, override=True)
+        pin = os.environ.get("OWNER_PIN", "").strip() or os.environ.get("OWNER_PASSWORD", "").strip()
+        if pin:
+            return pin
+        if CONFIG_PATH.exists():
+            try:
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return str(data.get("owner_pin", "")).strip()
+            except Exception:
+                pass
+        return ""
+
+    @staticmethod
+    def save_owner_pin(pin: str):
+        pin = str(pin).strip()
+        data = {}
+        if CONFIG_PATH.exists():
+            try:
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                data = {}
+        data["owner_pin"] = pin
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+        env_lines = []
+        found = False
+        if ENV_PATH.exists():
+            with open(ENV_PATH, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("OWNER_PIN="):
+                        env_lines.append(f"OWNER_PIN={pin}\n")
+                        found = True
+                    else:
+                        env_lines.append(line)
+        if not found:
+            env_lines.append(f"OWNER_PIN={pin}\n")
+        with open(ENV_PATH, "w", encoding="utf-8") as f:
+            f.writelines(env_lines)
+        os.environ["OWNER_PIN"] = pin

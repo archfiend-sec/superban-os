@@ -16,3 +16,5 @@ services:
         sync: false
       - key: TELEGRAM_STRING_SESSION
         sync: false
+      - key: OWNER_PIN
+        sync: false
