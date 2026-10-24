@@ -1989,7 +1989,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         <label style="font-size: 10px; color: #78837c; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 5px; font-weight: 600;">Telegram Username</label>
         <div style="position: relative; display: flex; align-items: center;">
           <span style="position: absolute; left: 14px; color: #78837c; font-size: 14px; font-weight: bold;">@</span>
-          <input type="text" id="owner-username-input" placeholder="archfiend000" maxlength="32" autofocus
+          <input type="text" id="owner-username-input" placeholder="username" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus
             style="width: 100%; font-size: 13px; background: #030609; border: 1px solid rgba(223, 231, 224, 0.15); border-radius: 6px; padding: 12px 14px 12px 32px; color: #dfe7e0; outline: none; transition: border-color 0.2s;"
             onfocus="this.style.borderColor='#38bdf8'"
             onblur="this.style.borderColor='rgba(223, 231, 224, 0.15)'"
@@ -10158,14 +10158,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     lock.style.opacity = '1';
     lock.style.pointerEvents = 'auto';
 
-    if (userInput && !userInput.value) {
-      const savedUser = sessionStorage.getItem('operator_username');
-      if (savedUser) userInput.value = savedUser;
-    }
+    if (userInput) userInput.value = '';
     if (pinInput) pinInput.value = '';
 
     setTimeout(() => {
-      if (userInput && !userInput.value) {
+      if (userInput) {
         userInput.focus();
       } else if (pinInput) {
         pinInput.focus();
@@ -10456,6 +10453,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       await fetch('/api/owner/logout', { method: 'POST' });
     } catch (e) {}
     sessionStorage.removeItem('owner_token');
+    sessionStorage.removeItem('operator_username');
+    sessionStorage.removeItem('operator_role');
     isOwnerVerified = false;
     if (ws) {
       try { ws.close(); } catch(e) {}
