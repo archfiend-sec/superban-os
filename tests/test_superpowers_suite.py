@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 os.environ["MASTER_OWNER_USERNAME"] = "archfiend000"
-os.environ["OWNER_PIN"] = "3105"
+os.environ["OWNER_PIN"] = "1704"
 
 from core.config import Config
 from core.db import DatabaseManager
@@ -63,7 +63,7 @@ async def run_all_tests():
     login_res = await client.request(
         "POST",
         "/api/owner/verify",
-        json_data={"username": "archfiend000", "pin": "3105"}
+        json_data={"username": "archfiend000", "pin": "1704"}
     )
     assert login_res.status == 200, f"Login failed: {login_res.status} {login_res.text}"
     owner_token = login_res.json().get("token")

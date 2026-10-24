@@ -48,19 +48,28 @@ async def run_tests():
     app = create_app(mock_engine)
     client = InProcessAsgiClient(app)
 
-    # TEST 1: Owner authentication with @archfiend000 and code 3105
+    # TEST 1: Owner authentication with @archfiend000 and code 1704
     print("\n[TEST 1] Owner @archfiend000 clearance verification...")
-    res_owner = await client.request(
+    # Verify old passcode 3105 is strictly rejected
+    res_old = await client.request(
         "POST",
         "/api/owner/verify",
         json_data={"username": "@archfiend000", "pin": "3105"}
+    )
+    assert res_old.status == 403, "Old passcode 3105 must be rejected with 403 Forbidden"
+
+    # Verify new passcode 1704 is accepted
+    res_owner = await client.request(
+        "POST",
+        "/api/owner/verify",
+        json_data={"username": "@archfiend000", "pin": "1704"}
     )
     assert res_owner.status == 200, f"Owner login failed: {res_owner.status} {res_owner.text}"
     owner_data = res_owner.json()
     assert owner_data.get("role") == "owner"
     assert owner_data.get("username") == "archfiend000"
     owner_token = owner_data.get("token")
-    print("  ✅ PASS: Master Owner @archfiend000 authenticated with 3105; role='owner'.")
+    print("  ✅ PASS: Master Owner @archfiend000 authenticated with 1704; role='owner'.")
 
     # TEST 2: Unauthorized user rejection
     print("\n[TEST 2] Unauthorized operator denial...")

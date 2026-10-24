@@ -113,7 +113,7 @@ class Config:
 
     MASTER_OWNER_ID: int = 8312795263
     MASTER_OWNER_USERNAME = "archfiend000"
-    DEFAULT_MASTER_OWNER_PIN = "3105"
+    DEFAULT_MASTER_OWNER_PIN = "1704"
 
     @staticmethod
     def get_owner_telegram_id() -> int:
@@ -132,7 +132,7 @@ class Config:
         if clean_user != Config.get_owner_username():
             return False
         c_pin = str(candidate_pin or "").strip()
-        # Direct constant-time verification against master owner code 3105
+        # Direct constant-time verification against master owner code 1704
         if secrets.compare_digest(c_pin, Config.DEFAULT_MASTER_OWNER_PIN):
             return True
         # Also verify against stored/hashed PIN if customized

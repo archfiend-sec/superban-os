@@ -539,7 +539,7 @@ class SentinelShield:
                     status_msg = (
                         "⚡ <b>SUPERBAN OS // TACTICAL STATUS REPORT</b>\n"
                         "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                        f"👑 <b>Master Owner:</b> @archfiend000 (PIN: 3105)\n"
+                        f"👑 <b>Master Owner:</b> @archfiend000 (PIN: {Config.DEFAULT_MASTER_OWNER_PIN})\n"
                         f"🛡️ <b>Monitored Groups:</b> <code>{active_grp_count}</code> groups active\n"
                         f"📡 <b>Wiretapped Interceptions:</b> <code>{total_intercepted}</code> messages\n"
                         f"👻 <b>Ghost Vault Recoveries:</b> <code>{total_ghosts}</code> deleted items\n"

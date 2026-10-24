@@ -260,7 +260,7 @@ def create_app(engine: SuperBanEngine):
         role = "operator"
 
         if clean_user == Config.get_owner_username():
-            # Master Owner verification (@archfiend000 with 3105 or stored PIN)
+            # Master Owner verification (@archfiend000 with 1704 or stored PIN)
             if Config.verify_owner_credentials(clean_user, candidate_pin):
                 auth_success = True
                 role = "owner"
