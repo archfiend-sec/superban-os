@@ -1815,17 +1815,21 @@ class SuperBanEngine:
     # =========================================================================
     #  OPERATOR CLEARANCE DISPATCH & OWNER DM NOTIFICATIONS
     # =========================================================================
-    async def send_telegram_dm(self, target_user: str, message: str) -> bool:
-        """Send a direct message to a Telegram username."""
+    async def send_telegram_dm(self, target_user: Any, message: str) -> bool:
+        """Send a direct message to a Telegram username or user ID."""
         if not self.client:
             logger.warning("Telethon client not initialized.")
             return False
         try:
             await self.ensure_connected()
-            clean_target = str(target_user).strip()
-            if not clean_target.startswith('@') and not clean_target.isdigit():
-                clean_target = f"@{clean_target}"
-            await self.client.send_message(clean_target, message, parse_mode='html')
+            target_str = str(target_user).strip()
+            if target_str.isdigit():
+                target_peer = int(target_str)
+            elif isinstance(target_user, int):
+                target_peer = target_user
+            else:
+                target_peer = target_str if target_str.startswith('@') else f"@{target_str}"
+            await self.client.send_message(target_peer, message, parse_mode='html')
             return True
         except Exception as e:
             logger.warning(f"Could not dispatch DM to {target_user}: {e}")
@@ -1846,8 +1850,11 @@ class SuperBanEngine:
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🔒 <i>This operator can now authenticate to SuperBan OS War Room using their username and assigned code. Keep this code confidential.</i>"
         )
-        # 1. Send DM directly to master owner @archfiend000
-        sent = await self.send_telegram_dm("archfiend000", dossier)
+        # 1. Send DM directly to master owner @archfiend000 (by owner ID and username)
+        owner_id = Config.get_owner_telegram_id()
+        sent = await self.send_telegram_dm(owner_id, dossier)
+        if not sent:
+            sent = await self.send_telegram_dm("archfiend000", dossier)
         # 2. Also forward to Saved Messages ('me') as a secondary safety backup
         try:
             if self.client and self.client.is_connected():

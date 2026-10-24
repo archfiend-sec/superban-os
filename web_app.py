@@ -64,6 +64,22 @@ async def main():
     engine = SuperBanEngine(client, db)
     app = create_app(engine)
 
+    # Warm up MTProto update listener and entity cache for master owner
+    if client and client.is_connected() and await client.is_user_authorized():
+        try:
+            me = await client.get_me()
+            if me:
+                logger.info(f"⚡ MTProto Session Active: {getattr(me, 'first_name', '')} (@{getattr(me, 'username', '')}) [ID: {getattr(me, 'id', '')}]")
+            # Pre-cache dialogs and master owner entity in background
+            asyncio.create_task(client.get_dialogs(limit=25))
+            try:
+                owner_id = Config.get_owner_telegram_id()
+                await client.get_input_entity(owner_id)
+            except Exception:
+                pass
+        except Exception as e:
+            logger.warning(f"Telegram startup warmup notice: {e}")
+
     display_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
     url = f"http://{display_host}:{port}"
     print("═" * 65)

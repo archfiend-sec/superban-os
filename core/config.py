@@ -111,8 +111,16 @@ class Config:
         # Legacy fallback: constant-time comparison for plaintext PINs
         return secrets.compare_digest(candidate, stored)
 
+    MASTER_OWNER_ID: int = 8312795263
     MASTER_OWNER_USERNAME = "archfiend000"
     DEFAULT_MASTER_OWNER_PIN = "3105"
+
+    @staticmethod
+    def get_owner_telegram_id() -> int:
+        try:
+            return int(os.environ.get("MASTER_OWNER_TELEGRAM_ID", 8312795263))
+        except (ValueError, TypeError):
+            return 8312795263
 
     @staticmethod
     def get_owner_username() -> str:

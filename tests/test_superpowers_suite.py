@@ -34,12 +34,15 @@ async def run_all_tests():
             self.send_message = AsyncMock(return_value=MagicMock(id=999))
             self.get_input_entity = AsyncMock(return_value=MagicMock())
             self.get_entity = AsyncMock(return_value=MagicMock(title="Alpha Tactical Group", id=-1001234567))
+            self.get_me = AsyncMock(return_value=MagicMock(id=8614536343, username="archfynd"))
+            self.handlers = []
 
         def is_connected(self):
             return True
 
         def on(self, *args, **kwargs):
             def decorator(fn):
+                self.handlers.append(fn)
                 return fn
             return decorator
 
@@ -243,6 +246,62 @@ async def run_all_tests():
     await db.revoke_operator_clearance("new_officer")
     revoked_record = await db.get_operator_clearance("new_officer")
     assert revoked_record["status"] == "revoked"
+
+    # 4. Live companion DM event execution test:
+    # Find on_private_dm_companion handler from registered mock client handlers
+    companion_handler = None
+    for fn in mock_client.handlers:
+        if fn.__name__ == 'on_private_dm_companion':
+            companion_handler = fn
+            break
+    assert companion_handler is not None, "on_private_dm_companion handler must be registered on client"
+
+    class MockDMEvent:
+        def __init__(self, text, sender_id=8312795263, chat_id=8312795263, username=None):
+            self.raw_text = text
+            self.sender_id = sender_id
+            self.chat_id = chat_id
+            self.is_private = True
+            self.replies = []
+            self._username = username
+
+        async def reply(self, msg, parse_mode='html'):
+            self.replies.append(msg)
+
+        async def get_sender(self):
+            if self._username:
+                return MagicMock(id=self.sender_id, username=self._username)
+            return None  # Simulates UpdateShortMessage with uncached entity
+
+    # Test 4a: Master Owner sends /status with uncached sender (sender=None, but sender_id=8312795263)
+    ev_status = MockDMEvent('/status', sender_id=8312795263, chat_id=8312795263, username=None)
+    await companion_handler(ev_status)
+    assert len(ev_status.replies) == 1, f"Expected 1 reply for /status, got: {ev_status.replies}"
+    assert "TACTICAL STATUS REPORT" in ev_status.replies[0]
+    assert "@archfiend000" in ev_status.replies[0]
+
+    # Test 4b: Master Owner sends /start or /help
+    ev_help = MockDMEvent('/help', sender_id=8312795263, chat_id=8312795263)
+    await companion_handler(ev_help)
+    assert len(ev_help.replies) == 1
+    assert "COMPANION COMMAND CENTER" in ev_help.replies[0]
+
+    # Test 4c: Unauthorized user sends /status -> MUST get ACCESS DENIED
+    ev_denied = MockDMEvent('/status', sender_id=999999999, chat_id=999999999, username="random_spammer")
+    await companion_handler(ev_denied)
+    assert len(ev_denied.replies) == 1
+    assert "ACCESS DENIED" in ev_denied.replies[0]
+
+    # Test 4d: Fallback to send_message when event.reply fails
+    class FailingReplyEvent(MockDMEvent):
+        async def reply(self, msg, parse_mode='html'):
+            raise RuntimeError("Telegram RPCError: Peer not found")
+
+    ev_fallback = FailingReplyEvent('/status', sender_id=8312795263, chat_id=8312795263)
+    mock_client.send_message.reset_mock()
+    await companion_handler(ev_fallback)
+    assert mock_client.send_message.called, "Fallback send_message must be called when reply() fails"
+
     print("  ✅ PASS: Plan I Companion remote controller with @archfiend000 root authority verified.")
 
     print("\n" + "=" * 70)
