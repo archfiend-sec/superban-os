@@ -51,6 +51,7 @@ from core.db import DatabaseManager
 from core.rate_limiter import AdaptiveRateLimiter
 from core.forensics import ForensicInspector
 from core.sentinel import SentinelShield
+from core.config import Config
 
 logger = logging.getLogger("SuperBanEngine")
 
@@ -1877,7 +1878,10 @@ class SuperBanEngine:
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🔒 <i>All active sessions for this operator have been invalidated.</i>"
         )
-        sent = await self.send_telegram_dm("archfiend000", notice)
+        owner_id = Config.get_owner_telegram_id()
+        sent = await self.send_telegram_dm(owner_id, notice)
+        if not sent:
+            sent = await self.send_telegram_dm("archfiend000", notice)
         try:
             if self.client and self.client.is_connected():
                 await self.client.send_message('me', notice, parse_mode='html')

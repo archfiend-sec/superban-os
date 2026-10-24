@@ -302,6 +302,27 @@ async def run_all_tests():
     await companion_handler(ev_fallback)
     assert mock_client.send_message.called, "Fallback send_message must be called when reply() fails"
 
+    # Test 4e: /assign @Soulofkindness 0611 and /revoke @Soulofkindness
+    ev_assign = MockDMEvent('/assign @Soulofkindness 0611', sender_id=8312795263, chat_id=8312795263)
+    await companion_handler(ev_assign)
+    assert len(ev_assign.replies) == 1
+    assert "CLEARANCE GRANTED BY MASTER OWNER" in ev_assign.replies[0]
+    assert "@soulofkindness" in ev_assign.replies[0]
+
+    op_rec = await db.get_operator_clearance("soulofkindness")
+    assert op_rec is not None
+    assert op_rec["status"] == "active"
+    assert Config.verify_pin("0611", op_rec["pin_hash"]) is True
+
+    # Test 4f: /revoke @Soulofkindness
+    ev_revoke = MockDMEvent('/revoke @Soulofkindness', sender_id=8312795263, chat_id=8312795263)
+    await companion_handler(ev_revoke)
+    assert len(ev_revoke.replies) == 1
+    assert "REVOKED" in ev_revoke.replies[0]
+
+    op_rec_revoked = await db.get_operator_clearance("soulofkindness")
+    assert op_rec_revoked["status"] == "revoked"
+
     print("  ✅ PASS: Plan I Companion remote controller with @archfiend000 root authority verified.")
 
     print("\n" + "=" * 70)
