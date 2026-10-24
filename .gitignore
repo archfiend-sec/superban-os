@@ -59,3 +59,7 @@ nohup.out
 bin/
 tunnel.log
 PUBLIC_URL.txt
+
+# Media Vault cached files
+media_vault/*
+!media_vault/.gitkeep

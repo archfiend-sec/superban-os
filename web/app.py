@@ -27,6 +27,9 @@ from core.intel import IntelSynthesizer
 logger = logging.getLogger("WebMissionControl")
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+BASE_DIR = Path(__file__).resolve().parent.parent
+MEDIA_VAULT_DIR = BASE_DIR / "media_vault"
+OPERATOR_SESSIONS: Dict[str, Dict[str, Any]] = {} # token -> {username, role, expires}
 
 def create_app(engine: SuperBanEngine):
     app = FastAPI(
@@ -70,7 +73,7 @@ def create_app(engine: SuperBanEngine):
     #   OWNER & OPERATOR MULTI-USER CLEARANCE REGISTRY
     # ═══════════════════════════════════════════════════════
     OWNER_TOKENS: Dict[str, float] = {}
-    OPERATOR_SESSIONS: Dict[str, Dict[str, Any]] = {} # token -> {username, role, expires}
+    global OPERATOR_SESSIONS
     FAILED_VERIFY_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
 
     def get_client_ip(req: Request) -> str:
@@ -1330,6 +1333,23 @@ def create_app(engine: SuperBanEngine):
             logger.error(f"Failed to dispatch threat warning: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    class ThreatReportReq(BaseModel):
+        group_id: int
+        message_id: int
+        reason: str = "spam"
+        details: Optional[str] = None
+
+    @app.post("/api/threat/report")
+    async def report_threat_endpoint(req: ThreatReportReq):
+        """Plan H: 1-Click MTProto Report directly to Telegram Trust & Safety."""
+        try:
+            return await engine.report_threat_to_telegram(
+                req.group_id, req.message_id, req.reason, req.details or ""
+            )
+        except Exception as e:
+            logger.error(f"Failed to dispatch threat report to Telegram T&S: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     class StealthBroadcastReq(BaseModel):
         group_ids: List[int]
         text: str
@@ -1350,6 +1370,33 @@ def create_app(engine: SuperBanEngine):
         if not engine.db:
             return []
         return await engine.db.get_ghost_messages(group_id=group_id, filter_mode=filter_mode, limit=limit)
+
+    @app.get("/api/ghost/media/{ghost_id}")
+    async def get_ghost_media(ghost_id: int):
+        """Plan B: Ephemeral Document & Ghost Media Vault secure retrieval."""
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        record = await engine.db.get_ghost_message_by_id(ghost_id)
+        if not record or not record.get("media_path"):
+            raise HTTPException(status_code=404, detail="Ghost media record or file not found")
+        
+        file_path = Path(record["media_path"]).resolve()
+        vault_root = MEDIA_VAULT_DIR.resolve()
+        
+        # Path traversal guard
+        try:
+            file_path.relative_to(vault_root)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied: Invalid media path")
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Media file was not preserved on disk")
+
+        return FileResponse(
+            str(file_path),
+            filename=record.get("file_name") or file_path.name,
+            headers={"X-Content-Type-Options": "nosniff"}
+        )
 
     @app.get("/api/vc/replay")
     async def get_vc_replay(group_id: int, seconds: int = 30):
@@ -1397,6 +1444,19 @@ def create_app(engine: SuperBanEngine):
         if not engine.db:
             return []
         return await engine.db.get_vc_talker_leaderboard(group_id, call_id=call_id)
+
+    class VCTranscribeReq(BaseModel):
+        group_id: int
+        audio_path: Optional[str] = None
+
+    @app.post("/api/vc/transcribe")
+    async def transcribe_vc_endpoint(req: VCTranscribeReq):
+        """Plan A: Voice Chat Speech-to-Text & AI Summarizer (dispatched to @archfiend000 DM)."""
+        try:
+            return await engine.transcribe_and_summarize_vc(req.group_id, req.audio_path)
+        except Exception as e:
+            logger.error(f"Failed to transcribe VC: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     @app.get("/api/osint/user")
     async def get_user_osint(user_id: int):
@@ -1462,6 +1522,20 @@ def create_app(engine: SuperBanEngine):
             "first_seen": db_profile.get("first_seen", "Live MTProto Radar"),
             "last_seen": db_profile.get("last_seen", "Active")
         }
+
+    @app.get("/api/osint/syndicates")
+    async def get_syndicates(time_window_sec: int = 120, min_cooccurrences: int = 2):
+        """Plan C: Co-occurrence Syndicate & Shill Ring detection across monitored chats."""
+        if not engine.db:
+            return []
+        return await engine.db.detect_syndicate_rings(time_window_sec=time_window_sec, min_cooccurrences=min_cooccurrences)
+
+    @app.get("/api/osint/user/{user_id}/sleep_cycle")
+    async def get_user_sleep_cycle(user_id: int):
+        """Plan C: Active timezone and 24-hour circadian sleep-cycle profiler."""
+        if not engine.db:
+            return {"error": "Database offline"}
+        return await engine.db.get_user_sleep_cycle_profile(user_id)
 
     @app.get("/api/surveillance/watchlist")
     async def get_surveillance_watchlist():

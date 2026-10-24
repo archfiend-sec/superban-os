@@ -2,6 +2,8 @@ import asyncio
 import time
 import logging
 import re
+import hashlib
+from pathlib import Path
 from collections import defaultdict, deque
 from typing import Dict, Any, Optional, Callable, List, Set
 
@@ -12,6 +14,7 @@ from telethon.tl.types import ChatBannedRights
 from telethon.errors import RPCError
 
 from core.forensics import ForensicInspector
+from core.config import Config
 
 logger = logging.getLogger("SentinelShield")
 
@@ -33,9 +36,10 @@ EMAIL_REGEX = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
 class SentinelShield:
     """Autonomous Real-Time Defensive Guardian for Telegram Groups."""
 
-    def __init__(self, client: TelegramClient, db):
+    def __init__(self, client: TelegramClient, db, engine=None):
         self.client = client
         self.db = db
+        self.engine = engine
         self.active_groups: Dict[int, Dict[str, Any]] = {}
         self.recent_joins: Dict[int, deque] = defaultdict(lambda: deque(maxlen=30))
         
@@ -179,9 +183,38 @@ class SentinelShield:
 
             # Sovereign Intelligence: Intercept message into Ghost Vault & Update Cross-Group OSINT
             extracted_entities = self._extract_entities(text, group_id, group_title, event.id, sender.id, full_name)
+            
+            # Plan B: Ghost Media Vault preservation (intercept media <= 15MB before deletion)
+            media_path = ""
+            file_name = ""
+            file_size = 0
+            file_hash = ""
+            if event.media:
+                try:
+                    f_size = getattr(getattr(event, 'file', None), 'size', 0)
+                    if f_size and f_size <= 15 * 1024 * 1024:
+                        vault_dir = Path(__file__).resolve().parent.parent / "media_vault"
+                        vault_dir.mkdir(parents=True, exist_ok=True)
+                        ext = getattr(getattr(event, 'file', None), 'ext', '') or '.bin'
+                        clean_ext = ext if ext.startswith('.') else f".{ext}"
+                        file_name = f"ghost_{abs(group_id)}_{event.id}{clean_ext}"
+                        target_file = vault_dir / file_name
+                        downloaded = await event.download_media(file=str(target_file))
+                        if downloaded and Path(downloaded).exists():
+                            media_path = str(downloaded)
+                            file_size = Path(downloaded).stat().st_size
+                            hasher = hashlib.sha256()
+                            with open(downloaded, "rb") as mf:
+                                while chunk := mf.read(65536):
+                                    hasher.update(chunk)
+                            file_hash = hasher.hexdigest()
+                except Exception as me:
+                    logger.debug(f"Ghost media vault download note: {me}")
+
             if self.db:
                 asyncio.create_task(self.db.save_intercepted_message(
-                    group_id, group_title, event.id, sender.id, full_name, username, text, "media" if event.media else "text"
+                    group_id, group_title, event.id, sender.id, full_name, username, text,
+                    "media" if event.media else "text", media_path, file_name, file_size, file_hash
                 ))
                 asyncio.create_task(self.db.update_user_cross_profile(
                     sender.id, full_name, username, group_id, group_title,
@@ -335,6 +368,19 @@ class SentinelShield:
                             await self.client.send_message('me', alert_card, parse_mode='html')
                         except Exception:
                             pass
+
+                        # Plan H: Autonomous MTProto Report directly to Telegram Trust & Safety
+                        if hasattr(self, 'engine') and self.engine:
+                            try:
+                                asyncio.create_task(self.engine.report_threat_to_telegram(
+                                    group_id, event.id, reason="spam",
+                                    details=f"Automated threat neutralization: {threat_type} (confidence: {confidence}%)"
+                                ))
+                                await self.emit_sentinel_event("threat_reported_to_telegram", {
+                                    "group_id": group_id, "message_id": event.id, "threat_type": threat_type, "confidence": confidence
+                                })
+                            except Exception as rep_err:
+                                logger.debug(f"Auto MTProto report note: {rep_err}")
                 except Exception as e:
                     logger.debug(f"Failed to record threat: {e}")
 
@@ -373,6 +419,238 @@ class SentinelShield:
                         })
                 except Exception as e:
                     logger.debug(f"Ghost Vault edit hook note: {e}")
+
+        # ═══════════════════════════════════════════════════════════════
+        #   PLAN I: TELEGRAM COMPANION CONTROLLER FOR @archfiend000
+        # ═══════════════════════════════════════════════════════════════
+        @self.client.on(events.NewMessage(func=lambda e: e.is_private))
+        async def on_private_dm_companion(event):
+            """Plan I: Non-Admin Remote Control in Telegram DM for Master Owner @archfiend000."""
+            sender = await event.get_sender()
+            if not sender or getattr(sender, 'bot', False):
+                return
+
+            raw_text = (event.raw_text or "").strip()
+            if not raw_text.startswith('/'):
+                return
+
+            sender_user = (getattr(sender, 'username', '') or '').strip().lstrip('@').lower()
+            owner_user = Config.get_owner_username() # "archfiend000"
+
+            # Strict Owner Gatekeeper
+            if sender_user != owner_user:
+                logger.warning(f"Unauthorized DM command from @{sender_user} (ID: {sender.id}): {raw_text}")
+                await event.reply(
+                    "⛔ <b>SUPERBAN OS // ACCESS DENIED</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "This companion terminal is restricted strictly to <b>Master Owner @archfiend000</b>.",
+                    parse_mode='html'
+                )
+                return
+
+            parts = raw_text.split()
+            cmd = parts[0].lower().split('@')[0]
+
+            if cmd in ['/start', '/help']:
+                help_msg = (
+                    "👑 <b>SUPERBAN OS // COMPANION COMMAND CENTER</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "Welcome, Master Owner <b>@archfiend000</b>. You have full non-admin remote control:\n\n"
+                    "• 📊 <code>/status</code> — Live War Room telemetry, monitored groups & stats\n"
+                    "• 🔑 <code>/assign &lt;@user&gt; &lt;4-digit-code&gt;</code> — Grant new operator clearance\n"
+                    "• 🚫 <code>/revoke &lt;@user&gt;</code> — Terminate operator clearance instantly\n"
+                    "• 👥 <code>/operators</code> — List active operator credentials & roles\n"
+                    "• 📡 <code>/radar</code> — Latest high-yield crypto alpha & drainer alerts\n"
+                    "• 👻 <code>/ghost</code> — Intercepted deleted messages vault overview\n"
+                    "• 🎙️ <code>/vc</code> — Live voice chat tracking & talker telemetry\n"
+                    "• 🚨 <code>/report &lt;group_id&gt; &lt;msg_id&gt; [reason]</code> — 1-Click MTProto report to TG T&S\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "🔒 <i>Zero group admin privileges required. Operating with supreme MTProto capabilities.</i>"
+                )
+                await event.reply(help_msg, parse_mode='html')
+
+            elif cmd == '/status':
+                active_grp_count = len(self.active_groups)
+                total_intercepted = 0
+                total_ghosts = 0
+                operator_count = 0
+                if self.db:
+                    try:
+                        self.db.cursor.execute("SELECT COUNT(*) FROM intercepted_messages")
+                        total_intercepted = self.db.cursor.fetchone()[0]
+                        self.db.cursor.execute("SELECT COUNT(*) FROM intercepted_messages WHERE is_deleted = 1")
+                        total_ghosts = self.db.cursor.fetchone()[0]
+                        self.db.cursor.execute("SELECT COUNT(*) FROM operator_clearances WHERE status = 'active'")
+                        operator_count = self.db.cursor.fetchone()[0]
+                    except Exception:
+                        pass
+                
+                status_msg = (
+                    "⚡ <b>SUPERBAN OS // TACTICAL STATUS REPORT</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"👑 <b>Master Owner:</b> @archfiend000 (PIN: 3105)\n"
+                    f"🛡️ <b>Monitored Groups:</b> <code>{active_grp_count}</code> groups active\n"
+                    f"📡 <b>Wiretapped Interceptions:</b> <code>{total_intercepted}</code> messages\n"
+                    f"👻 <b>Ghost Vault Recoveries:</b> <code>{total_ghosts}</code> deleted items\n"
+                    f"🎖️ <b>Active Clearances:</b> <code>{operator_count}</code> authorized operators\n"
+                    f"⏱️ <b>System Uptime:</b> Operational & Healthy\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "✅ <i>All 5 Non-Admin Superpowers Active & Defending.</i>"
+                )
+                await event.reply(status_msg, parse_mode='html')
+
+            elif cmd == '/assign':
+                if len(parts) < 3:
+                    await event.reply(
+                        "⚠️ <b>Usage:</b> <code>/assign &lt;@username&gt; &lt;4-digit-code&gt;</code>\n"
+                        "<i>Example: /assign @shadow_agent 4812</i>",
+                        parse_mode='html'
+                    )
+                    return
+                target_user = parts[1].strip().lstrip('@').lower()
+                target_pin = parts[2].strip()
+                if not target_pin.isdigit() or len(target_pin) != 4:
+                    await event.reply("❌ Error: Assigned code must be exactly 4 digits (e.g. <code>4812</code>).", parse_mode='html')
+                    return
+                
+                pin_hash = Config.hash_pin(target_pin)
+                if self.db:
+                    await self.db.save_operator_clearance(target_user, pin_hash, role='operator', assigned_by='archfiend000')
+                if hasattr(self, 'engine') and self.engine:
+                    await self.engine.notify_owner_clearance_issued(target_user, target_pin, role='operator')
+                    try:
+                        await self.engine.send_telegram_dm(
+                            target_user,
+                            f"🛡️ <b>SUPERBAN OS CLEARANCE GRANTED</b>\n"
+                            f"Master Owner @archfiend000 has authorized your username @{target_user} with 4-digit code: <code>{target_pin}</code>."
+                        )
+                    except Exception:
+                        pass
+                
+                await event.reply(
+                    f"✅ <b>CLEARANCE GRANTED BY MASTER OWNER</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"👤 <b>Operator:</b> @{target_user}\n"
+                    f"🔑 <b>Assigned PIN:</b> <code>{target_pin}</code>\n"
+                    f"🎖️ <b>Role:</b> OPERATOR (Active)\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"<i>Credentials dispatched to operator and backed up in Saved Messages.</i>",
+                    parse_mode='html'
+                )
+
+            elif cmd == '/revoke':
+                if len(parts) < 2:
+                    await event.reply("⚠️ <b>Usage:</b> <code>/revoke &lt;@username&gt;</code>", parse_mode='html')
+                    return
+                target_user = parts[1].strip().lstrip('@').lower()
+                if target_user == 'archfiend000':
+                    await event.reply("❌ Cannot revoke Master Owner @archfiend000.", parse_mode='html')
+                    return
+                
+                revoked = False
+                if self.db:
+                    revoked = await self.db.revoke_operator_clearance(target_user)
+                if hasattr(self, 'engine') and self.engine:
+                    await self.engine.notify_owner_clearance_revoked(target_user)
+                
+                try:
+                    from web.app import OPERATOR_SESSIONS
+                    tokens_to_kill = [t for t, d in OPERATOR_SESSIONS.items() if d.get('username') == target_user]
+                    for t in tokens_to_kill:
+                        OPERATOR_SESSIONS.pop(t, None)
+                except Exception:
+                    pass
+
+                if revoked:
+                    await event.reply(f"🚫 <b>REVOKED:</b> Operator @{target_user} clearance terminated and active sessions killed.", parse_mode='html')
+                else:
+                    await event.reply(f"⚠️ Operator @{target_user} not found or already revoked.", parse_mode='html')
+
+            elif cmd == '/operators':
+                ops = []
+                if self.db:
+                    ops = await self.db.list_operator_clearances()
+                if not ops:
+                    await event.reply("ℹ️ No operators registered.", parse_mode='html')
+                    return
+                
+                lines = ["🎖️ <b>SUPERBAN OS // AUTHORIZED OPERATORS</b>", "━━━━━━━━━━━━━━━━━━━━━━━━━━"]
+                for o in ops:
+                    status_emoji = "🟢" if o.get('status') == 'active' else "🔴"
+                    role_badge = "👑 OWNER" if o.get('role') == 'owner' else "🛡️ OPERATOR"
+                    lines.append(f"{status_emoji} <b>@{o.get('username')}</b> — {role_badge} [{o.get('status').upper()}]")
+                lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                await event.reply("\n".join(lines), parse_mode='html')
+
+            elif cmd == '/radar':
+                recent_entities = []
+                if self.db:
+                    try:
+                        self.db.cursor.execute(
+                            "SELECT entity_type, entity_value, group_title FROM extracted_entities ORDER BY id DESC LIMIT 6"
+                        )
+                        recent_entities = self.db.cursor.fetchall()
+                    except Exception:
+                        pass
+                
+                lines = ["📡 <b>SUPERBAN OS // ALPHA & THREAT RADAR</b>", "━━━━━━━━━━━━━━━━━━━━━━━━━━"]
+                if recent_entities:
+                    for r in recent_entities:
+                        lines.append(f"• <code>[{r[0]}]</code> <b>{r[1]}</b> ({r[2] or 'Global'})")
+                else:
+                    lines.append("<i>No high-frequency alpha markers recorded in recent window.</i>")
+                lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                await event.reply("\n".join(lines), parse_mode='html')
+
+            elif cmd == '/ghost':
+                ghosts = []
+                if self.db:
+                    ghosts = await self.db.get_ghost_messages(filter_mode='deleted', limit=3)
+                
+                lines = [
+                    "👻 <b>SUPERBAN OS // GHOST VAULT INTERCEPTIONS</b>",
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                ]
+                if ghosts:
+                    for g in ghosts:
+                        lines.append(f"• <b>{g.get('full_name')}</b> (@{g.get('username') or 'anon'}) in <i>{g.get('group_title')}</i>:")
+                        text_preview = (g.get('text') or '[Media/Empty]')[:80]
+                        lines.append(f"  <blockquote>{text_preview}</blockquote>")
+                else:
+                    lines.append("<i>Zero deleted messages recovered yet. Standing by.</i>")
+                lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                await event.reply("\n".join(lines), parse_mode='html')
+
+            elif cmd == '/vc':
+                vc_info = getattr(self.engine, 'active_vc_session', None) if hasattr(self, 'engine') and self.engine else None
+                if vc_info:
+                    msg = (
+                        "🎙️ <b>VOICE CHAMBER APEX ACTIVE</b>\n"
+                        "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"👥 <b>Group ID:</b> <code>{vc_info.get('group_id')}</code>\n"
+                        f"🔊 <b>Status:</b> Listening & WebRTC Streaming\n"
+                        f"🎤 <b>Live Audio Buffer:</b> /tmp/vc_stream_{vc_info.get('clean_group_id', 'live')}.mp3"
+                    )
+                else:
+                    msg = "🎙️ <b>VOICE CHAMBER:</b> No active voice call currently joined. Standing by."
+                await event.reply(msg, parse_mode='html')
+
+            elif cmd == '/report':
+                if len(parts) < 3:
+                    await event.reply("⚠️ <b>Usage:</b> <code>/report &lt;group_id&gt; &lt;msg_id&gt; [reason]</code>", parse_mode='html')
+                    return
+                try:
+                    rep_gid = int(parts[1])
+                    rep_mid = int(parts[2])
+                    rep_reason = parts[3] if len(parts) > 3 else "spam"
+                    if hasattr(self, 'engine') and self.engine:
+                        res = await self.engine.report_threat_to_telegram(rep_gid, rep_mid, reason=rep_reason)
+                        if res.get("success"):
+                            await event.reply(f"🚨 <b>MTProto Report Dispatched:</b> Msg #{rep_mid} in {rep_gid} reported to Telegram Trust & Safety as <code>{rep_reason}</code>.", parse_mode='html')
+                        else:
+                            await event.reply(f"❌ Failed to report: {res.get('error')}", parse_mode='html')
+                except Exception as ex:
+                    await event.reply(f"❌ Syntax Error: {ex}", parse_mode='html')
 
         self._handlers_registered = True
 

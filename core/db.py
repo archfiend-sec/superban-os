@@ -146,6 +146,10 @@ class DatabaseManager:
                 username TEXT,
                 text TEXT,
                 media_type TEXT,
+                media_path TEXT,
+                file_name TEXT,
+                file_size INTEGER DEFAULT 0,
+                file_hash TEXT,
                 is_deleted BOOLEAN DEFAULT 0,
                 is_edited BOOLEAN DEFAULT 0,
                 original_text TEXT,
@@ -274,6 +278,19 @@ class DatabaseManager:
             );
         ''')
         self.conn.commit()
+
+        # Idempotent migration for Ghost Media Vault columns in intercepted_messages
+        for col_name, col_type in [
+            ("media_path", "TEXT"),
+            ("file_name", "TEXT"),
+            ("file_size", "INTEGER DEFAULT 0"),
+            ("file_hash", "TEXT"),
+        ]:
+            try:
+                self.cursor.execute(f"ALTER TABLE intercepted_messages ADD COLUMN {col_name} {col_type};")
+                self.conn.commit()
+            except Exception:
+                pass
 
         # Seed or sync master owner @archfiend000 clearance
         try:
@@ -565,16 +582,20 @@ class DatabaseManager:
     # ═══════════════════════════════════════════════════════
     async def save_intercepted_message(self, group_id: int, group_title: str, message_id: int,
                                        user_id: int, full_name: str, username: str, 
-                                       text: str, media_type: str = ""):
+                                       text: str, media_type: str = "",
+                                       media_path: str = "", file_name: str = "",
+                                       file_size: int = 0, file_hash: str = ""):
         """Store incoming message snapshot for anti-delete/anti-edit forensics."""
         async with self.lock:
             try:
                 self.cursor.execute(
                     '''INSERT OR IGNORE INTO intercepted_messages
-                    (group_id, group_title, message_id, user_id, full_name, username, text, media_type, date_sent)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (group_id, group_title, message_id, user_id, full_name, username, text, media_type,
+                     media_path, file_name, file_size, file_hash, date_sent)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                     (group_id, group_title or "", message_id, user_id, full_name or "Anonymous",
-                     username or "", text or "", media_type or "", datetime.now())
+                     username or "", text or "", media_type or "",
+                     media_path or "", file_name or "", file_size or 0, file_hash or "", datetime.now())
                 )
                 self.conn.commit()
             except Exception:
@@ -589,7 +610,8 @@ class DatabaseManager:
             try:
                 placeholders = ','.join('?' * len(message_ids))
                 self.cursor.execute(
-                    f'''SELECT message_id, user_id, full_name, username, text, media_type, date_sent
+                    f'''SELECT message_id, user_id, full_name, username, text, media_type,
+                               media_path, file_name, file_size, file_hash, date_sent
                     FROM intercepted_messages WHERE group_id = ? AND message_id IN ({placeholders})''',
                     [group_id] + list(message_ids)
                 )
@@ -602,7 +624,11 @@ class DatabaseManager:
                         "username": r[3],
                         "text": r[4],
                         "media_type": r[5],
-                        "date_sent": str(r[6]),
+                        "media_path": r[6] or "",
+                        "file_name": r[7] or "",
+                        "file_size": r[8] or 0,
+                        "file_hash": r[9] or "",
+                        "date_sent": str(r[10]),
                         "date_deleted": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
                 
@@ -654,7 +680,7 @@ class DatabaseManager:
     async def get_ghost_messages(self, group_id: Optional[int] = None, filter_mode: str = 'all', limit: int = 50) -> List[Dict[str, Any]]:
         """Retrieve deleted and edited messages from the Ghost Vault."""
         async with self.lock:
-            query = "SELECT id, group_id, group_title, message_id, user_id, full_name, username, text, media_type, is_deleted, is_edited, original_text, date_sent, date_deleted, date_edited FROM intercepted_messages WHERE "
+            query = "SELECT id, group_id, group_title, message_id, user_id, full_name, username, text, media_type, media_path, file_name, file_size, file_hash, is_deleted, is_edited, original_text, date_sent, date_deleted, date_edited FROM intercepted_messages WHERE "
             params = []
             
             conds = []
@@ -685,18 +711,22 @@ class DatabaseManager:
                 "username": r[6],
                 "text": r[7],
                 "media_type": r[8],
-                "is_deleted": bool(r[9]),
-                "is_edited": bool(r[10]),
-                "original_text": r[11],
-                "date_sent": str(r[12]) if r[12] else "",
-                "date_deleted": str(r[13]) if r[13] else "",
-                "date_edited": str(r[14]) if r[14] else ""
+                "media_path": r[9] or "",
+                "file_name": r[10] or "",
+                "file_size": r[11] or 0,
+                "file_hash": r[12] or "",
+                "is_deleted": bool(r[13]),
+                "is_edited": bool(r[14]),
+                "original_text": r[15],
+                "date_sent": str(r[16]) if r[16] else "",
+                "date_deleted": str(r[17]) if r[17] else "",
+                "date_edited": str(r[18]) if r[18] else ""
             } for r in rows]
 
     async def get_ghost_message_by_id(self, ghost_id: int) -> Optional[Dict[str, Any]]:
         """Retrieve a specific intercepted message by its database primary key ID."""
         async with self.lock:
-            sql = "SELECT id, group_id, group_title, message_id, user_id, full_name, username, text, media_type, is_deleted, is_edited, original_text, date_sent, date_deleted, date_edited FROM intercepted_messages WHERE id = ?"
+            sql = "SELECT id, group_id, group_title, message_id, user_id, full_name, username, text, media_type, media_path, file_name, file_size, file_hash, is_deleted, is_edited, original_text, date_sent, date_deleted, date_edited FROM intercepted_messages WHERE id = ?"
             self.cursor.execute(sql, (ghost_id,))
             r = self.cursor.fetchone()
             if not r:
@@ -711,13 +741,184 @@ class DatabaseManager:
                 "username": r[6],
                 "text": r[7],
                 "media_type": r[8],
-                "is_deleted": bool(r[9]),
-                "is_edited": bool(r[10]),
-                "original_text": r[11],
-                "date_sent": str(r[12]) if r[12] else "",
-                "date_deleted": str(r[13]) if r[13] else "",
-                "date_edited": str(r[14]) if r[14] else ""
+                "media_path": r[9] or "",
+                "file_name": r[10] or "",
+                "file_size": r[11] or 0,
+                "file_hash": r[12] or "",
+                "is_deleted": bool(r[13]),
+                "is_edited": bool(r[14]),
+                "original_text": r[15],
+                "date_sent": str(r[16]) if r[16] else "",
+                "date_deleted": str(r[17]) if r[17] else "",
+                "date_edited": str(r[18]) if r[18] else ""
             }
+
+    # ═══════════════════════════════════════════════════════
+    #   SHADOW NETWORK & SYNDICATE SHILL RING ANALYSIS
+    # ═══════════════════════════════════════════════════════
+    async def detect_syndicate_rings(self, time_window_sec: int = 120, min_cooccurrences: int = 2) -> List[Dict[str, Any]]:
+        """Detect coordinated shill rings and user syndicates who post within tight time windows across groups."""
+        async with self.lock:
+            try:
+                sql = '''
+                    SELECT 
+                        m1.user_id AS u1_id, m1.full_name AS u1_name, m1.username AS u1_user,
+                        m2.user_id AS u2_id, m2.full_name AS u2_name, m2.username AS u2_user,
+                        m1.group_id, m1.group_title,
+                        COUNT(*) AS co_count,
+                        MIN(m1.date_sent) as first_seen,
+                        MAX(m1.date_sent) as last_seen
+                    FROM intercepted_messages m1
+                    JOIN intercepted_messages m2 ON m1.group_id = m2.group_id
+                        AND m1.user_id < m2.user_id
+                        AND abs(strftime('%s', m1.date_sent) - strftime('%s', m2.date_sent)) <= ?
+                    GROUP BY m1.user_id, m2.user_id, m1.group_id
+                    HAVING co_count >= ?
+                    ORDER BY co_count DESC LIMIT 50
+                '''
+                self.cursor.execute(sql, (time_window_sec, min_cooccurrences))
+                rows = self.cursor.fetchall()
+                
+                pair_map = {}
+                for r in rows:
+                    u1_id, u1_name, u1_user, u2_id, u2_name, u2_user, gid, gtitle, count, fseen, lseen = r
+                    key = (u1_id, u2_id)
+                    if key not in pair_map:
+                        pair_map[key] = {
+                            "user1": {"id": u1_id, "name": u1_name, "username": u1_user},
+                            "user2": {"id": u2_id, "name": u2_name, "username": u2_user},
+                            "groups": [],
+                            "total_cooccurrences": 0,
+                            "first_seen": str(fseen),
+                            "last_seen": str(lseen)
+                        }
+                    pair_map[key]["total_cooccurrences"] += count
+                    pair_map[key]["groups"].append({"id": gid, "title": gtitle or f"Group {gid}", "count": count})
+                
+                syndicates = []
+                for (u1, u2), data in pair_map.items():
+                    grp_count = len(data["groups"])
+                    total_co = data["total_cooccurrences"]
+                    score = min(99, int(35 + (grp_count * 20) + (total_co * 5)))
+                    
+                    self.cursor.execute('''
+                        SELECT DISTINCT e1.entity_value, e1.entity_type
+                        FROM extracted_entities e1
+                        JOIN extracted_entities e2 ON e1.entity_value = e2.entity_value
+                        WHERE e1.sender_id = ? AND e2.sender_id = ?
+                        LIMIT 5
+                    ''', (u1, u2))
+                    shared = [{"value": er[0], "type": er[1]} for er in self.cursor.fetchall()]
+                    if shared:
+                        score = min(99, score + 15)
+                    
+                    data["syndicate_score"] = score
+                    data["shared_entities"] = shared
+                    data["classification"] = "COORDINATED SHILL RING" if score >= 75 else "SUSPECTED ASSOCIATES"
+                    syndicates.append(data)
+                
+                syndicates.sort(key=lambda s: s["syndicate_score"], reverse=True)
+                return syndicates
+            except Exception as e:
+                return []
+
+    # ═══════════════════════════════════════════════════════
+    #   CIRCADIAN SLEEP-CYCLE & TIMEZONE ESTIMATION PROFILER
+    # ═══════════════════════════════════════════════════════
+    async def get_user_sleep_cycle_profile(self, user_id: int) -> Dict[str, Any]:
+        """Calculate circadian rhythm, hourly UTC message activity distribution, and estimated timezone."""
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT strftime('%H', date_sent) AS hr, COUNT(*) 
+                    FROM intercepted_messages 
+                    WHERE user_id = ? 
+                    GROUP BY hr
+                ''', (user_id,))
+                rows = self.cursor.fetchall()
+                
+                hour_counts = {int(h): c for h, c in rows if h is not None}
+                full_dist = [hour_counts.get(h, 0) for h in range(24)]
+                total_msgs = sum(full_dist)
+                
+                if total_msgs < 3:
+                    return {
+                        "user_id": user_id,
+                        "hourly_distribution": full_dist,
+                        "total_messages": total_msgs,
+                        "sleep_window_utc": "Insufficient telemetry",
+                        "estimated_timezone": "Unknown (Requires >= 3 messages)",
+                        "confidence": 10,
+                        "peak_hour_utc": 0
+                    }
+                
+                # Find minimum 7-hour contiguous inactivity window (sleep valley)
+                min_sum = float('inf')
+                best_start = 0
+                window_size = 7
+                for start in range(24):
+                    cur_sum = sum(full_dist[(start + offset) % 24] for offset in range(window_size))
+                    if cur_sum < min_sum:
+                        min_sum = cur_sum
+                        best_start = start
+                
+                sleep_start = best_start
+                sleep_end = (best_start + window_size) % 24
+                
+                # Human circadian midpoint around 03:30 local time
+                midpoint_utc = (sleep_start + (window_size / 2.0)) % 24
+                raw_offset = 3.5 - midpoint_utc
+                while raw_offset > 14:
+                    raw_offset -= 24
+                while raw_offset < -12:
+                    raw_offset += 24
+                
+                offset_round = round(raw_offset * 2) / 2
+                sign = "+" if offset_round >= 0 else "-"
+                abs_val = abs(offset_round)
+                hrs = int(abs_val)
+                mins = int((abs_val - hrs) * 60)
+                tz_str = f"UTC{sign}{hrs:02d}:{mins:02d}"
+                
+                tz_region = "Global"
+                if offset_round in [-5, -4]:
+                    tz_region = "Americas (EST/EDT/Atlantic)"
+                elif offset_round in [-8, -7]:
+                    tz_region = "Americas (PST/PDT/MST)"
+                elif offset_round in [0, 1]:
+                    tz_region = "Europe / UK / W. Africa"
+                elif offset_round in [2, 3]:
+                    tz_region = "Eastern Europe / Middle East / E. Africa"
+                elif offset_round == 5.5:
+                    tz_region = "India / South Asia (IST)"
+                elif offset_round in [7, 8]:
+                    tz_region = "East Asia / China / Singapore / WA"
+                elif offset_round in [9, 10]:
+                    tz_region = "Japan / Korea / Eastern Australia"
+                
+                peak_hr = full_dist.index(max(full_dist))
+                confidence = min(95, int(40 + min(45, total_msgs * 2)))
+                
+                return {
+                    "user_id": user_id,
+                    "hourly_distribution": full_dist,
+                    "total_messages": total_msgs,
+                    "sleep_window_utc": f"{sleep_start:02d}:00 - {sleep_end:02d}:00 UTC",
+                    "estimated_timezone": f"{tz_str} ({tz_region})",
+                    "utc_offset_hours": offset_round,
+                    "confidence": confidence,
+                    "peak_hour_utc": peak_hr
+                }
+            except Exception as e:
+                return {
+                    "user_id": user_id,
+                    "hourly_distribution": [0]*24,
+                    "total_messages": 0,
+                    "sleep_window_utc": "Error",
+                    "estimated_timezone": "Error",
+                    "confidence": 0,
+                    "peak_hour_utc": 0
+                }
 
     # ═══════════════════════════════════════════════════════
     #   SURVEILLANCE WATCHLIST & REAL-TIME ALERTS

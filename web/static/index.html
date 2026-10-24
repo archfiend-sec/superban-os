@@ -2095,6 +2095,14 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <i data-lucide="eye" style="width: 13px; height: 13px;"></i>
           <span>Ghost Vault (Anti-Delete)</span>
         </button>
+        <button type="button" onclick="openSyndicatesModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
+          <i data-lucide="users" style="width: 13px; height: 13px; color: #f59e0b;"></i>
+          <span>Shadow Syndicates &amp; Shill Rings</span>
+        </button>
+        <button type="button" onclick="openCompanionModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
+          <i data-lucide="smartphone" style="width: 13px; height: 13px; color: #38bdf8;"></i>
+          <span>Telegram Companion Control</span>
+        </button>
         <button type="button" onclick="openEntitiesModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
           <i data-lucide="wallet" style="width: 13px; height: 13px;"></i>
           <span>Signal Radar (Crypto/IOCs)</span>
@@ -3693,6 +3701,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         <button id="vc-btn-join-stream" onclick="toggleVCConnection()" class="kage-btn" style="flex: 1; min-width: 190px; background: #059669; border-color: #10b981;" title="Connect directly to group call as ghost listener (muted)">
           <i data-lucide="headphones" style="width: 13px; height: 13px;"></i> <span id="vc-join-btn-text">Connect (Ghost Listener)</span>
         </button>
+        <button id="btn-vc-ai-transcribe" onclick="transcribeAndSummarizeVC()" class="kage-btn" style="flex: 1; min-width: 190px; background: #4f46e5; border-color: #818cf8;" title="Plan A: Transcribe audio stream and dispatch 3-bullet tactical summary to @archfiend000 DM">
+          <i data-lucide="brain" style="width: 13px; height: 13px;"></i> <span>AI Transcribe &amp; Summarize</span>
+        </button>
         <button onclick="exportVCMembers()" class="kage-btn-secondary" style="flex: 1; min-width: 160px;" title="Export complete participant intelligence dossier to JSON">
           <i data-lucide="download" style="width: 13px; height: 13px;"></i> Export Intel (JSON)
         </button>
@@ -4306,6 +4317,130 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   </div>
 </div>
 
+<!-- MODAL: VC AI EXECUTIVE BRIEFING -->
+<div id="vc-briefing-modal" class="kage-modal-overlay" style="display: none; z-index: 10006;" onclick="if(event.target===this) closeVCBriefingModal()">
+  <div class="kage-modal font-mono" style="padding: 24px; max-width: 680px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line); border-radius: 6px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 12px; margin-bottom: 16px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(99,102,241,0.15); border: 1px solid #818cf8; display: grid; place-items: center;">
+          <i data-lucide="brain" style="width: 16px; height: 16px; color: #818cf8;"></i>
+        </div>
+        <div>
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0;">VC AI TACTICAL BRIEFING // 音声要約</h4>
+          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">3-BULLET EXECUTIVE DOSSIER • DISPATCHED TO @archfiend000</span>
+        </div>
+      </div>
+      <button onclick="closeVCBriefingModal()" class="kage-btn-pill">✕ Close</button>
+    </div>
+    <div id="vc-briefing-body" style="flex: 1; overflow-y: auto;"></div>
+  </div>
+</div>
+
+<!-- MODAL: SHADOW SYNDICATES & SHILL RINGS -->
+<div id="syndicates-modal" class="kage-modal-overlay" style="display: none; z-index: 10007;" onclick="if(event.target===this) closeSyndicatesModal()">
+  <div class="kage-modal font-mono" style="padding: 24px; max-width: 820px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line); border-radius: 6px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 12px; margin-bottom: 16px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(245,158,11,0.15); border: 1px solid #f59e0b; display: grid; place-items: center;">
+          <i data-lucide="users" style="width: 16px; height: 16px; color: #f59e0b;"></i>
+        </div>
+        <div>
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0;">SHADOW SYNDICATE &amp; SHILL RING DETECTOR // 結託検知</h4>
+          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">CROSS-GROUP CO-OCCURRENCE NETWORK RADAR</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button onclick="openSyndicatesModal()" class="btn-xs-outline" style="font-size: 9px;">↻ Scan</button>
+        <button onclick="closeSyndicatesModal()" class="kage-btn-pill">✕ Close</button>
+      </div>
+    </div>
+    <div id="syndicates-modal-body" style="flex: 1; overflow-y: auto;"></div>
+  </div>
+</div>
+
+<!-- MODAL: TELEGRAM COMPANION CONTROLLER OVERVIEW -->
+<div id="companion-modal" class="kage-modal-overlay" style="display: none; z-index: 10008;" onclick="if(event.target===this) closeCompanionModal()">
+  <div class="kage-modal font-mono" style="padding: 24px; max-width: 680px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line); border-radius: 6px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 12px; margin-bottom: 16px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; display: grid; place-items: center;">
+          <i data-lucide="smartphone" style="width: 16px; height: 16px; color: #38bdf8;"></i>
+        </div>
+        <div>
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0;">TELEGRAM COMPANION CONTROLLER // 遠隔指揮</h4>
+          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">MOBILE DM REMOTE CONTROL • ROOT OWNER @archfiend000</span>
+        </div>
+      </div>
+      <button onclick="closeCompanionModal()" class="kage-btn-pill">✕ Close</button>
+    </div>
+    <div style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+      <div style="background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.3); border-radius: 4px; padding: 12px 14px; font-size: 12px; color: var(--bone); line-height: 1.5;">
+        👑 <b>Direct Telegram DM Command Channel Active:</b> As Master Owner <b>@archfiend000</b>, you can control SuperBan OS directly from your phone by sending commands to your userbot in Telegram DM. Zero web login required!
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span class="eyebrow" style="color: var(--muted); font-size: 10px;">AVAILABLE COMPANION DM COMMANDS</span>
+        
+        <div style="background: rgba(5,7,10,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <code style="color: #38bdf8; font-weight: bold;">/status</code>
+            <button onclick="navigator.clipboard.writeText('/status'); showToast('Copied /status', 'info');" class="btn-xs-outline" style="font-size: 8px;">Copy</button>
+          </div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Live telemetry report: active groups, wiretap volume, ghost vault count, operators.</div>
+        </div>
+
+        <div style="background: rgba(5,7,10,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <code style="color: #38bdf8; font-weight: bold;">/assign &lt;@username&gt; &lt;4-digit-code&gt;</code>
+            <button onclick="navigator.clipboard.writeText('/assign @username 1234'); showToast('Copied template', 'info');" class="btn-xs-outline" style="font-size: 8px;">Copy</button>
+          </div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Issue new operator clearance on the fly. Generates PBKDF2 hash and delivers DM alert.</div>
+        </div>
+
+        <div style="background: rgba(5,7,10,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <code style="color: #38bdf8; font-weight: bold;">/revoke &lt;@username&gt;</code>
+            <button onclick="navigator.clipboard.writeText('/revoke @username'); showToast('Copied template', 'info');" class="btn-xs-outline" style="font-size: 8px;">Copy</button>
+          </div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Immediately revoke operator clearance and invalidate all active session tokens.</div>
+        </div>
+
+        <div style="background: rgba(5,7,10,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <code style="color: #38bdf8; font-weight: bold;">/operators</code>
+            <button onclick="navigator.clipboard.writeText('/operators'); showToast('Copied /operators', 'info');" class="btn-xs-outline" style="font-size: 8px;">Copy</button>
+          </div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">List all authorized operators, assigned clearance levels, and active statuses.</div>
+        </div>
+
+        <div style="background: rgba(5,7,10,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <code style="color: #38bdf8; font-weight: bold;">/radar</code>
+            <button onclick="navigator.clipboard.writeText('/radar'); showToast('Copied /radar', 'info');" class="btn-xs-outline" style="font-size: 8px;">Copy</button>
+          </div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Get latest high-frequency crypto alpha tokens, contract addresses, and threat alerts.</div>
+        </div>
+
+        <div style="background: rgba(5,7,10,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <code style="color: #38bdf8; font-weight: bold;">/ghost</code>
+            <button onclick="navigator.clipboard.writeText('/ghost'); showToast('Copied /ghost', 'info');" class="btn-xs-outline" style="font-size: 8px;">Copy</button>
+          </div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Preview the latest 3 recovered deleted messages from the Ghost Vault.</div>
+        </div>
+
+        <div style="background: rgba(5,7,10,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <code style="color: #38bdf8; font-weight: bold;">/report &lt;group_id&gt; &lt;msg_id&gt; [reason]</code>
+            <button onclick="navigator.clipboard.writeText('/report'); showToast('Copied /report', 'info');" class="btn-xs-outline" style="font-size: 8px;">Copy</button>
+          </div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Submit formal MTProto report to Telegram Trust &amp; Safety directly from DM.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: MOBILE TACTICAL TOOLS BOTTOM SHEET -->
 <div id="mobile-tools-sheet" class="kage-modal-overlay" style="display: none; z-index: 10005;" onclick="if(event.target===this) closeMobileToolsSheet()">
   <div class="kage-modal font-mono" style="padding: 18px 14px; width: 100vw; max-width: 100vw; max-height: 82vh; border-radius: 16px 16px 0 0; background: #080c10; border-top: 1px solid var(--line);">
@@ -4322,6 +4457,21 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         <i data-lucide="mic"></i>
         <b>Voice Chamber</b>
         <span>Live VC Wiretap</span>
+      </button>
+      <button type="button" onclick="transcribeAndSummarizeVC(); closeMobileToolsSheet();" class="mobile-tool-card" style="border-color: rgba(99,102,241,0.4);">
+        <i data-lucide="brain" style="color: #818cf8;"></i>
+        <b>AI VC Summarizer</b>
+        <span>3-Bullet Briefing</span>
+      </button>
+      <button type="button" onclick="openSyndicatesModal(); closeMobileToolsSheet();" class="mobile-tool-card" style="border-color: rgba(245,158,11,0.4);">
+        <i data-lucide="users" style="color: #f59e0b;"></i>
+        <b>Syndicates Radar</b>
+        <span>Shill Ring Detection</span>
+      </button>
+      <button type="button" onclick="openCompanionModal(); closeMobileToolsSheet();" class="mobile-tool-card" style="border-color: rgba(56,189,248,0.4);">
+        <i data-lucide="smartphone" style="color: #38bdf8;"></i>
+        <b>DM Companion</b>
+        <span>Remote Bot Control</span>
       </button>
       <button type="button" onclick="sendVCToSavedChat(); closeMobileToolsSheet();" class="mobile-tool-card">
         <i data-lucide="bookmark-check" style="color: #10b981;"></i>
@@ -7332,6 +7482,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       ${reactionHtml}
       <div class="wiretap-actions">
         ${counterWarnBtn}
+        <button type="button" onclick="reportToTelegram(${effectiveGid}, ${data.message_id}, 'spam')" class="act-pill" style="border-color: rgba(239,68,68,0.4); color: #ef4444;" title="Plan H: 1-Click MTProto report to Telegram Trust & Safety">
+          <i data-lucide="alert-octagon" style="width: 10px; height: 10px;"></i>
+          <span>Report TG T&S</span>
+        </button>
         <button type="button" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" class="act-pill" style="border-color: rgba(56,189,248,0.3); color: #38bdf8;" title="Investigate Cross-Group OSINT Dossier">
           <i data-lucide="fingerprint" style="width: 10px; height: 10px;"></i>
           <span>OSINT Dossier</span>
@@ -7841,7 +7995,22 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
             </div>
           `}
 
-          <div style="display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end;">
+          ${(m.media_path || m.file_name || (m.file_size && m.file_size > 0)) ? `
+            <div style="margin-top: 8px; padding: 6px 10px; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.3); border-radius: 2px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 11px; color: #38bdf8; display: inline-flex; align-items: center; gap: 6px;">
+                <i data-lucide="paperclip" style="width: 12px; height: 12px;"></i>
+                <span>Ghost Media Vault: <b>${escapeHtml(m.file_name || 'vault_attachment')}</b> (${m.file_size ? Math.round(m.file_size/1024) + ' KB' : 'Preserved'})</span>
+              </span>
+              <a href="/api/ghost/media/${m.id}" target="_blank" download class="btn-xs-outline" style="color: #38bdf8; border-color: rgba(56,189,248,0.4); text-decoration: none; font-size: 9px; padding: 2px 8px;">
+                ⬇️ Download Media
+              </a>
+            </div>
+          ` : ''}
+
+          <div style="display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; flex-wrap: wrap;">
+            <button type="button" onclick="reportToTelegram(${m.group_id || 0}, ${m.message_id || 0}, 'spam')" class="btn-xs-outline" style="border-color: rgba(239,68,68,0.4); color: #ef4444;" title="Plan H: 1-Click MTProto report to Telegram T&S">
+              🚨 REPORT TG T&S
+            </button>
             <button type="button" onclick="navigator.clipboard.writeText('${escapeQuote(m.message_text || '')}'); showToast('Copied to clipboard!', 'success');" class="btn-xs-outline">
               COPY
             </button>
@@ -9041,12 +9210,19 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     body.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 40px;">Synthesizing cross-group intelligence profile for User #${userId}...</div>`;
 
     try {
-      const res = await fetch(`/api/osint/user?user_id=${userId}`);
+      const [res, scRes] = await Promise.all([
+        fetch(`/api/osint/user?user_id=${userId}`),
+        fetch(`/api/osint/user/${userId}/sleep_cycle`).catch(() => null)
+      ]);
       if (!res.ok) {
         body.innerHTML = `<div style="text-align: center; color: var(--ember); padding: 30px;">Could not retrieve cross-group profile. Target may not have spoken in monitored channels yet.</div>`;
         return;
       }
       const p = await res.json();
+      let sleepCycleData = null;
+      if (scRes && scRes.ok) {
+        try { sleepCycleData = await scRes.json(); } catch(err) {}
+      }
       
       const names = (p.name_history || []).map(n => `<span class="badge badge-muted" style="font-size: 10px; margin-right: 4px;">${escapeHtml(n)}</span>`).join('') || '<span class="text-muted">None recorded</span>';
       const usernames = (p.username_history || []).map(u => `<span class="badge badge-muted" style="font-size: 10px; margin-right: 4px;">@${escapeHtml(u)}</span>`).join('') || '<span class="text-muted">None recorded</span>';
@@ -9068,6 +9244,25 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         const peakHour = Object.entries(p.active_hours).sort((a,b) => b[1] - a[1])[0][0];
         sleepInsight = `Peak activity: ${peakHour}:00 UTC. Estimated active timezone window ~ UTC+2 to UTC+5.`;
       }
+      const tzTitle = (sleepCycleData && sleepCycleData.estimated_timezone) || sleepInsight;
+      const sleepWin = (sleepCycleData && sleepCycleData.sleep_window_utc) || 'Inferred via UTC valley';
+      const dist = (sleepCycleData && sleepCycleData.hourly_distribution) || [];
+      const maxVal = Math.max(...dist, 1);
+      const barsHtml = dist.length === 24 ? `
+        <div style="display: flex; gap: 3px; align-items: flex-end; height: 50px; background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 3px; padding: 6px 8px; margin-top: 8px;">
+          ${dist.map((cnt, h) => {
+            const hPct = Math.round((cnt / maxVal) * 100);
+            const isZero = cnt === 0;
+            const barBg = isZero ? 'rgba(56,189,248,0.1)' : (cnt >= maxVal * 0.75 ? '#10b981' : '#38bdf8');
+            return `
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;" title="Hour ${h}:00 UTC — ${cnt} messages">
+                <div style="width: 100%; height: ${Math.max(4, hPct)}%; background: ${barBg}; border-radius: 1px;"></div>
+                <span style="font-size: 7px; color: var(--muted); margin-top: 2px;">${h % 3 === 0 ? h : ''}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : '';
 
       body.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 14px;">
@@ -9126,10 +9321,25 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
             <div style="display: flex; flex-wrap: wrap; gap: 4px;">${usernames}</div>
           </div>
 
-          <!-- Timezone / Behavior Heuristics -->
+          <!-- Plan C: Timezone & Circadian Sleep Cycle Radar -->
           <div style="background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); padding: 12px; border-radius: 3px;">
-            <span class="eyebrow" style="color: var(--bone); font-size: 9px; margin-bottom: 6px; display: block;">ESTIMATED TIMEZONE &amp; SLEEP CYCLE</span>
-            <div style="font-size: 11px; color: #38bdf8;">${escapeHtml(sleepInsight)}</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+              <span class="eyebrow" style="color: #38bdf8; font-size: 9px;">CIRCADIAN SLEEP CYCLE &amp; TIMEZONE RADAR</span>
+              <span class="badge" style="font-size: 8px; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; color: #38bdf8;">
+                Sleep Window: ${escapeHtml(sleepWin)}
+              </span>
+            </div>
+            <div style="font-size: 12px; color: var(--bone); font-weight: bold;">
+              🌍 ${escapeHtml(tzTitle)}
+            </div>
+            ${barsHtml}
+            <div style="display: flex; justify-content: space-between; font-size: 8px; color: var(--muted); margin-top: 4px;">
+              <span>00:00 UTC</span>
+              <span>06:00 UTC</span>
+              <span>12:00 UTC</span>
+              <span>18:00 UTC</span>
+              <span>23:00 UTC</span>
+            </div>
           </div>
 
           <!-- Action buttons -->
@@ -9157,6 +9367,226 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
   function closeOSINTModalDirect() {
     const m = document.getElementById('osint-modal');
+    if (m) m.style.display = 'none';
+  }
+
+  // ==========================================
+  // PLAN H: 1-CLICK MTPROTO TRUST & SAFETY REPORTING
+  // ==========================================
+  async function reportToTelegram(groupId, messageId, reason = 'spam') {
+    if (!groupId || !messageId) {
+      showToast('Select a valid message to report', 'error');
+      return;
+    }
+    const reasonPrompt = prompt('Telegram Trust & Safety MTProto Report Reason:\nOptions: spam, fake, violence, pornography, child_abuse, other', reason || 'spam');
+    if (!reasonPrompt) return;
+    const cleanReason = reasonPrompt.trim().toLowerCase();
+    
+    showToast('Submitting MTProto report to Telegram Trust & Safety...', 'info');
+    try {
+      const res = await fetch('/api/threat/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          group_id: parseInt(groupId),
+          message_id: parseInt(messageId),
+          reason: cleanReason,
+          details: 'Malicious crypto phishing / drainer activity reported via SuperBan OS'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        playZenSound('kill');
+        showToast('🚨 MTProto report dispatched to Telegram Trust & Safety!', 'success');
+        const card = document.getElementById(`wiretap-card-${messageId}`);
+        if (card) {
+          const badge = document.createElement('div');
+          badge.className = 'badge';
+          badge.style.cssText = 'font-size: 9px; padding: 2px 6px; background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #ef4444; margin-top: 4px; display: inline-block;';
+          badge.innerText = '🚨 REPORTED TO TELEGRAM T&S';
+          card.appendChild(badge);
+        }
+      } else {
+        showToast(data.detail || data.error || 'Failed to dispatch report', 'error');
+      }
+    } catch (err) {
+      showToast('Network error while dispatching report: ' + err.message, 'error');
+    }
+  }
+
+  // ==========================================
+  // PLAN A: VOICE CHAT SPEECH-TO-TEXT & AI SUMMARIZER
+  // ==========================================
+  async function transcribeAndSummarizeVC(groupId) {
+    const gid = groupId || getActiveGroupId();
+    if (!gid) {
+      showToast('Select a target group chamber first', 'error');
+      return;
+    }
+    const btn = document.getElementById('btn-vc-ai-transcribe');
+    const origText = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.innerHTML = '<i data-lucide="loader" class="spin" style="width: 13px; height: 13px;"></i> <span>Analyzing Audio & Telemetry...</span>';
+      btn.disabled = true;
+    }
+    showToast('Synthesizing Voice Chamber speech & tactical summary...', 'info');
+    try {
+      const res = await fetch('/api/vc/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: parseInt(gid) })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.detail || 'Could not synthesize VC summary', 'error');
+        return;
+      }
+      playZenSound('chime');
+      showToast('🧠 AI Tactical Briefing generated & dispatched to @archfiend000 DM!', 'success');
+      openVCBriefingModal(data);
+    } catch (err) {
+      showToast('Transcription error: ' + err.message, 'error');
+    } finally {
+      if (btn) {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        safeCreateIcons();
+      }
+    }
+  }
+
+  function openVCBriefingModal(data) {
+    const m = document.getElementById('vc-briefing-modal');
+    const body = document.getElementById('vc-briefing-body');
+    if (!m || !body) return;
+    
+    const bulletsHtml = (data.summary_bullets || []).map(b => `
+      <div style="background: rgba(10,14,18,0.7); border: 1px solid var(--line-soft); border-left: 3px solid #6366f1; border-radius: 3px; padding: 10px 14px; font-size: 12px; line-height: 1.5; color: var(--bone);">
+        ${escapeHtml(b)}
+      </div>
+    `).join('');
+
+    body.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.4); border-radius: 4px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="font-size: 14px; font-weight: bold; color: #a5b4fc;">${escapeHtml(data.group_title || 'Group Chamber')}</div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">
+              Group ID: <code>${data.group_id}</code> • Recorded: ${data.timestamp || 'Live'} UTC
+            </div>
+          </div>
+          <span class="badge" style="background: rgba(16,185,129,0.18); border: 1px solid #10b981; color: #10b981; font-size: 10px; padding: 4px 8px;">
+            📨 Dispatched to @archfiend000 DM
+          </span>
+        </div>
+
+        <div>
+          <span class="eyebrow" style="color: #818cf8; font-size: 10px; margin-bottom: 8px; display: block;">
+            EXECUTIVE TACTICAL 3-BULLET DOSSIER
+          </span>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${bulletsHtml}
+          </div>
+        </div>
+
+        <div>
+          <span class="eyebrow" style="color: var(--muted); font-size: 10px; margin-bottom: 6px; display: block;">
+            RECONSTRUCTED SPEECH TRANSCRIPTION LOG
+          </span>
+          <pre style="background: #030609; border: 1px solid var(--line-soft); border-radius: 3px; padding: 12px; font-size: 11px; color: #cbd5e1; white-space: pre-wrap; max-height: 200px; overflow-y: auto; line-height: 1.6;">${escapeHtml(data.transcript || 'No verbal audio recorded.')}</pre>
+        </div>
+      </div>
+    `;
+    m.style.display = 'flex';
+    safeCreateIcons();
+  }
+
+  function closeVCBriefingModal() {
+    const m = document.getElementById('vc-briefing-modal');
+    if (m) m.style.display = 'none';
+  }
+
+  // ==========================================
+  // PLAN C: SHADOW NETWORK & SYNDICATES RADAR
+  // ==========================================
+  async function openSyndicatesModal() {
+    const m = document.getElementById('syndicates-modal');
+    const body = document.getElementById('syndicates-modal-body');
+    if (!m || !body) return;
+    m.style.display = 'flex';
+    body.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 40px;">Scanning cross-group message co-occurrences for shill rings...</div>';
+
+    try {
+      const res = await fetch('/api/osint/syndicates?time_window_sec=120&min_cooccurrences=2');
+      if (!res.ok) {
+        body.innerHTML = '<div style="text-align: center; color: var(--ember); padding: 30px;">Failed to scan syndicates.</div>';
+        return;
+      }
+      const list = await res.json();
+      if (!list || list.length === 0) {
+        body.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 40px;">No coordinated shill rings or tight co-occurrence syndicates detected yet. Telemetry gathers as messages arrive.</div>';
+        return;
+      }
+
+      body.innerHTML = list.map(s => {
+        const u1 = s.user1 || {};
+        const u2 = s.user2 || {};
+        const score = s.syndicate_score || 50;
+        const scoreColor = score >= 80 ? '#ef4444' : (score >= 65 ? '#f59e0b' : '#38bdf8');
+        const groupsHtml = (s.groups || []).map(g => `<span class="badge badge-muted" style="font-size: 9px;">${escapeHtml(g.title)} (${g.count}x)</span>`).join(' ');
+        const entitiesHtml = (s.shared_entities || []).map(e => `<span class="badge badge-emerald" style="font-size: 9px;">${escapeHtml(e.value)}</span>`).join(' ') || '<span class="text-muted" style="font-size: 10px;">None shared</span>';
+
+        return `
+          <div style="background: rgba(10,14,18,0.7); border: 1px solid var(--line-soft); border-radius: 4px; padding: 14px 16px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="badge" style="background: rgba(0,0,0,0.5); border: 1px solid ${scoreColor}; color: ${scoreColor}; font-weight: 700; font-size: 10px;">
+                  ${score}% ${s.classification || 'SYNDICATE'}
+                </span>
+                <span style="font-size: 11px; color: var(--muted);">Co-occurrences: <b>${s.total_cooccurrences}</b> times</span>
+              </div>
+              <span style="font-size: 10px; color: var(--muted);">First Seen: ${s.first_seen || ''}</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+              <div style="background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); padding: 8px 12px; border-radius: 3px;">
+                <div style="font-size: 11px; color: var(--muted);">ASSOCIATE 1</div>
+                <b style="color: var(--bone); font-size: 13px;">${escapeHtml(u1.name || 'User ' + u1.id)}</b>
+                ${u1.username ? `<span style="font-size: 11px; color: var(--muted); margin-left: 4px;">@${escapeHtml(u1.username)}</span>` : ''}
+              </div>
+              <div style="background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); padding: 8px 12px; border-radius: 3px;">
+                <div style="font-size: 11px; color: var(--muted);">ASSOCIATE 2</div>
+                <b style="color: var(--bone); font-size: 13px;">${escapeHtml(u2.name || 'User ' + u2.id)}</b>
+                ${u2.username ? `<span style="font-size: 11px; color: var(--muted); margin-left: 4px;">@${escapeHtml(u2.username)}</span>` : ''}
+              </div>
+            </div>
+
+            <div style="font-size: 10px; color: var(--muted); margin-bottom: 4px;">OPERATING GROUPS: ${groupsHtml}</div>
+            <div style="font-size: 10px; color: var(--muted);">SHARED CONTRACTS/ENTITIES: ${entitiesHtml}</div>
+          </div>
+        `;
+      }).join('');
+      safeCreateIcons();
+    } catch (e) {
+      body.innerHTML = `<div style="text-align: center; color: var(--ember); padding: 30px;">Error scanning syndicates: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  function closeSyndicatesModal() {
+    const m = document.getElementById('syndicates-modal');
+    if (m) m.style.display = 'none';
+  }
+
+  // ==========================================
+  // PLAN I: COMPANION CONTROLLER MODAL
+  // ==========================================
+  function openCompanionModal() {
+    const m = document.getElementById('companion-modal');
+    if (m) m.style.display = 'flex';
+    safeCreateIcons();
+  }
+  function closeCompanionModal() {
+    const m = document.getElementById('companion-modal');
     if (m) m.style.display = 'none';
   }
 
