@@ -67,9 +67,10 @@ def create_app(engine: SuperBanEngine):
     engine.sentinel.register_callback(broadcast_ws)
 
     # ═══════════════════════════════════════════════════════
-    #   OWNER GATEKEEPER & VERIFICATION SYSTEM
+    #   OWNER & OPERATOR MULTI-USER CLEARANCE REGISTRY
     # ═══════════════════════════════════════════════════════
     OWNER_TOKENS: Dict[str, float] = {}
+    OPERATOR_SESSIONS: Dict[str, Dict[str, Any]] = {} # token -> {username, role, expires}
     FAILED_VERIFY_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
 
     def get_client_ip(req: Request) -> str:
@@ -138,48 +139,92 @@ def create_app(engine: SuperBanEngine):
             or request.headers.get("X-Owner-Token")
             or request.cookies.get("owner_token")
         )
-        pin_configured = bool(Config.get_owner_pin())
-        
-        # If no PIN configured, force setup via /api/owner/status or /api/owner/setup
-        if not pin_configured:
-            return JSONResponse(
-                status_code=403,
-                content={"detail": "Owner verification PIN not configured. Please initialize master PIN."}
-            )
+        now = time.time()
+        session = OPERATOR_SESSIONS.get(token)
+        is_authenticated = False
+        user_role = "operator"
 
-        if not token or token not in OWNER_TOKENS or OWNER_TOKENS[token] < time.time():
+        if session and session.get("expires", 0) >= now:
+            is_authenticated = True
+            user_role = session.get("role", "operator")
+            request.state.operator = session
+        elif token and token in OWNER_TOKENS and OWNER_TOKENS[token] >= now:
+            is_authenticated = True
+            user_role = "owner"
+            request.state.operator = {"username": Config.get_owner_username(), "role": "owner"}
+
+        if not is_authenticated:
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Owner clearance required. Access denied."},
                 headers={"X-Owner-Required": "true"}
             )
 
+        # Owner-exclusive route protection: only master owner (@archfiend000) can manage operators
+        if path.startswith("/api/operators"):
+            if user_role != "owner":
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Forbidden: Master Owner (@archfiend000) authorization required."}
+                )
+
         return await call_next(request)
 
     class OwnerPinReq(BaseModel):
+        username: Optional[str] = None
         pin: str
+
+    class OperatorAssignReq(BaseModel):
+        username: str
+        pin: str
+
+    class OperatorRevokeReq(BaseModel):
+        username: str
 
     @app.get("/api/owner/status")
     async def get_owner_status(request: Request):
         token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
-        pin_configured = bool(Config.get_owner_pin())
-        is_authenticated = bool(token and token in OWNER_TOKENS and OWNER_TOKENS[token] >= time.time())
+        now = time.time()
+        session = OPERATOR_SESSIONS.get(token)
+        is_authenticated = False
+        username = None
+        role = None
+
+        if session and session.get("expires", 0) >= now:
+            is_authenticated = True
+            username = session.get("username")
+            role = session.get("role")
+        elif token and token in OWNER_TOKENS and OWNER_TOKENS[token] >= now:
+            is_authenticated = True
+            username = Config.get_owner_username()
+            role = "owner"
+
         return {
             "authenticated": is_authenticated,
-            "pin_configured": pin_configured
+            "username": username,
+            "role": role,
+            "is_owner": (role == "owner"),
+            "owner_username": Config.get_owner_username(),
+            "pin_configured": True
         }
 
     @app.post("/api/owner/setup")
     async def setup_owner_pin(req: OwnerPinReq, request: Request, response: Response):
         current_pin = Config.get_owner_pin()
-        if current_pin:
+        if current_pin and current_pin != Config.DEFAULT_MASTER_OWNER_PIN:
             raise HTTPException(status_code=400, detail="Owner PIN already configured. Please verify.")
         pin = req.pin.strip()
         if len(pin) < 4:
             raise HTTPException(status_code=400, detail="Owner PIN must be at least 4 characters.")
         Config.save_owner_pin(pin)
         token = secrets.token_hex(32)
-        OWNER_TOKENS[token] = time.time() + (7 * 86400)
+        expiry = time.time() + (7 * 86400)
+        OWNER_TOKENS[token] = expiry
+        OPERATOR_SESSIONS[token] = {
+            "username": Config.get_owner_username(),
+            "role": "owner",
+            "expires": expiry
+        }
         is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
         response.set_cookie(
             key="owner_token",
@@ -189,7 +234,7 @@ def create_app(engine: SuperBanEngine):
             secure=is_secure,
             samesite="lax"
         )
-        return {"status": "success", "token": token}
+        return {"status": "success", "token": token, "username": Config.get_owner_username(), "role": "owner"}
 
     @app.post("/api/owner/verify")
     async def verify_owner_pin(req: OwnerPinReq, request: Request, response: Response):
@@ -206,13 +251,25 @@ def create_app(engine: SuperBanEngine):
                 headers={"Retry-After": str(retry_after)}
             )
 
-        current_pin = Config.get_owner_pin()
-        if not current_pin:
-            raise HTTPException(status_code=400, detail="No PIN configured. Run setup first.")
+        clean_user = (req.username or Config.get_owner_username()).strip().lstrip('@').lower()
+        candidate_pin = req.pin.strip()
+        auth_success = False
+        role = "operator"
 
-        # Constant-time PBKDF2 / legacy verification
-        if not Config.verify_pin(req.pin.strip(), current_pin):
-            # Progressive micro-delay to deter high-frequency automated brute-force attacks
+        if clean_user == Config.get_owner_username():
+            # Master Owner verification (@archfiend000 with 3105 or stored PIN)
+            if Config.verify_owner_credentials(clean_user, candidate_pin):
+                auth_success = True
+                role = "owner"
+        elif engine.db:
+            # Check registered operator clearance in SQLite
+            op_record = await engine.db.get_operator_clearance(clean_user)
+            if op_record and op_record.get("status") == "active":
+                if Config.verify_pin(candidate_pin, op_record["pin_hash"]):
+                    auth_success = True
+                    role = op_record.get("role", "operator")
+
+        if not auth_success:
             await asyncio.sleep(0.5)
             record["count"] += 1
             record["last_attempt"] = now
@@ -235,11 +292,18 @@ def create_app(engine: SuperBanEngine):
         FAILED_VERIFY_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
 
         # Auto-upgrade legacy plaintext PIN to PBKDF2 hash on successful login
-        if not current_pin.startswith("pbkdf2_sha256$"):
-            Config.save_owner_pin(req.pin.strip())
+        current_pin = Config.get_owner_pin()
+        if role == "owner" and current_pin and not current_pin.startswith("pbkdf2_sha256$"):
+            Config.save_owner_pin(candidate_pin)
 
         token = secrets.token_hex(32)
-        OWNER_TOKENS[token] = now + (7 * 86400)
+        expiry = now + (7 * 86400)
+        OPERATOR_SESSIONS[token] = {
+            "username": clean_user,
+            "role": role,
+            "expires": expiry
+        }
+        OWNER_TOKENS[token] = expiry
         
         is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
         response.set_cookie(
@@ -250,16 +314,118 @@ def create_app(engine: SuperBanEngine):
             secure=is_secure,
             samesite="lax"
         )
-        return {"status": "authorized", "token": token}
+        return {"status": "authorized", "token": token, "username": clean_user, "role": role, "is_owner": (role == "owner")}
 
     @app.post("/api/owner/logout")
     async def logout_owner(request: Request, response: Response):
         token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
-        if token and token in OWNER_TOKENS:
-            del OWNER_TOKENS[token]
+        if token:
+            if token in OPERATOR_SESSIONS:
+                del OPERATOR_SESSIONS[token]
+            if token in OWNER_TOKENS:
+                del OWNER_TOKENS[token]
         is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
         response.delete_cookie(key="owner_token", httponly=True, secure=is_secure, samesite="lax")
         return {"status": "logged_out"}
+
+    # ═══════════════════════════════════════════════════════
+    #   OPERATOR CLEARANCE MANAGEMENT (OWNER-ONLY)
+    # ═══════════════════════════════════════════════════════
+    @app.get("/api/operators")
+    async def list_operators(request: Request):
+        if not engine.db:
+            return []
+        records = await engine.db.list_operator_clearances()
+        # Always guarantee master owner @archfiend000 is present
+        has_owner = any(r.get("username") == "archfiend000" for r in records)
+        if not has_owner:
+            records.insert(0, {
+                "id": 0,
+                "username": "archfiend000",
+                "role": "owner",
+                "status": "active",
+                "assigned_by": "system",
+                "created_at": "Genesis",
+                "updated_at": "Active"
+            })
+        return records
+
+    @app.post("/api/operators/assign")
+    async def assign_operator(req: OperatorAssignReq, request: Request):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database persistence layer unavailable")
+
+        clean_user = req.username.strip().lstrip('@').lower()
+        pin = req.pin.strip()
+
+        if not clean_user:
+            raise HTTPException(status_code=400, detail="Telegram username cannot be empty.")
+        if clean_user == "archfiend000":
+            raise HTTPException(status_code=400, detail="Master Owner (@archfiend000) credentials cannot be overwritten via this endpoint.")
+        if len(pin) != 4 or not pin.isdigit():
+            raise HTTPException(status_code=400, detail="Assigned clearance code must be exactly 4 digits (0000-9999).")
+
+        pin_hash = Config.hash_pin(pin)
+        saved = await engine.db.save_operator_clearance(clean_user, pin_hash, role="operator", assigned_by="archfiend000")
+
+        # Automatically dispatch assigned credentials to @archfiend000 Telegram DM
+        dm_dispatched = await engine.notify_owner_clearance_issued(clean_user, pin, role="operator")
+
+        return {
+            "status": "success",
+            "username": clean_user,
+            "pin": pin,
+            "role": "operator",
+            "dm_dispatched": dm_dispatched,
+            "message": f"Clearance granted to @{clean_user}. Assigned code dispatched to @archfiend000 Telegram DM."
+        }
+
+    @app.post("/api/operators/revoke")
+    async def revoke_operator(req: OperatorRevokeReq, request: Request):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database persistence layer unavailable")
+
+        clean_user = req.username.strip().lstrip('@').lower()
+        if clean_user == "archfiend000":
+            raise HTTPException(status_code=400, detail="Cannot revoke Master Owner (@archfiend000).")
+
+        success = await engine.db.revoke_operator_clearance(clean_user)
+        if not success:
+            raise HTTPException(status_code=404, detail="Operator not found or already revoked.")
+
+        # Invalidate active operator sessions
+        tokens_to_remove = [t for t, s in OPERATOR_SESSIONS.items() if s.get("username") == clean_user]
+        for t in tokens_to_remove:
+            del OPERATOR_SESSIONS[t]
+            if t in OWNER_TOKENS:
+                del OWNER_TOKENS[t]
+
+        dm_dispatched = await engine.notify_owner_clearance_revoked(clean_user)
+
+        return {
+            "status": "success",
+            "username": clean_user,
+            "dm_dispatched": dm_dispatched,
+            "message": f"Operator @{clean_user} clearance revoked and sessions terminated."
+        }
+
+    @app.delete("/api/operators")
+    async def delete_operator(username: str, request: Request):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database persistence layer unavailable")
+
+        clean_user = username.strip().lstrip('@').lower()
+        if clean_user == "archfiend000":
+            raise HTTPException(status_code=400, detail="Cannot delete Master Owner.")
+
+        await engine.db.delete_operator_clearance(clean_user)
+        tokens_to_remove = [t for t, s in OPERATOR_SESSIONS.items() if s.get("username") == clean_user]
+        for t in tokens_to_remove:
+            del OPERATOR_SESSIONS[t]
+            if t in OWNER_TOKENS:
+                del OWNER_TOKENS[t]
+
+        return {"status": "success", "username": clean_user}
 
     @app.get("/", response_class=HTMLResponse)
     @app.head("/")

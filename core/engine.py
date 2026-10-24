@@ -1811,6 +1811,72 @@ class SuperBanEngine:
 
         return {"total": len(group_ids), "results": results}
 
+    # =========================================================================
+    #  OPERATOR CLEARANCE DISPATCH & OWNER DM NOTIFICATIONS
+    # =========================================================================
+    async def send_telegram_dm(self, target_user: str, message: str) -> bool:
+        """Send a direct message to a Telegram username."""
+        if not self.client:
+            logger.warning("Telethon client not initialized.")
+            return False
+        try:
+            await self.ensure_connected()
+            clean_target = str(target_user).strip()
+            if not clean_target.startswith('@') and not clean_target.isdigit():
+                clean_target = f"@{clean_target}"
+            await self.client.send_message(clean_target, message, parse_mode='html')
+            return True
+        except Exception as e:
+            logger.warning(f"Could not dispatch DM to {target_user}: {e}")
+            return False
+
+    async def notify_owner_clearance_issued(self, target_username: str, assigned_pin: str, role: str = "operator") -> bool:
+        """Notify master owner @archfiend000 via Telegram DM with issued credentials."""
+        clean_target = target_username.strip().lstrip('@')
+        now_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        dossier = (
+            f"🛡️ <b>SUPERBAN OS // OPERATOR CLEARANCE ISSUED</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>Authorized Username:</b> @{clean_target}\n"
+            f"🔑 <b>Assigned 4-Digit Code:</b> <code>{assigned_pin}</code>\n"
+            f"🎖️ <b>Clearance Role:</b> {role.upper()}\n"
+            f"👑 <b>Issued By:</b> Master Owner (@archfiend000)\n"
+            f"⏰ <b>Dispatched At:</b> {now_str} UTC\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🔒 <i>This operator can now authenticate to SuperBan OS War Room using their username and assigned code. Keep this code confidential.</i>"
+        )
+        # 1. Send DM directly to master owner @archfiend000
+        sent = await self.send_telegram_dm("archfiend000", dossier)
+        # 2. Also forward to Saved Messages ('me') as a secondary safety backup
+        try:
+            if self.client and self.client.is_connected():
+                await self.client.send_message('me', dossier, parse_mode='html')
+        except Exception as e:
+            logger.debug(f"Saved messages backup note: {e}")
+        return sent
+
+    async def notify_owner_clearance_revoked(self, target_username: str) -> bool:
+        """Notify master owner @archfiend000 via Telegram DM when an operator clearance is revoked."""
+        clean_target = target_username.strip().lstrip('@')
+        now_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        notice = (
+            f"🚨 <b>SUPERBAN OS // OPERATOR CLEARANCE REVOKED</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>Revoked Username:</b> @{clean_target}\n"
+            f"🚫 <b>Status:</b> REVOKED & ACCESS TERMINATED\n"
+            f"👑 <b>Revoked By:</b> Master Owner (@archfiend000)\n"
+            f"⏰ <b>Timestamp:</b> {now_str} UTC\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🔒 <i>All active sessions for this operator have been invalidated.</i>"
+        )
+        sent = await self.send_telegram_dm("archfiend000", notice)
+        try:
+            if self.client and self.client.is_connected():
+                await self.client.send_message('me', notice, parse_mode='html')
+        except Exception:
+            pass
+        return sent
+
 
 
 

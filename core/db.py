@@ -261,8 +261,32 @@ class DatabaseManager:
                 destination TEXT DEFAULT 'me',
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS operator_clearances (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                pin_hash TEXT NOT NULL,
+                role TEXT DEFAULT 'operator', -- 'owner' or 'operator'
+                status TEXT DEFAULT 'active', -- 'active' or 'revoked'
+                assigned_by TEXT DEFAULT 'archfiend000',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         ''')
         self.conn.commit()
+
+        # Seed or sync master owner @archfiend000 clearance
+        try:
+            from core.config import Config
+            owner_hash = Config.hash_pin(Config.DEFAULT_MASTER_OWNER_PIN)
+            self.cursor.execute(
+                '''INSERT OR IGNORE INTO operator_clearances (username, pin_hash, role, status, assigned_by)
+                   VALUES ('archfiend000', ?, 'owner', 'active', 'system')''',
+                (owner_hash,)
+            )
+            self.conn.commit()
+        except Exception:
+            pass
 
     async def log_action(self, user_id: int, username: str, first_name: str, group_id: int, 
                          group_name: str, action: str, success: bool, reason: str = "", duration: int = 0):
@@ -1160,6 +1184,102 @@ class DatabaseManager:
                 "date_deleted": str(r[12]) if r[12] else "",
                 "date_edited": str(r[13]) if r[13] else ""
             } for r in self.cursor.fetchall()]
+
+    # =========================================================================
+    #  MULTI-OPERATOR RBAC & CLEARANCE REGISTRY
+    # =========================================================================
+    async def get_operator_clearance(self, username: str) -> Optional[Dict[str, Any]]:
+        """Fetch active or revoked operator clearance by normalized Telegram username."""
+        clean_user = str(username or "").strip().lstrip('@').lower()
+        if not clean_user:
+            return None
+        async with self.lock:
+            self.cursor.execute(
+                '''SELECT id, username, pin_hash, role, status, assigned_by, created_at, updated_at
+                   FROM operator_clearances WHERE username = ?''',
+                (clean_user,)
+            )
+            r = self.cursor.fetchone()
+            if not r:
+                return None
+            return {
+                "id": r[0],
+                "username": r[1],
+                "pin_hash": r[2],
+                "role": r[3],
+                "status": r[4],
+                "assigned_by": r[5],
+                "created_at": str(r[6]),
+                "updated_at": str(r[7])
+            }
+
+    async def list_operator_clearances(self) -> List[Dict[str, Any]]:
+        """List all registered operators with access levels and creation timestamps."""
+        async with self.lock:
+            self.cursor.execute(
+                '''SELECT id, username, role, status, assigned_by, created_at, updated_at
+                   FROM operator_clearances ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, id ASC'''
+            )
+            return [{
+                "id": r[0],
+                "username": r[1],
+                "role": r[2],
+                "status": r[3],
+                "assigned_by": r[4],
+                "created_at": str(r[5]),
+                "updated_at": str(r[6])
+            } for r in self.cursor.fetchall()]
+
+    async def save_operator_clearance(self, username: str, pin_hash: str, role: str = 'operator', assigned_by: str = 'archfiend000') -> Dict[str, Any]:
+        """Grant or update an operator clearance record."""
+        clean_user = str(username or "").strip().lstrip('@').lower()
+        async with self.lock:
+            self.cursor.execute(
+                '''INSERT INTO operator_clearances (username, pin_hash, role, status, assigned_by, updated_at)
+                   VALUES (?, ?, ?, 'active', ?, CURRENT_TIMESTAMP)
+                   ON CONFLICT(username) DO UPDATE SET 
+                       pin_hash = excluded.pin_hash,
+                       role = excluded.role,
+                       status = 'active',
+                       assigned_by = excluded.assigned_by,
+                       updated_at = CURRENT_TIMESTAMP''',
+                (clean_user, pin_hash, role, assigned_by)
+            )
+            self.conn.commit()
+            return {
+                "username": clean_user,
+                "role": role,
+                "status": "active",
+                "assigned_by": assigned_by
+            }
+
+    async def revoke_operator_clearance(self, username: str) -> bool:
+        """Revoke clearance for a given operator (cannot revoke master owner)."""
+        clean_user = str(username or "").strip().lstrip('@').lower()
+        if clean_user == "archfiend000":
+            return False
+        async with self.lock:
+            self.cursor.execute(
+                '''UPDATE operator_clearances 
+                   SET status = 'revoked', updated_at = CURRENT_TIMESTAMP
+                   WHERE username = ? AND role != 'owner' ''',
+                (clean_user,)
+            )
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+
+    async def delete_operator_clearance(self, username: str) -> bool:
+        """Permanently remove an operator clearance (cannot delete master owner)."""
+        clean_user = str(username or "").strip().lstrip('@').lower()
+        if clean_user == "archfiend000":
+            return False
+        async with self.lock:
+            self.cursor.execute(
+                '''DELETE FROM operator_clearances WHERE username = ? AND role != 'owner' ''',
+                (clean_user,)
+            )
+            self.conn.commit()
+            return self.cursor.rowcount > 0
 
     def close(self):
         try:
