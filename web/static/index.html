@@ -6701,8 +6701,12 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const valEl = document.getElementById('vc-audio-volume-val');
     const num = parseInt(val) || 0;
     const v = Math.max(0, Math.min(1, num / 100));
-    if (audioEl) audioEl.volume = v;
-    if (window.vcAudioGainNode) window.vcAudioGainNode.gain.value = v;
+    if (window.vcAudioGainNode) {
+      window.vcAudioGainNode.gain.value = v;
+      if (audioEl) audioEl.volume = 1.0;
+    } else if (audioEl) {
+      audioEl.volume = v;
+    }
     if (valEl) valEl.innerText = `${num}%`;
   }
 
@@ -6732,16 +6736,41 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         return showToast(`Voice Chat Join error: ${data.detail || 'Could not connect'}`);
       }
 
-      // 2. Obtain HTML5 Audio element
+      // 2. Obtain HTML5 Audio element with low-latency streaming configuration
       let audioEl = document.getElementById('vc-live-audio-player');
       if (!audioEl) {
         audioEl = document.createElement('audio');
         audioEl.id = 'vc-live-audio-player';
         audioEl.autoplay = true;
         audioEl.playsInline = true;
+        audioEl.preload = 'auto';
+        audioEl.crossOrigin = 'anonymous';
         audioEl.style.display = 'none';
         document.body.appendChild(audioEl);
+      } else {
+        audioEl.preload = 'auto';
+        audioEl.crossOrigin = 'anonymous';
       }
+
+      // Resilient event handlers to prevent playback stalls or network hiccups
+      audioEl.onstalled = () => {
+        if (vcIsAudioActive && audioEl.paused) {
+          audioEl.play().catch(() => {});
+        }
+      };
+      audioEl.onerror = () => {
+        if (vcIsAudioActive) {
+          console.warn("VC stream hiccup, auto-relinking carrier...");
+          setTimeout(() => {
+            if (vcIsAudioActive && audioEl) {
+              const t = sessionStorage.getItem('owner_token') || '';
+              audioEl.src = `/api/vc/audio_stream?group_id=${gid}&token=${encodeURIComponent(t)}&nocache=${Date.now()}`;
+              audioEl.load();
+              audioEl.play().catch(() => {});
+            }
+          }, 1200);
+        }
+      };
 
       // 3. Initialize / Resume AudioContext on user gesture
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
@@ -6765,7 +6794,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           const volSlider = document.getElementById('vc-audio-volume-slider');
           const vol = volSlider ? parseInt(volSlider.value) / 100 : 0.85;
           gainNode.gain.value = vol;
-          audioEl.volume = vol;
+          audioEl.volume = 1.0;
 
           source.connect(analyser);
           analyser.connect(gainNode);
@@ -6780,17 +6809,38 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       }
 
       // 5. Connect to live low-latency MP3 stream
-      const streamUrl = `/api/vc/audio_stream?group_id=${gid}&nocache=${Date.now()}`;
+      const token = sessionStorage.getItem('owner_token') || '';
+      const streamUrl = `/api/vc/audio_stream?group_id=${gid}&token=${encodeURIComponent(token)}&nocache=${Date.now()}`;
       audioEl.src = streamUrl;
       audioEl.muted = false;
       const volSlider = document.getElementById('vc-audio-volume-slider');
       const v = volSlider ? parseInt(volSlider.value) / 100 : 0.85;
-      audioEl.volume = v;
-      if (window.vcAudioGainNode) window.vcAudioGainNode.gain.value = v;
+      if (window.vcAudioGainNode) {
+        window.vcAudioGainNode.gain.value = v;
+        audioEl.volume = 1.0;
+      } else {
+        audioEl.volume = v;
+      }
 
       await audioEl.play().catch(e => {
         console.warn("Audio element play warning:", e);
       });
+
+      // 6. Setup auto live-sync to prevent accumulated drift or buffer lag
+      if (!window.vcLiveSyncInterval) {
+        window.vcLiveSyncInterval = setInterval(() => {
+          if (!vcIsAudioActive || !audioEl || audioEl.paused) return;
+          try {
+            if (audioEl.buffered && audioEl.buffered.length > 0) {
+              const liveEdge = audioEl.buffered.end(audioEl.buffered.length - 1);
+              const lag = liveEdge - audioEl.currentTime;
+              if (lag > 4.5) {
+                audioEl.currentTime = Math.max(0, liveEdge - 1.0);
+              }
+            }
+          } catch (syncErr) {}
+        }, 2500);
+      }
 
       vcIsAudioActive = true;
       vcIsConnected = true;
@@ -6808,6 +6858,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   }
 
   function stopVCLiveAudio() {
+    if (window.vcLiveSyncInterval) {
+      clearInterval(window.vcLiveSyncInterval);
+      window.vcLiveSyncInterval = null;
+    }
     if (vcVisualizerAnimFrame) {
       cancelAnimationFrame(vcVisualizerAnimFrame);
       vcVisualizerAnimFrame = null;

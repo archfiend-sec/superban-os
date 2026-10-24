@@ -5,6 +5,8 @@ import json
 import logging
 import os
 import secrets
+import shutil
+import subprocess
 import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List
@@ -30,6 +32,56 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_VAULT_DIR = BASE_DIR / "media_vault"
 OPERATOR_SESSIONS: Dict[str, Dict[str, Any]] = {} # token -> {username, role, expires}
+
+# Ensure virtual environment bin (with ffmpeg) and common paths are prioritized
+_venv_bin = str(BASE_DIR / "venv" / "bin")
+for _p in [_venv_bin, "/usr/local/bin", "/opt/homebrew/bin"]:
+    if os.path.exists(_p) and _p not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{_p}:{os.environ.get('PATH', '')}"
+
+_SILENCE_CACHE: Optional[bytes] = None
+
+def get_mp3_silence_chunk() -> bytes:
+    """Produce clean MPEG-1 Layer 3 48kHz 128kbps stereo silence frames with no ID3/Xing header."""
+    global _SILENCE_CACHE
+    if _SILENCE_CACHE is not None:
+        return _SILENCE_CACHE
+    try:
+        candidates = [
+            shutil.which("ffmpeg"),
+            str(BASE_DIR / "venv" / "bin" / "ffmpeg"),
+            "/usr/local/bin/ffmpeg",
+            "/opt/homebrew/bin/ffmpeg"
+        ]
+        ffmpeg_bin = next((c for c in candidates if c and os.path.exists(c)), "ffmpeg")
+        cmd = [
+            ffmpeg_bin, "-y", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+            "-t", "0.24", "-codec:a", "libmp3lame", "-b:a", "128k", "-write_xing", "0",
+            "-id3v2_version", "0", "-f", "mp3", "pipe:1"
+        ]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=4)
+        if proc.returncode == 0 and proc.stdout:
+            _SILENCE_CACHE = proc.stdout
+            return _SILENCE_CACHE
+    except Exception as e:
+        logger.debug(f"Silence generation note: {e}")
+    return b""
+
+def find_mp3_sync_offset(filepath: str, target_pos: int, max_scan: int = 4096) -> int:
+    """Find the nearest valid MPEG Audio frame sync boundary starting at target_pos."""
+    try:
+        with open(filepath, "rb") as f:
+            f.seek(max(0, target_pos))
+            chunk = f.read(max_scan)
+            if not chunk:
+                return max(0, target_pos)
+            for i in range(len(chunk) - 1):
+                # 11 bits sync word (0xFFE0) + MPEG Layer III (0x02)
+                if chunk[i] == 0xFF and (chunk[i+1] & 0xE0) == 0xE0 and (chunk[i+1] & 0x06) == 0x02:
+                    return max(0, target_pos) + i
+    except Exception:
+        pass
+    return max(0, target_pos)
 
 def create_app(engine: SuperBanEngine):
     app = FastAPI(
@@ -1066,13 +1118,17 @@ def create_app(engine: SuperBanEngine):
     async def vc_audio_stream_head(group_id: int):
         clean_gid = str(group_id).replace("-100", "").replace("-", "")
         audio_path = f"/tmp/vc_stream_{clean_gid}.mp3"
+        in_call = engine.is_in_voice_call(group_id)
         return Response(
-            status_code=200 if os.path.exists(audio_path) else 404,
+            status_code=200 if (in_call or os.path.exists(audio_path)) else 404,
             media_type="audio/mpeg",
             headers={
                 "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
                 "Accept-Ranges": "none",
-                "Access-Control-Allow-Origin": "*"
+                "Access-Control-Allow-Origin": "*",
+                "X-Content-Type-Options": "nosniff"
             }
         )
 
@@ -1081,39 +1137,105 @@ def create_app(engine: SuperBanEngine):
         clean_gid = str(group_id).replace("-100", "").replace("-", "")
         audio_path = f"/tmp/vc_stream_{clean_gid}.mp3"
 
-        # Wait up to 10 seconds for the audio stream buffer to initialize
-        for _ in range(100):
-            if os.path.exists(audio_path):
-                break
-            await asyncio.sleep(0.1)
+        # Check if voice chat session is registered or in flight
+        is_active = engine.is_in_voice_call(group_id)
+        if not is_active:
+            for _ in range(30):
+                if engine.is_in_voice_call(group_id) or os.path.exists(audio_path):
+                    is_active = True
+                    break
+                await asyncio.sleep(0.1)
 
-        if not os.path.exists(audio_path):
+        if not is_active and not os.path.exists(audio_path):
             raise HTTPException(status_code=404, detail="No active voice chat audio stream found on server")
 
         async def stream_generator():
+            silence_block = get_mp3_silence_chunk()
+            f = None
             try:
-                with open(audio_path, "rb") as f:
-                    # Low-latency seek: jump close to live head if file has already grown
+                # 1. Connect to audio buffer file with MP3 frame alignment
+                file_opened = False
+                for _ in range(50):
+                    if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1024:
+                        try:
+                            f = open(audio_path, "rb")
+                            cur_sz = os.path.getsize(audio_path)
+                            if cur_sz > 98304:
+                                # High history: give 4 seconds of buffer cushion (~64KB)
+                                target = cur_sz - 65536
+                                seek_pos = find_mp3_sync_offset(audio_path, target)
+                                f.seek(seek_pos)
+                            elif cur_sz > 32768:
+                                # Medium history: seek back ~2 seconds (~32KB)
+                                target = cur_sz - 32768
+                                seek_pos = find_mp3_sync_offset(audio_path, target)
+                                f.seek(seek_pos)
+                            else:
+                                f.seek(0)
+                            file_opened = True
+                            break
+                        except Exception as open_err:
+                            logger.debug(f"Stream open note: {open_err}")
+                    # If file is not yet flushed to disk, stream initial comfort silence to prime the client player
+                    if silence_block:
+                        yield silence_block
+                    await asyncio.sleep(0.1)
+
+                if not file_opened and os.path.exists(audio_path):
                     try:
-                        cur_sz = os.path.getsize(audio_path)
-                        if cur_sz > 32768:
-                            f.seek(cur_sz - 16384)
+                        f = open(audio_path, "rb")
+                        file_opened = True
                     except Exception:
                         pass
 
-                    while engine.is_in_voice_call(group_id):
-                        chunk = f.read(4096)
-                        if chunk:
-                            yield chunk
-                        else:
+                # 2. Main Live Audio Streaming Loop
+                last_speech_time = time.time()
+                while engine.is_in_voice_call(group_id):
+                    if not file_opened and os.path.exists(audio_path) and os.path.getsize(audio_path) > 1024:
+                        try:
+                            f = open(audio_path, "rb")
+                            file_opened = True
+                        except Exception:
+                            pass
+
+                    chunk = None
+                    if f:
+                        try:
+                            chunk = f.read(8192)
+                        except Exception:
+                            chunk = None
+
+                    if chunk:
+                        last_speech_time = time.time()
+                        yield chunk
+                        await asyncio.sleep(0.01)
+                    else:
+                        idle_elapsed = time.time() - last_speech_time
+                        if idle_elapsed > 0.35 and silence_block:
+                            # Keep pipe primed during voice chat DTX silence intervals
+                            yield silence_block
+                            last_speech_time = time.time() - 0.12
                             await asyncio.sleep(0.04)
-                    leftover = f.read()
-                    if leftover:
-                        yield leftover
+                        else:
+                            await asyncio.sleep(0.015)
+
+                if f:
+                    try:
+                        leftover = f.read()
+                        if leftover:
+                            yield leftover
+                    except Exception:
+                        pass
             except (asyncio.CancelledError, GeneratorExit):
                 pass
             except Exception as e:
                 logger.debug(f"Audio stream generator note: {e}")
+            finally:
+                if f:
+                    try:
+                        f.close()
+                    except Exception:
+                        pass
 
         return StreamingResponse(
             stream_generator(),
@@ -1123,7 +1245,9 @@ def create_app(engine: SuperBanEngine):
                 "Pragma": "no-cache",
                 "Expires": "0",
                 "Accept-Ranges": "none",
-                "Access-Control-Allow-Origin": "*"
+                "X-Content-Type-Options": "nosniff",
+                "Access-Control-Allow-Origin": "*",
+                "Connection": "keep-alive"
             }
         )
 

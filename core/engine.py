@@ -27,10 +27,14 @@ import os
 import shutil
 from pathlib import Path
 
-# Ensure virtual environment bin (with ffmpeg) and imageio_ffmpeg are prioritized in PATH
+# Ensure virtual environment bin (with ffmpeg), imageio_ffmpeg, and system paths are prioritized in PATH
 _venv_bin = str(Path(__file__).resolve().parent.parent / "venv" / "bin")
 if _venv_bin not in os.environ.get("PATH", ""):
     os.environ["PATH"] = f"{_venv_bin}:{os.environ.get('PATH', '')}"
+
+for _sys_p in ["/usr/local/bin", "/opt/homebrew/bin"]:
+    if os.path.exists(_sys_p) and _sys_p not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{_sys_p}:{os.environ.get('PATH', '')}"
 
 try:
     import imageio_ffmpeg
