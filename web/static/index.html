@@ -1638,6 +1638,110 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   border-color: var(--line);
   background: rgba(223, 231, 224, 0.12);
 }
+
+/* WIRETAP CARD TOOLBAR & DENSITY CONTROLLER */
+.wiretap-card-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* COMPACT DENSITY (DEFAULT IN MONITOR MODE) */
+.density-compact .wiretap-card {
+  padding: 6px 11px !important;
+  margin-bottom: 3px !important;
+  transition: all 0.2s ease !important;
+}
+.density-compact .wiretap-header {
+  margin-bottom: 3px !important;
+  font-size: 10.5px !important;
+}
+.density-compact .wiretap-avatar-pill {
+  width: 22px !important;
+  height: 22px !important;
+  font-size: 9.5px !important;
+  flex: 0 0 22px !important;
+}
+.density-compact .wiretap-sender-name {
+  font-size: 11px !important;
+}
+.density-compact .wiretap-sender-handle {
+  font-size: 9.5px !important;
+}
+.density-compact .wiretap-text {
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  margin: 2px 0 3px 0 !important;
+}
+.density-compact .wiretap-reply-bar {
+  margin: 2px 0 3px 0 !important;
+  padding: 2px 8px !important;
+  font-size: 10px !important;
+}
+.density-compact .wiretap-reactions-row {
+  margin-top: 3px !important;
+  gap: 4px !important;
+}
+.density-compact .reaction-count-pill {
+  padding: 1px 6px !important;
+  font-size: 10px !important;
+}
+.density-compact .reaction-view-btn {
+  padding: 1px 6px !important;
+  font-size: 9.5px !important;
+}
+
+/* Collapsible Action & Reaction Rail in Compact Mode (Reveals on Hover or Tap) */
+.density-compact .wiretap-card .wiretap-card-toolbar {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  padding-top: 0;
+  transform: translateY(-3px);
+  transition: max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+.density-compact .wiretap-card:hover .wiretap-card-toolbar,
+.density-compact .wiretap-card.toolbar-active .wiretap-card-toolbar,
+.density-compact .wiretap-card:focus-within .wiretap-card-toolbar {
+  max-height: 110px;
+  opacity: 1;
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(223, 231, 224, 0.08);
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.density-compact .wiretap-react-bar {
+  margin-top: 1px !important;
+  gap: 3px !important;
+}
+.density-compact .react-pill {
+  padding: 1px 6px !important;
+  font-size: 10px !important;
+  line-height: 1.3 !important;
+}
+.density-compact .wiretap-actions {
+  margin-top: 3px !important;
+  padding-top: 3px !important;
+  gap: 4px !important;
+}
+.density-compact .act-pill {
+  padding: 2px 6px !important;
+  font-size: 9.5px !important;
+}
+
+/* Hide redundant sec-head inside stream in monitor mode to reclaim vertical height */
+.device-monitor #tab-content-wiretap .sec-head,
+.device-tablet #tab-content-wiretap .sec-head {
+  display: none !important;
+}
+
+/* Tighten stream gap in monitor mode */
+.device-monitor #wiretap-stream {
+  gap: 4px !important;
+}
 /* Crypto Alpha Radar Card */
 .wiretap-alpha-pill {
   margin-top: 8px;
@@ -3161,11 +3265,14 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <div class="hud-filter-toggle">
             <button type="button" onclick="toggleScreenWakeLock()" id="wiretap-wakelock-btn" class="flt-btn active" style="font-size: 10px;" title="Prevent screen from sleeping / keep display awake constantly">👁️ AWAKE: ON</button>
           </div>
+          <div class="hud-filter-toggle">
+            <button type="button" onclick="toggleWiretapDensity()" id="wiretap-density-btn" class="flt-btn active" style="font-size: 10px;" title="Toggle Compact Density (Maximum messages visible on screen) vs Comfort (Expanded buttons)">≡ COMPACT</button>
+          </div>
         </div>
       </div>
 
       <!-- TAB 1: WIRETAP MESSAGE STREAM CONTAINER -->
-      <div id="tab-content-wiretap" class="wiretap-stream-wrap">
+      <div id="tab-content-wiretap" class="wiretap-stream-wrap density-compact">
         <div class="sec-head" style="margin-bottom: 14px; padding: 12px 14px 0 14px;">
           <span class="k"><b>01</b> — REAL-TIME WIRETAP STREAM</span>
           <span class="rule"></span>
@@ -8629,7 +8736,16 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
   function formatMessageTextWithTags(rawText) {
     if (!rawText) return '';
-    let escaped = escapeHtml(rawText);
+    let text = rawText;
+    // Decode pre-encoded HTML entities to prevent double-encoding (e.g. &#039; -> ' so it doesn't render as literal &#039;)
+    if (text.includes('&#') || text.includes('&amp;') || text.includes('&lt;') || text.includes('&gt;') || text.includes('&quot;')) {
+      try {
+        const txt = document.createElement('textarea');
+        txt.innerHTML = text;
+        text = txt.value;
+      } catch (e) {}
+    }
+    let escaped = escapeHtml(text);
     
     // Highlight @mentions (e.g. @username)
     escaped = escaped.replace(/(^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{3,32})/g, '$1<span class="wiretap-mention" onclick="quickAddWatchdog(\'user\', \'@$2\')" title="Tag @$2 — Click to track in Watchdog">@$2</span>');
@@ -8774,6 +8890,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const card = document.createElement('div');
     card.className = `wiretap-card ${data.is_threat ? 'threat-card' : ''}`;
     if (data.message_id) card.id = `wiretap-card-${data.message_id}`;
+    card.setAttribute('onclick', 'handleWiretapCardClick(this, event)');
 
     const senderInitial = (data.full_name || 'U').charAt(0).toUpperCase();
     const usernameDisplay = data.username ? `@${data.username}` : `ID: ${data.user_id}`;
@@ -8882,29 +8999,31 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <span>${data.threat_type || 'THREAT'} (${data.confidence || 95}%) — ${escapeHtml(data.reason || 'Pattern matched')}</span>
         </div>
       ` : ''}
-      ${reactionHtml}
-      <div class="wiretap-actions">
-        ${counterWarnBtn}
-        <button type="button" onclick="reportToTelegram(${effectiveGid}, ${data.message_id}, 'spam')" class="act-pill act-pill-report" style="border-color: rgba(239,68,68,0.4); color: #ef4444;" title="Plan H: 1-Click MTProto report to Telegram Trust & Safety">
-          <i data-lucide="alert-octagon" style="width: 10px; height: 10px;"></i>
-          <span class="desktop-label">Report TG T&S</span><span class="mobile-label">Report</span>
-        </button>
-        <button type="button" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" class="act-pill act-pill-osint" style="border-color: rgba(56,189,248,0.3); color: #38bdf8;" title="Investigate Cross-Group OSINT Dossier">
-          <i data-lucide="fingerprint" style="width: 10px; height: 10px;"></i>
-          <span class="desktop-label">OSINT Dossier</span><span class="mobile-label">Dossier</span>
-        </button>
-        <button type="button" onclick="quickAddWatchdog('user', '${data.username ? '@' + data.username : data.user_id}')" class="act-pill act-pill-track" style="border-color: rgba(245,158,11,0.3); color: #f59e0b;" title="Add user to real-time Watchdog sniffer">
-          <i data-lucide="bell-ring" style="width: 10px; height: 10px;"></i>
-          <span class="desktop-label">Track Target</span><span class="mobile-label">Track</span>
-        </button>
-        <button type="button" onclick="quickSiphonForward(${effectiveGid}, ${data.message_id})" class="act-pill act-pill-siphon" style="border-color: rgba(52,211,153,0.3); color: #34d399;" title="Push message immediately to your Telegram Saved Messages">
-          <i data-lucide="send" style="width: 10px; height: 10px;"></i>
-          <span class="desktop-label">Siphon to Phone</span><span class="mobile-label">Siphon</span>
-        </button>
-        <button type="button" onclick="navigator.clipboard.writeText(this.getAttribute('data-txt')); showToast('Copied to clipboard!', 'info');" data-txt="${escapeQuote(rawTxt || data.text || '')}" class="act-pill act-pill-copy" title="Copy message text">
-          <i data-lucide="copy" style="width: 10px; height: 10px;"></i>
-          <span class="desktop-label">Copy</span><span class="mobile-label">Copy</span>
-        </button>
+      <div class="wiretap-card-toolbar">
+        ${reactionHtml}
+        <div class="wiretap-actions">
+          ${counterWarnBtn}
+          <button type="button" onclick="reportToTelegram(${effectiveGid}, ${data.message_id}, 'spam')" class="act-pill act-pill-report" style="border-color: rgba(239,68,68,0.4); color: #ef4444;" title="Plan H: 1-Click MTProto report to Telegram Trust & Safety">
+            <i data-lucide="alert-octagon" style="width: 10px; height: 10px;"></i>
+            <span class="desktop-label">Report TG T&S</span><span class="mobile-label">Report</span>
+          </button>
+          <button type="button" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" class="act-pill act-pill-osint" style="border-color: rgba(56,189,248,0.3); color: #38bdf8;" title="Investigate Cross-Group OSINT Dossier">
+            <i data-lucide="fingerprint" style="width: 10px; height: 10px;"></i>
+            <span class="desktop-label">OSINT Dossier</span><span class="mobile-label">Dossier</span>
+          </button>
+          <button type="button" onclick="quickAddWatchdog('user', '${data.username ? '@' + data.username : data.user_id}')" class="act-pill act-pill-track" style="border-color: rgba(245,158,11,0.3); color: #f59e0b;" title="Add user to real-time Watchdog sniffer">
+            <i data-lucide="bell-ring" style="width: 10px; height: 10px;"></i>
+            <span class="desktop-label">Track Target</span><span class="mobile-label">Track</span>
+          </button>
+          <button type="button" onclick="quickSiphonForward(${effectiveGid}, ${data.message_id})" class="act-pill act-pill-siphon" style="border-color: rgba(52,211,153,0.3); color: #34d399;" title="Push message immediately to your Telegram Saved Messages">
+            <i data-lucide="send" style="width: 10px; height: 10px;"></i>
+            <span class="desktop-label">Siphon to Phone</span><span class="mobile-label">Siphon</span>
+          </button>
+          <button type="button" onclick="navigator.clipboard.writeText(this.getAttribute('data-txt')); showToast('Copied to clipboard!', 'info');" data-txt="${escapeQuote(rawTxt || data.text || '')}" class="act-pill act-pill-copy" title="Copy message text">
+            <i data-lucide="copy" style="width: 10px; height: 10px;"></i>
+            <span class="desktop-label">Copy</span><span class="mobile-label">Copy</span>
+          </button>
+        </div>
       </div>
     `;
 
@@ -9854,6 +9973,52 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       showToast('Wiretap autoscroll paused', 'info');
     }
     playZenSound('click');
+  }
+
+  // ==========================================
+  // WIRETAP DENSITY & CARD ACTION CONTROLLER
+  // ==========================================
+  let wiretapDensity = localStorage.getItem('wiretap_density') || 'compact';
+
+  function applyWiretapDensity(density) {
+    wiretapDensity = density;
+    localStorage.setItem('wiretap_density', density);
+    const wrap = document.getElementById('tab-content-wiretap');
+    const btn = document.getElementById('wiretap-density-btn');
+    if (wrap) {
+      wrap.classList.toggle('density-compact', density === 'compact');
+      wrap.classList.toggle('density-comfort', density === 'comfort');
+    }
+    if (btn) {
+      if (density === 'compact') {
+        btn.innerText = '≡ COMPACT';
+        btn.classList.add('active');
+        btn.title = 'Current: Compact Density (7-10 msgs visible). Click for Comfort view.';
+      } else {
+        btn.innerText = '▤ COMFORT';
+        btn.classList.remove('active');
+        btn.title = 'Current: Comfort Density (Expanded buttons). Click for Compact view.';
+      }
+    }
+  }
+
+  function toggleWiretapDensity() {
+    const next = wiretapDensity === 'compact' ? 'comfort' : 'compact';
+    applyWiretapDensity(next);
+    showToast(next === 'compact' ? 'Wiretap Density: COMPACT (Maximum message visibility)' : 'Wiretap Density: COMFORT (Actions expanded)', 'info');
+    playZenSound('click');
+  }
+
+  function handleWiretapCardClick(card, event) {
+    if (!card) return;
+    if (event && (event.target.closest('button') || event.target.closest('a') || event.target.closest('input') || event.target.closest('select'))) {
+      return;
+    }
+    const wasActive = card.classList.contains('toolbar-active');
+    document.querySelectorAll('.wiretap-card.toolbar-active').forEach(c => c.classList.remove('toolbar-active'));
+    if (!wasActive) {
+      card.classList.add('toolbar-active');
+    }
   }
 
   function clearWiretapFeed() {
@@ -12573,6 +12738,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     checkOwnerStatus();
     detectDeviceProfile();
     initWiretapScrollListeners();
+    applyWiretapDensity(wiretapDensity);
     acquireScreenWakeLock();
     initWakeLockOnUserGesture();
     if (window.innerWidth < 768) {
