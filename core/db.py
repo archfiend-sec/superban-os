@@ -276,6 +276,16 @@ class DatabaseManager:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS security_audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT NOT NULL,
+                username TEXT,
+                client_ip TEXT,
+                detail TEXT,
+                severity TEXT DEFAULT 'INFO',
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
         ''')
         self.conn.commit()
 
@@ -1481,6 +1491,47 @@ class DatabaseManager:
             )
             self.conn.commit()
             return self.cursor.rowcount > 0
+
+    async def record_security_event(self, event_type: str, username: str = "", client_ip: str = "", detail: str = "", severity: str = "INFO"):
+        """Record a structured security event into the persistent audit trail."""
+        async with self.lock:
+            try:
+                self.cursor.execute(
+                    '''INSERT INTO security_audit_logs (event_type, username, client_ip, detail, severity, timestamp)
+                       VALUES (?, ?, ?, ?, ?, datetime('now'))''',
+                    (event_type, username or "", client_ip or "", detail or "", severity)
+                )
+                self.conn.commit()
+            except Exception as e:
+                logger.debug(f"Failed to record security audit log: {e}")
+
+    async def get_security_audit_logs(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Retrieve recent security audit log records with strict limit clamping."""
+        async with self.lock:
+            try:
+                clamped_limit = max(1, min(int(limit), 500))
+                self.cursor.execute(
+                    '''SELECT id, event_type, username, client_ip, detail, severity, timestamp 
+                       FROM security_audit_logs 
+                       ORDER BY id DESC LIMIT ?''',
+                    (clamped_limit,)
+                )
+                rows = self.cursor.fetchall()
+                return [
+                    {
+                        "id": r[0],
+                        "event_type": r[1],
+                        "username": r[2],
+                        "client_ip": r[3],
+                        "detail": r[4],
+                        "severity": r[5],
+                        "timestamp": r[6]
+                    }
+                    for r in rows
+                ]
+            except Exception as e:
+                logger.error(f"Error fetching security audit logs: {e}")
+                return []
 
     def close(self):
         try:

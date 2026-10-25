@@ -18,8 +18,24 @@ class MockSentinel:
         pass
 
 class MockDb:
+    def __init__(self):
+        self.events = []
+
     async def get_stats(self):
         return {"total_actions": 100, "completed_sessions": 10, "scraped_leads": 50}
+
+    async def record_security_event(self, event_type: str, username: str, client_ip: str, detail: str, severity: str = "INFO"):
+        self.events.append({
+            "event_type": event_type,
+            "username": username,
+            "client_ip": client_ip,
+            "detail": detail,
+            "severity": severity,
+            "timestamp": time.time()
+        })
+
+    async def get_security_audit_logs(self, limit: int = 50):
+        return self.events[-limit:]
 
 class MockEngine:
     def __init__(self):

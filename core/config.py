@@ -14,7 +14,28 @@ SESSION_FILE = SESSION_DIR / "superban"
 
 load_dotenv(ENV_PATH)
 
+def _harden_file_permissions(path: Path):
+    """Enforce strict read/write owner-only permissions (0600) on sensitive credential files."""
+    try:
+        if path.exists():
+            os.chmod(path, 0o600)
+    except Exception:
+        pass
+
+# Ensure existing secret files on disk are immediately locked down to owner-only access
+_harden_file_permissions(ENV_PATH)
+_harden_file_permissions(CONFIG_PATH)
+
 class Config:
+    @staticmethod
+    def harden_file_permissions(path: Path = None):
+        """Expose file permission hardening to ensure sensitive files are 0o600."""
+        if path:
+            _harden_file_permissions(path)
+        else:
+            _harden_file_permissions(ENV_PATH)
+            _harden_file_permissions(CONFIG_PATH)
+
     @staticmethod
     def get_credentials():
         # Reload env in case it was updated
@@ -63,6 +84,7 @@ class Config:
 
         with open(ENV_PATH, "w", encoding="utf-8") as f:
             f.writelines(env_lines)
+        _harden_file_permissions(ENV_PATH)
             
         os.environ["TELEGRAM_STRING_SESSION"] = session_str
 
@@ -70,11 +92,13 @@ class Config:
     def save_credentials(api_id: int, api_hash: str, phone: str):
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump({"api_id": api_id, "api_hash": api_hash, "phone": phone}, f, indent=2)
+        _harden_file_permissions(CONFIG_PATH)
 
         Config.save_string_session("") # Initialize placeholder
         # Update .env
         with open(ENV_PATH, "w", encoding="utf-8") as f:
             f.write(f"TELEGRAM_API_ID={api_id}\nTELEGRAM_API_HASH={api_hash}\nTELEGRAM_PHONE={phone}\n")
+        _harden_file_permissions(ENV_PATH)
 
     @staticmethod
     def hash_pin(pin: str, salt: bytes = None) -> str:
@@ -177,6 +201,7 @@ class Config:
         data["owner_pin"] = stored_val
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
+        _harden_file_permissions(CONFIG_PATH)
 
         env_lines = []
         found = False
@@ -192,4 +217,5 @@ class Config:
             env_lines.append(f"OWNER_PIN={stored_val}\n")
         with open(ENV_PATH, "w", encoding="utf-8") as f:
             f.writelines(env_lines)
+        _harden_file_permissions(ENV_PATH)
         os.environ["OWNER_PIN"] = stored_val

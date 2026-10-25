@@ -132,11 +132,49 @@ def create_app(engine: SuperBanEngine):
     FAILED_VERIFY_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
     OPERATIONAL_RATE_LIMITS: Dict[str, List[float]] = {}
 
-    def get_client_ip(req: Request) -> str:
-        forwarded = req.headers.get("x-forwarded-for")
+    def get_client_ip(req_or_ws) -> str:
+        headers = getattr(req_or_ws, "headers", {})
+        forwarded = headers.get("x-forwarded-for")
         if forwarded:
             return forwarded.split(",")[0].strip()
-        return req.client.host if req.client else "127.0.0.1"
+        client = getattr(req_or_ws, "client", None)
+        return client.host if client else "127.0.0.1"
+
+    async def evict_websockets_by_token(token: str, reason: str = "Session invalidated"):
+        """Zero-Trust Eviction: Terminate active real-time WebSocket streams for invalidated sessions."""
+        dead = []
+        for ws in list(connected_clients):
+            if getattr(ws, "scope", {}).get("owner_token") == token:
+                try:
+                    await ws.close(code=1008, reason=reason)
+                except Exception:
+                    pass
+                dead.append(ws)
+        for d in dead:
+            connected_clients.discard(d)
+
+    async def evict_websockets_by_username(username: str, reason: str = "Clearance revoked"):
+        """Zero-Trust Eviction: Terminate active real-time WebSocket streams when an operator is revoked or deleted."""
+        clean_user = username.strip().lstrip('@').lower()
+        dead = []
+        for ws in list(connected_clients):
+            if getattr(ws, "scope", {}).get("operator_username") == clean_user:
+                try:
+                    await ws.close(code=1008, reason=reason)
+                except Exception:
+                    pass
+                dead.append(ws)
+        for d in dead:
+            connected_clients.discard(d)
+
+    def log_security_event_task(event_type: str, username: str, client_ip: str, detail: str, severity: str = "INFO"):
+        """Safely dispatches persistent security audit events without blocking or throwing if DB is uninitialized."""
+        try:
+            db = getattr(engine, "db", None)
+            if db and hasattr(db, "record_security_event"):
+                asyncio.create_task(db.record_security_event(event_type, username, client_ip, detail, severity))
+        except Exception as e:
+            logger.debug(f"Audit log dispatch skipped: {e}")
 
     @app.middleware("http")
     async def security_headers_and_limits_middleware(request: Request, call_next):
@@ -175,9 +213,12 @@ def create_app(engine: SuperBanEngine):
             "media-src 'self' blob: data:; "
             "connect-src 'self' ws: wss: https://api.dexscreener.com; "
             "frame-ancestors 'none'; "
+            "form-action 'self'; "
             "object-src 'none'; "
             "base-uri 'self';"
         )
+        if is_tls:
+            csp += " upgrade-insecure-requests;"
         response.headers["Content-Security-Policy"] = csp
         response.headers["Server"] = "SuperBan-Shield/3.2"
         return response
@@ -228,6 +269,7 @@ def create_app(engine: SuperBanEngine):
         # Strict Role-Based Access Control: Routes requiring Master Owner clearance
         owner_exclusive_prefixes = (
             "/api/operators",
+            "/api/security",
             "/api/auth/send_code",
             "/api/auth/verify_code",
             "/api/auth/import_session",
@@ -354,6 +396,18 @@ def create_app(engine: SuperBanEngine):
         Config.save_owner_pin(target_new_pin)
         FAILED_VERIFY_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
 
+        # Zero-Trust Eviction: Terminate all existing active WebSocket streams upon PIN modification
+        for ws in list(connected_clients):
+            try:
+                await ws.close(code=1008, reason="Master PIN updated — re-authentication required")
+            except Exception:
+                pass
+        connected_clients.clear()
+
+        log_security_event_task(
+            "OWNER_PIN_CHANGED", clean_user, client_ip, "Master Owner PIN successfully updated", "CRITICAL"
+        )
+
         new_token = secrets.token_hex(32)
         expiry = now + (7 * 86400)
         OWNER_TOKENS[new_token] = expiry
@@ -413,6 +467,10 @@ def create_app(engine: SuperBanEngine):
             if record["count"] >= 5:
                 record["lockout_until"] = now + 900  # 15-minute lockout
                 FAILED_VERIFY_ATTEMPTS[client_ip] = record
+                log_security_event_task(
+                    "LOCKOUT_TRIGGERED", clean_user, client_ip,
+                    "IP locked out for 15 minutes due to 5 consecutive failed clearance attempts", "CRITICAL"
+                )
                 raise HTTPException(
                     status_code=429,
                     detail="Too many failed clearance attempts. Account locked for 15 minutes.",
@@ -420,6 +478,10 @@ def create_app(engine: SuperBanEngine):
                 )
             FAILED_VERIFY_ATTEMPTS[client_ip] = record
             remaining = 5 - record["count"]
+            log_security_event_task(
+                "AUTH_FAILED", clean_user, client_ip,
+                f"Failed PIN verification ({record['count']}/5)", "WARNING"
+            )
             raise HTTPException(
                 status_code=403,
                 detail=f"Invalid Owner PIN. Clearance Denied. ({remaining} attempts remaining before temporary lockout)"
@@ -427,6 +489,10 @@ def create_app(engine: SuperBanEngine):
 
         # Successful verification: reset failed attempt counter
         FAILED_VERIFY_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
+        log_security_event_task(
+            "AUTH_SUCCESS", clean_user, client_ip,
+            f"Cleared with role '{role}'", "INFO"
+        )
 
         # Auto-upgrade legacy plaintext PIN to PBKDF2 hash on successful login
         current_pin = Config.get_owner_pin()
@@ -456,11 +522,18 @@ def create_app(engine: SuperBanEngine):
     @app.post("/api/owner/logout")
     async def logout_owner(request: Request, response: Response):
         token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
+        client_ip = get_client_ip(request)
+        username = "owner"
         if token:
             if token in OPERATOR_SESSIONS:
+                username = OPERATOR_SESSIONS[token].get("username", "operator")
                 del OPERATOR_SESSIONS[token]
             if token in OWNER_TOKENS:
                 del OWNER_TOKENS[token]
+            await evict_websockets_by_token(token, reason="User logged out")
+            log_security_event_task(
+                "LOGOUT", username, client_ip, "Session terminated by user", "INFO"
+            )
         is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
         response.delete_cookie(key="owner_token", httponly=True, secure=is_secure, samesite="lax")
         return {"status": "logged_out"}
@@ -508,6 +581,12 @@ def create_app(engine: SuperBanEngine):
         # Automatically dispatch assigned credentials to @archfiend000 Telegram DM
         dm_dispatched = await engine.notify_owner_clearance_issued(clean_user, pin, role="operator")
 
+        op = getattr(request.state, "operator", {})
+        log_security_event_task(
+            "OPERATOR_ASSIGNED", clean_user, get_client_ip(request),
+            f"Clearance code issued by @{op.get('username', 'owner')}", "HIGH"
+        )
+
         return {
             "status": "success",
             "username": clean_user,
@@ -537,6 +616,15 @@ def create_app(engine: SuperBanEngine):
             if t in OWNER_TOKENS:
                 del OWNER_TOKENS[t]
 
+        # Zero-Trust Eviction: Immediately sever all active WebSocket connections for this operator
+        await evict_websockets_by_username(clean_user, reason="Operator clearance revoked")
+
+        op = getattr(request.state, "operator", {})
+        log_security_event_task(
+            "OPERATOR_REVOKED", clean_user, get_client_ip(request),
+            f"Clearance revoked by @{op.get('username', 'owner')}", "HIGH"
+        )
+
         dm_dispatched = await engine.notify_owner_clearance_revoked(clean_user)
 
         return {
@@ -562,7 +650,27 @@ def create_app(engine: SuperBanEngine):
             if t in OWNER_TOKENS:
                 del OWNER_TOKENS[t]
 
+        # Zero-Trust Eviction: Immediately sever all active WebSocket connections for this operator
+        await evict_websockets_by_username(clean_user, reason="Operator deleted")
+
+        op = getattr(request.state, "operator", {})
+        log_security_event_task(
+            "OPERATOR_DELETED", clean_user, get_client_ip(request),
+            f"Clearance deleted by @{op.get('username', 'owner')}", "HIGH"
+        )
+
         return {"status": "success", "username": clean_user}
+
+    @app.get("/api/security/audit_logs")
+    async def get_security_audit_logs(request: Request, limit: int = 50):
+        """Owner-Exclusive Security Audit Trail Exporter."""
+        op = getattr(request.state, "operator", {})
+        if op.get("role") != "owner":
+            raise HTTPException(status_code=403, detail="Forbidden: Master Owner (@archfiend000) authorization required.")
+        if not engine.db:
+            return []
+        clamped_limit = max(1, min(int(limit), 200))
+        return await engine.db.get_security_audit_logs(limit=clamped_limit)
 
     @app.get("/", response_class=HTMLResponse)
     @app.head("/")
@@ -1515,14 +1623,62 @@ def create_app(engine: SuperBanEngine):
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
+        client_ip = get_client_ip(websocket)
+        now = time.time()
+
+        # 1. Defense against brute-force attacks: Check if IP is currently locked out
+        lock_record = FAILED_VERIFY_ATTEMPTS.get(client_ip, {"count": 0, "lockout_until": 0.0})
+        if lock_record.get("lockout_until", 0.0) > now:
+            await websocket.close(code=1008, reason="IP locked out due to excessive failed attempts")
+            return
+
+        # 2. Defense against Cross-Site WebSocket Hijacking (CSWSH): Enforce Origin whitelist
+        origin = websocket.headers.get("origin")
+        if origin:
+            import re
+            if not re.match(r"^https?://(localhost|127\.0\.0\.1|superban-os\.onrender\.com)(:[0-9]+)?$", origin):
+                logger.warning(f"🚨 CSWSH attempt blocked from untrusted origin: {origin} (IP: {client_ip})")
+                log_security_event_task(
+                    "CSWSH_BLOCKED", "", client_ip, f"Untrusted origin: {origin}", "CRITICAL"
+                )
+                await websocket.close(code=1008, reason="Cross-origin WebSocket connection forbidden")
+                return
+
+        # 3. Multi-credential authentication (Cookie, Header, or Query Parameter)
         token = (
             websocket.query_params.get("token")
             or websocket.cookies.get("owner_token")
             or websocket.headers.get("X-Owner-Token")
         )
-        if not token or token not in OWNER_TOKENS or OWNER_TOKENS[token] < time.time():
+        session = OPERATOR_SESSIONS.get(token)
+        is_auth = False
+        session_user = ""
+        session_role = "operator"
+
+        if session and session.get("expires", 0) >= now:
+            is_auth = True
+            session_user = session.get("username", "operator")
+            session_role = session.get("role", "operator")
+        elif token and token in OWNER_TOKENS and OWNER_TOKENS[token] >= now:
+            is_auth = True
+            session_user = Config.get_owner_username()
+            session_role = "owner"
+
+        if not is_auth:
+            lock_record["count"] = lock_record.get("count", 0) + 1
+            if lock_record["count"] >= 5:
+                lock_record["lockout_until"] = now + 900
+            FAILED_VERIFY_ATTEMPTS[client_ip] = lock_record
+            log_security_event_task(
+                "WS_AUTH_FAILED", "", client_ip, "Invalid or missing token on WebSocket handshake", "WARNING"
+            )
             await websocket.close(code=1008, reason="Owner clearance required")
             return
+
+        # Tag WebSocket connection for Zero-Trust real-time session eviction
+        websocket.scope["owner_token"] = token
+        websocket.scope["operator_username"] = session_user
+        websocket.scope["operator_role"] = session_role
 
         await websocket.accept()
         connected_clients.add(websocket)
@@ -1735,7 +1891,8 @@ def create_app(engine: SuperBanEngine):
 
     @app.get("/api/vc/replay")
     async def get_vc_replay(group_id: int, seconds: int = 30):
-        slice_path = await engine.get_replay_audio_slice(group_id, seconds=seconds)
+        safe_seconds = max(5, min(int(seconds), 300))
+        slice_path = await engine.get_replay_audio_slice(group_id, seconds=safe_seconds)
         if not slice_path or not os.path.exists(slice_path):
             raise HTTPException(status_code=404, detail="No active replay buffer available for this group")
         return FileResponse(slice_path, media_type="audio/mpeg", headers={"Cache-Control": "no-cache"})
@@ -1747,10 +1904,11 @@ def create_app(engine: SuperBanEngine):
 
     @app.post("/api/vc/send_to_saved")
     async def send_vc_to_saved(req: VCSendSavedReq):
+        safe_seconds = max(5, min(int(req.seconds), 300)) if req.seconds is not None else None
         try:
             return await engine.send_vc_recording_to_saved(
                 group_id=req.group_id,
-                seconds=req.seconds,
+                seconds=safe_seconds,
                 as_voice_note=req.as_voice_note
             )
         except ValueError as ve:
