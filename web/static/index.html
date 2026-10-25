@@ -1262,6 +1262,12 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   cursor: pointer;
   transition: all .2s;
 }
+.mobile-label {
+  display: none;
+}
+.desktop-label {
+  display: inline;
+}
 .act-pill:hover {
   background: rgba(223, 231, 224, 0.1);
   color: var(--bone);
@@ -1764,11 +1770,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
    ═══════════════════════════════════════════════════════ */
 @media (max-width: 768px), (max-aspect-ratio: 9/10) and (max-width: 920px) {
   :root {
-    --nav-h: 54px;
-    --pad: 14px;
+    --nav-h: 42px;
+    --pad: 10px;
   }
   body {
-    font-size: 14px;
+    font-size: 13px;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -1785,68 +1791,125 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     touch-action: manipulation;
   }
 
-  /* Compact Mobile Nav Header */
+  /* Ultra-Clean Sleek Mobile Nav Header */
   .nav {
-    height: var(--nav-h);
-    padding: 0 12px;
-    gap: 8px;
+    height: var(--nav-h) !important;
+    padding: 0 10px !important;
+    gap: 6px !important;
   }
-  .brand-tx i { display: none; }
-  .brand-tx b { font-size: 11px; letter-spacing: .15em; }
-  .brand svg { width: 26px; height: 26px; }
+  .brand-tx i { display: none !important; }
+  .brand-tx b { font-size: 11px !important; letter-spacing: .15em !important; }
+  .brand svg { width: 22px !important; height: 22px !important; }
   .nav-links { display: none !important; }
   .op-badge { display: none !important; }
-  .view-mode-pill {
-    margin-left: auto;
-    transform: scale(0.9);
-    transform-origin: right center;
-  }
-  .view-pill-btn {
-    padding: 4px 8px;
-    font-size: 10px;
-  }
-  .view-pill-btn .hotkey-badge { display: none; }
-  .kage-btn-pill {
-    padding: 5px 8px;
-    font-size: 10px;
-  }
-  .kage-btn-pill span {
-    display: none;
-  }
-  .kage-btn-pill i {
-    margin: 0;
-  }
+
+  /* Hide header desktop/tablet bloat on mobile (handled by bottom dock) */
+  .view-mode-pill { display: none !important; }
+  .kage-device-pill { display: none !important; }
+  .kage-btn-pill { display: none !important; }
+  .kage-nav-dropdown-wrap { display: none !important; }
+  .nav-mobile-status { display: inline-flex !important; }
 
   /* Floating Bottom Dock Active */
   #kage-mobile-dock {
     display: flex !important;
   }
   .page {
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  /* War Room HUD Mobile Experience */
+  /* War Room HUD Mobile Experience (Zero Clutter, 100dvh Fit) */
   .war-room-hud {
-    height: calc(100vh - var(--nav-h) - 56px - env(safe-area-inset-bottom, 0px)) !important;
+    height: calc(100dvh - var(--nav-h) - 56px - env(safe-area-inset-bottom, 0px)) !important;
   }
+
+  /* Minimalist 24px Micro Status Strip */
   .hud-top-bar {
-    padding: 0 10px;
-    height: 36px;
-    flex: 0 0 36px;
-    overflow-x: auto;
-    font-size: 10px;
+    padding: 0 10px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    flex: 0 0 24px !important;
+    background: #040609 !important;
+    border-bottom: 1px solid var(--line-soft) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    overflow: hidden !important;
+    font-size: 9.5px !important;
   }
   .hud-top-bar::-webkit-scrollbar { display: none; }
-  .hud-ticker-left { gap: 6px; }
-  .hud-ticker-center { display: none; }
-  .hud-ticker-right { font-size: 10px; }
+  .hud-sys-tag, 
+  .hud-divider, 
+  #hud-defcon-display, 
+  #hud-vc-pill, 
+  .kage-device-pill,
+  .hud-ticker-right {
+    display: none !important;
+  }
+  .hud-ticker-left {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  .hud-status-live {
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: #10b981 !important;
+    letter-spacing: .06em !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+  .hud-ticker-center {
+    display: inline-flex !important;
+    font-size: 9.5px !important;
+    color: var(--bone-dim) !important;
+    max-width: 170px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Refined Segmented Mobile Column Navigation (30px) */
   .hud-mobile-nav {
     display: flex !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 2px 6px !important;
+    background: #070a0e !important;
+    border-bottom: 1px solid var(--line-soft) !important;
+    gap: 4px !important;
   }
+  .hud-mobile-tab {
+    flex: 1 !important;
+    padding: 3px 6px !important;
+    font-size: 10px !important;
+    height: 26px !important;
+    border-radius: 4px !important;
+    gap: 4px !important;
+    background: rgba(223, 231, 224, 0.03) !important;
+    border: 1px solid rgba(223, 231, 224, 0.06) !important;
+    color: var(--muted) !important;
+    font-weight: 500 !important;
+    letter-spacing: .01em !important;
+    touch-action: manipulation;
+  }
+  .hud-mobile-tab.active {
+    background: rgba(224, 35, 28, 0.16) !important;
+    border-color: rgba(224, 35, 28, 0.45) !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+  }
+  .hud-mobile-tab i {
+    width: 11px !important;
+    height: 11px !important;
+  }
+
+  /* Cockpit Body */
   .hud-body {
     display: flex !important;
     flex-direction: column !important;
-    height: calc(100% - 36px - 44px) !important;
+    height: calc(100% - 24px - 32px) !important;
     overflow: hidden !important;
     position: relative !important;
   }
@@ -1859,13 +1922,220 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     border: none !important;
-    padding: 12px 10px 40px 10px !important;
+    padding: 6px 6px 48px 6px !important;
   }
   .hud-body .hud-col.mobile-active {
     display: flex !important;
   }
   .wiretap-stream-wrap {
     padding-right: 0 !important;
+  }
+
+  /* Compact Center Tabs (30px) */
+  .kage-hud-tabs {
+    flex: 1 1 auto !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    height: 30px !important;
+    border-bottom: none !important;
+    gap: 2px !important;
+  }
+  .kage-hud-tabs::-webkit-scrollbar { display: none; }
+  .kage-hud-tab {
+    padding: 5px 8px !important;
+    font-size: 10.5px !important;
+    gap: 4px !important;
+    height: 30px !important;
+  }
+  .kage-tab-jp, 
+  .kage-tab-num {
+    display: none !important;
+  }
+  .kage-tab-meta {
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+  .kage-tab-title {
+    font-size: 10.5px !important;
+    font-weight: 500 !important;
+  }
+
+  /* Compact Filter Bar */
+  #wiretap-controls-sub {
+    width: 100% !important;
+    padding: 3px 6px !important;
+    background: rgba(4, 6, 9, 0.95) !important;
+    border-bottom: 1px solid var(--line-soft) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 4px !important;
+  }
+  .hud-filter-toggle {
+    display: inline-flex !important;
+    background: rgba(15, 20, 26, 0.8) !important;
+    border-radius: 4px !important;
+    padding: 2px !important;
+    gap: 2px !important;
+  }
+  .flt-btn {
+    font-size: 8.5px !important;
+    padding: 2px 5px !important;
+    height: 19px !important;
+    border-radius: 3px !important;
+  }
+
+  /* Eliminate Decorative Banner Clutter on Mobile */
+  .wiretap-stream-wrap .sec-head {
+    display: none !important;
+  }
+
+  /* Wiretap Feed Mobile Message Cards: Ultra-Lean, No-Clutter */
+  #wiretap-stream {
+    gap: 3px !important;
+  }
+  .wiretap-card {
+    padding: 6px 8px !important;
+    margin-bottom: 2px !important;
+    border-radius: 4px !important;
+    background: rgba(10, 14, 18, 0.65) !important;
+    border-color: rgba(223, 231, 224, 0.08) !important;
+  }
+  .wiretap-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 4px !important;
+    margin-bottom: 2px !important;
+    font-size: 9.5px !important;
+  }
+  .wiretap-user-meta {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+  }
+  .wiretap-avatar-pill {
+    width: 16px !important;
+    height: 16px !important;
+    font-size: 8.5px !important;
+    flex: 0 0 16px !important;
+  }
+  .wiretap-sender-name {
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 85px !important;
+  }
+  .wiretap-sender-handle {
+    font-size: 8.5px !important;
+    color: var(--muted) !important;
+    opacity: 0.6 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 60px !important;
+  }
+  .wiretap-time-wrap {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
+  }
+  .wiretap-group-badge {
+    font-size: 8px !important;
+    padding: 1px 4px !important;
+    max-width: 75px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .wiretap-time {
+    font-size: 8px !important;
+    color: var(--muted) !important;
+    opacity: 0.7 !important;
+    flex: 0 0 auto !important;
+  }
+  .wiretap-text {
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    margin: 2px 0 2px 0 !important;
+    word-break: break-word !important;
+  }
+  .wiretap-alpha-pill {
+    padding: 3px 5px !important;
+    margin-top: 2px !important;
+    font-size: 9px !important;
+  }
+
+  /* Compact Emoji Reactions Row */
+  .wiretap-react-bar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 2px !important;
+    margin-top: 2px !important;
+    margin-bottom: 1px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .wiretap-react-bar::-webkit-scrollbar { display: none; }
+  .react-pill {
+    padding: 0 3px !important;
+    font-size: 10px !important;
+    line-height: 17px !important;
+    height: 17px !important;
+    min-width: 17px !important;
+    background: rgba(223, 231, 224, 0.04) !important;
+    border: 1px solid rgba(223, 231, 224, 0.08) !important;
+    border-radius: 3px !important;
+  }
+
+  /* Single-Row Compact Action Buttons (No-Wrap) */
+  .wiretap-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    margin-top: 3px !important;
+    padding-top: 3px !important;
+    border-top: 1px solid rgba(223, 231, 224, 0.05) !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .wiretap-actions::-webkit-scrollbar { display: none; }
+  .act-pill {
+    padding: 2px 5px !important;
+    font-size: 9px !important;
+    height: 19px !important;
+    flex: 0 0 auto !important;
+    border-radius: 3px !important;
+    gap: 2px !important;
+    white-space: nowrap !important;
+  }
+  .act-pill i {
+    width: 8px !important;
+    height: 8px !important;
+  }
+  .desktop-label {
+    display: none !important;
+  }
+  .mobile-label {
+    display: inline !important;
+  }
+
+  /* Compact Child Tabs */
+  #tab-content-intel,
+  #tab-content-ghost,
+  #tab-content-recon,
+  #tab-content-alpha {
+    padding: 8px !important;
+    height: 100% !important;
   }
 
   /* Mobile Modals: Elegant Bottom-Sheet / Full-Screen */
@@ -2065,6 +2335,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   </div>
 
   <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+    <!-- Minimalist Mobile Status Pill (Only Visible on Mobile) -->
+    <div class="nav-mobile-status" style="display: none;">
+      <span id="nav-mob-status-badge" class="badge badge-emerald" style="font-size: 9px; padding: 2px 6px;">● ONLINE</span>
+    </div>
+
     <!-- Form Factor Device Telemetry Badge -->
     <button type="button" onclick="showDeviceDiagnostics()" class="kage-device-pill badge badge-muted" title="Auto-Detected Device Form Factor (Tap for Diagnostics)">
       <span class="device-dot"></span>
@@ -7447,7 +7722,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const escapedText = escapeHtml(data.text || '');
 
     const groupBadge = (wiretapScope === 'all' || data.group_title) ? `
-      <span class="badge badge-muted" style="font-size: 9px; padding: 1px 6px; margin-left: auto; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(data.group_title || '')}">
+      <span class="badge badge-muted wiretap-group-badge" style="font-size: 8.5px; padding: 1px 5px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(data.group_title || '')}">
         ${escapeHtml(data.group_title || ('#' + (data.group_id || '')))}
       </span>
     ` : '';
@@ -7510,7 +7785,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const counterWarnBtn = data.is_threat ? `
       <button type="button" onclick="quickCounterWarn(${effectiveGid}, ${data.message_id}, '${escapeQuote(data.threat_type || 'PHISHING')}', '${escapeQuote(data.reason || '')}')" class="act-pill" style="border-color: var(--vermilion); color: var(--vermilion); background: rgba(224,35,28,0.18); font-weight: 700;" title="Deploy public scam warning reply in group">
         <i data-lucide="shield-alert" style="width: 10px; height: 10px;"></i>
-        <span>Warn Group</span>
+        <span class="desktop-label">Warn Group</span><span class="mobile-label">Warn</span>
       </button>
     ` : '';
 
@@ -7522,8 +7797,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <span class="wiretap-sender-handle">${usernameDisplay}</span>
           ${trustBadge}
         </div>
-        ${groupBadge}
-        <span class="wiretap-time">${data.date || new Date().toLocaleTimeString()}</span>
+        <div class="wiretap-time-wrap">
+          ${groupBadge}
+          <span class="wiretap-time">${data.date || new Date().toLocaleTimeString()}</span>
+        </div>
       </div>
       <div class="wiretap-text">${escapedText}</div>
       ${alphaHtml}
@@ -7536,25 +7813,25 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       ${reactionHtml}
       <div class="wiretap-actions">
         ${counterWarnBtn}
-        <button type="button" onclick="reportToTelegram(${effectiveGid}, ${data.message_id}, 'spam')" class="act-pill" style="border-color: rgba(239,68,68,0.4); color: #ef4444;" title="Plan H: 1-Click MTProto report to Telegram Trust & Safety">
+        <button type="button" onclick="reportToTelegram(${effectiveGid}, ${data.message_id}, 'spam')" class="act-pill act-pill-report" style="border-color: rgba(239,68,68,0.4); color: #ef4444;" title="Plan H: 1-Click MTProto report to Telegram Trust & Safety">
           <i data-lucide="alert-octagon" style="width: 10px; height: 10px;"></i>
-          <span>Report TG T&S</span>
+          <span class="desktop-label">Report TG T&S</span><span class="mobile-label">Report</span>
         </button>
-        <button type="button" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" class="act-pill" style="border-color: rgba(56,189,248,0.3); color: #38bdf8;" title="Investigate Cross-Group OSINT Dossier">
+        <button type="button" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" class="act-pill act-pill-osint" style="border-color: rgba(56,189,248,0.3); color: #38bdf8;" title="Investigate Cross-Group OSINT Dossier">
           <i data-lucide="fingerprint" style="width: 10px; height: 10px;"></i>
-          <span>OSINT Dossier</span>
+          <span class="desktop-label">OSINT Dossier</span><span class="mobile-label">Dossier</span>
         </button>
-        <button type="button" onclick="quickAddWatchdog('user', '${data.username ? '@' + data.username : data.user_id}')" class="act-pill" style="border-color: rgba(245,158,11,0.3); color: #f59e0b;" title="Add user to real-time Watchdog sniffer">
+        <button type="button" onclick="quickAddWatchdog('user', '${data.username ? '@' + data.username : data.user_id}')" class="act-pill act-pill-track" style="border-color: rgba(245,158,11,0.3); color: #f59e0b;" title="Add user to real-time Watchdog sniffer">
           <i data-lucide="bell-ring" style="width: 10px; height: 10px;"></i>
-          <span>Track Target</span>
+          <span class="desktop-label">Track Target</span><span class="mobile-label">Track</span>
         </button>
-        <button type="button" onclick="quickSiphonForward(${effectiveGid}, ${data.message_id})" class="act-pill" style="border-color: rgba(52,211,153,0.3); color: #34d399;" title="Push message immediately to your Telegram Saved Messages">
+        <button type="button" onclick="quickSiphonForward(${effectiveGid}, ${data.message_id})" class="act-pill act-pill-siphon" style="border-color: rgba(52,211,153,0.3); color: #34d399;" title="Push message immediately to your Telegram Saved Messages">
           <i data-lucide="send" style="width: 10px; height: 10px;"></i>
-          <span>Siphon to Phone</span>
+          <span class="desktop-label">Siphon to Phone</span><span class="mobile-label">Siphon</span>
         </button>
-        <button type="button" onclick="navigator.clipboard.writeText(this.getAttribute('data-txt')); showToast('Copied to clipboard!', 'info');" data-txt="${escapedText}" class="act-pill" title="Copy message text">
+        <button type="button" onclick="navigator.clipboard.writeText(this.getAttribute('data-txt')); showToast('Copied to clipboard!', 'info');" data-txt="${escapedText}" class="act-pill act-pill-copy" title="Copy message text">
           <i data-lucide="copy" style="width: 10px; height: 10px;"></i>
-          <span>Copy</span>
+          <span class="desktop-label">Copy</span><span class="mobile-label">Copy</span>
         </button>
       </div>
     `;
