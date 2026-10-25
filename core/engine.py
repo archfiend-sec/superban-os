@@ -245,6 +245,7 @@ class SuperBanEngine:
                     "username": username,
                     "text": msg.raw_text,
                     "date": msg.date.strftime("%H:%M:%S") if msg.date else "",
+                    "timestamp": msg.date.timestamp() if msg.date else time.time(),
                     "trust_score": trust_score,
                     "trust_level": trust_level
                 })
@@ -617,6 +618,7 @@ class SuperBanEngine:
                     "username": username,
                     "text": msg.text,
                     "date": msg.date.strftime("%H:%M:%S") if msg.date else "",
+                    "timestamp": msg.date.timestamp() if msg.date else time.time(),
                     "is_threat": False,
                     "threat_type": None,
                     "confidence": 0,

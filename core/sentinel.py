@@ -91,7 +91,8 @@ class SentinelShield:
                         "action": action_type,
                         "full_name": u_name,
                         "username": getattr(user, 'username', '') if user else '',
-                        "date": time.strftime("%H:%M:%S", time.localtime())
+                        "date": time.strftime("%H:%M:%S", time.gmtime()),
+                        "timestamp": time.time()
                     })
                 except Exception:
                     pass
@@ -243,6 +244,10 @@ class SentinelShield:
             # Evaluate user forensic reputation in real-time
             user_profile = ForensicInspector.inspect_user(sender)
 
+            msg_dt = getattr(event, 'date', None) or getattr(getattr(event, 'message', None), 'date', None)
+            msg_ts = msg_dt.timestamp() if msg_dt else time.time()
+            msg_date_str = msg_dt.strftime("%H:%M:%S") if msg_dt else time.strftime("%H:%M:%S", time.gmtime())
+
             await self.emit_sentinel_event("live_chat_message", {
                 "message_id": event.id,
                 "group_id": group_id,
@@ -251,7 +256,8 @@ class SentinelShield:
                 "full_name": full_name,
                 "username": username,
                 "text": text,
-                "date": time.strftime("%H:%M:%S", time.localtime()),
+                "date": msg_date_str,
+                "timestamp": msg_ts,
                 "is_threat": is_threat,
                 "threat_type": threat_type,
                 "confidence": confidence,

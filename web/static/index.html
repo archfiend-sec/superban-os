@@ -5049,6 +5049,68 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   let velocityChart = null;
   let currentSelectedGroupId = "";
 
+  // ═══════════════════════════════════════════════════════════════
+  //   LOCAL TIMEZONE FORMATTER (12-HOUR FORMAT WITH AM/PM)
+  // ═══════════════════════════════════════════════════════════════
+  function formatLocalTime(val) {
+    if (!val) {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    }
+    let d;
+    if (typeof val === 'number') {
+      d = new Date(val > 1e11 ? val : val * 1000);
+    } else if (typeof val === 'string') {
+      val = val.trim();
+      if (!val) {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      }
+      if (/\b(?:am|pm)\b/i.test(val)) {
+        return val;
+      }
+      if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
+        // Treat raw HH:MM:SS from server as UTC time today
+        const today = new Date().toISOString().slice(0, 10);
+        const timeStr = val.length === 5 ? val + ':00' : val;
+        d = new Date(`${today}T${timeStr}Z`);
+      } else if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?/.test(val)) {
+        d = new Date(val.replace(' ', 'T') + (val.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(val) ? '' : 'Z'));
+      } else {
+        d = new Date(val);
+      }
+    } else if (val instanceof Date) {
+      d = val;
+    }
+
+    if (!d || isNaN(d.getTime())) {
+      return String(val);
+    }
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  }
+
+  function formatLocalDateTime(val) {
+    if (!val) return '';
+    let d;
+    if (typeof val === 'number') {
+      d = new Date(val > 1e11 ? val : val * 1000);
+    } else if (typeof val === 'string') {
+      val = val.trim();
+      if (!val) return '';
+      if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
+        const today = new Date().toISOString().slice(0, 10);
+        const timeStr = val.length === 5 ? val + ':00' : val;
+        d = new Date(`${today}T${timeStr}Z`);
+      } else if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?/.test(val)) {
+        d = new Date(val.replace(' ', 'T') + (val.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(val) ? '' : 'Z'));
+      } else {
+        d = new Date(val);
+      }
+    } else if (val instanceof Date) {
+      d = val;
+    }
+    if (!d || isNaN(d.getTime())) return String(val);
+    return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  }
+
   function safeCreateIcons() {
     try {
       if (window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -5889,7 +5951,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   function appendSentinelFeed(msg) {
     const feed = document.getElementById('sentinel-feed');
     const div = document.createElement('div');
-    div.innerText = `${new Date().toLocaleTimeString()} ${msg}`;
+    div.innerText = `${formatLocalTime()} ${msg}`;
     feed.appendChild(div);
     feed.scrollTop = feed.scrollHeight;
   }
@@ -6023,7 +6085,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const logBox = document.getElementById('sweeper-log');
     const addLog = (txt) => {
       const d = document.createElement('div');
-      d.innerText = `[${new Date().toLocaleTimeString()}] ${txt}`;
+      d.innerText = `[${formatLocalTime()}] ${txt}`;
       logBox.appendChild(d);
       logBox.scrollTop = logBox.scrollHeight;
     };
@@ -7444,8 +7506,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
       <!-- TIMELINE METRICS -->
       <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); border-top: 1px solid var(--line-soft); padding-top: 10px; margin-bottom: 16px;">
-        <span>JOINED VC: <b>${p.date_joined || 'Recent'}</b></span>
-        <span>LAST SPEAKING: <b>${p.active_date || 'None'}</b></span>
+        <span>JOINED VC: <b>${p.date_joined ? formatLocalTime(p.date_joined) : 'Recent'}</b></span>
+        <span>LAST SPEAKING: <b>${p.active_date ? formatLocalTime(p.active_date) : 'None'}</b></span>
       </div>
 
       <!-- TACTICAL ACTIONS BAR -->
@@ -7799,7 +7861,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         </div>
         <div class="wiretap-time-wrap">
           ${groupBadge}
-          <span class="wiretap-time">${data.date || new Date().toLocaleTimeString()}</span>
+          <span class="wiretap-time">${formatLocalTime(data.timestamp || data.date)}</span>
         </div>
       </div>
       <div class="wiretap-text">${escapedText}</div>
@@ -7880,7 +7942,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     card.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace;">
         <span>👤 <b>${escapeHtml(data.full_name)}</b> (${data.username ? '@' + data.username : '#' + data.user_id}) ${data.action} the group${groupLabel}.</span>
-        <span>${data.date || new Date().toLocaleTimeString()}</span>
+        <span>${formatLocalTime(data.timestamp || data.date)}</span>
       </div>
     `;
     stream.appendChild(card);
@@ -8306,7 +8368,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
               <b style="color: var(--bone); font-size: 12px;">${escapeHtml(m.sender_name || 'Anonymous')}</b>
               ${m.sender_username ? `<span style="color: var(--muted); font-size: 11px;">@${escapeHtml(m.sender_username)}</span>` : ''}
             </div>
-            <span style="font-size: 10px; color: var(--muted);">${m.date_deleted || m.date_edited || m.timestamp || ''}</span>
+            <span style="font-size: 10px; color: var(--muted);">${formatLocalDateTime(m.date_deleted || m.date_edited || m.timestamp)}</span>
           </div>
 
           ${isDel ? `
@@ -8838,7 +8900,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     msg.innerHTML = `
       <div class="copilot-msg-meta">
         <span class="badge-tag">${sender === 'user' ? 'OPERATOR' : 'AI SENTINEL'}</span>
-        <span class="time">${new Date().toLocaleTimeString()}</span>
+        <span class="time">${formatLocalTime()}</span>
       </div>
       <div class="copilot-msg-text">${escapeHtml(text)}</div>
     `;
@@ -9191,7 +9253,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
               ${(m.sender_username || m.username) ? `<span style="color: var(--muted); font-size: 10px;">@${escapeHtml(m.sender_username || m.username)}</span>` : ''}
               <span style="color: var(--muted); font-size: 9px; font-family: monospace;">#${m.message_id}</span>
             </div>
-            <span style="font-size: 10px; color: var(--muted); font-family: monospace;">${escapeHtml(m.timestamp || m.date_sent || '')}</span>
+            <span style="font-size: 10px; color: var(--muted); font-family: monospace;">${escapeHtml(formatLocalDateTime(m.timestamp || m.date_sent))}</span>
           </div>
           ${contentHtml}
           <div style="display: flex; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-soft); align-items: center; justify-content: flex-end; flex-wrap: wrap;">
@@ -10801,7 +10863,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
                 ${r.username ? `<span style="color: var(--muted); font-size: 9px;">@${escapeHtml(r.username)}</span>` : ''}
                 ${r.group_title ? `<span style="color: var(--muted); font-size: 9px;">in <i>${escapeHtml(r.group_title)}</i></span>` : ''}
               </div>
-              <span style="font-size: 9px; color: var(--muted); font-family: monospace;">${escapeHtml(r.date_sent)}</span>
+              <span style="font-size: 9px; color: var(--muted); font-family: monospace;">${escapeHtml(formatLocalDateTime(r.date_sent))}</span>
             </div>
             <div style="font-size: 12px; color: #f1f5f9; line-height: 1.4; word-break: break-word;">
               ${escapeHtml(r.message_text || r.original_text || '')}
