@@ -56,7 +56,7 @@ from core.rate_limiter import AdaptiveRateLimiter
 from core.forensics import ForensicInspector
 from core.sentinel import SentinelShield
 from core.config import Config
-from core.media import extract_media_info
+from core.media import extract_media_info, extract_reply_info
 
 logger = logging.getLogger("SuperBanEngine")
 
@@ -598,13 +598,14 @@ class SuperBanEngine:
         return await self.db.get_ai_threat_logs(group_id, limit)
 
     async def get_recent_messages(self, group_entity, limit: int = 30) -> List[Dict[str, Any]]:
-        """Retrieve recent messages for live surveillance wiretap (including stickers, gifs, photos, videos, voice)."""
+        """Retrieve recent messages for live surveillance wiretap (including stickers, gifs, photos, videos, voice, tagged replies)."""
         res = []
         try:
             messages = await self.client.get_messages(group_entity, limit=limit)
             gid = getattr(group_entity, 'id', 0)
             if not gid and isinstance(group_entity, int):
                 gid = group_entity
+            msg_map = {m.id: m for m in messages if m}
             for msg in reversed(messages):
                 if not msg:
                     continue
@@ -618,6 +619,7 @@ class SuperBanEngine:
                 media_info = extract_media_info(msg, group_id=gid)
                 raw_text = msg.text or ""
                 display_text = raw_text or media_info.get("fallback_text", "")
+                reply_info = await extract_reply_info(msg, msg_cache=msg_map)
 
                 res.append({
                     "message_id": msg.id,
@@ -636,7 +638,12 @@ class SuperBanEngine:
                     "media_type": media_info["media_type"],
                     "media_emoji": media_info["media_emoji"],
                     "file_name": media_info["file_name"],
-                    "media_url": media_info["media_url"]
+                    "media_url": media_info["media_url"],
+                    "is_reply": bool(reply_info),
+                    "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
+                    "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
+                    "reply_to_text": reply_info["reply_to_text"] if reply_info else None,
+                    "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None
                 })
         except Exception as e:
             logger.error(f"Error fetching recent messages: {e}")

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, Any, Optional
 
@@ -78,3 +79,66 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
         info["media_url"] = f"/api/media/preview/{gid}/{msg_id}"
 
     return info
+
+
+async def extract_reply_info(msg, msg_cache: Optional[Dict[int, Any]] = None) -> Optional[Dict[str, Any]]:
+    """Extract tagged / replied-to message context and sender details."""
+    if not msg:
+        return None
+
+    is_reply = bool(getattr(msg, 'is_reply', False))
+    reply_to_id = getattr(msg, 'reply_to_msg_id', None)
+    if not is_reply or not reply_to_id:
+        return None
+
+    reply_info = {
+        "reply_to_msg_id": reply_to_id,
+        "reply_to_sender": "",
+        "reply_to_text": "",
+        "reply_to_media_type": None
+    }
+
+    # 1. Quote text if directly provided in Telegram 2.0+ MessageReplyHeader
+    reply_header = getattr(msg, 'reply_to', None)
+    quote_text = getattr(reply_header, 'quote_text', None)
+    if quote_text:
+        reply_info["reply_to_text"] = quote_text
+
+    # 2. Check in-memory msg_cache first
+    orig_msg = None
+    if msg_cache and reply_to_id in msg_cache:
+        orig_msg = msg_cache[reply_to_id]
+
+    # 3. If not cached, fetch via get_reply_message() with a strict timeout
+    if not orig_msg and hasattr(msg, 'get_reply_message'):
+        try:
+            orig_msg = await asyncio.wait_for(msg.get_reply_message(), timeout=1.5)
+            if msg_cache is not None and orig_msg:
+                msg_cache[reply_to_id] = orig_msg
+        except Exception:
+            pass
+
+    if orig_msg:
+        try:
+            r_sender = await orig_msg.get_sender()
+            r_first = getattr(r_sender, 'first_name', '') or ''
+            r_last = getattr(r_sender, 'last_name', '') or ''
+            reply_info["reply_to_sender"] = f"{r_first} {r_last}".strip() or getattr(r_sender, 'title', '') or getattr(r_sender, 'username', '') or "User"
+        except Exception:
+            reply_info["reply_to_sender"] = "User"
+
+        r_text = getattr(orig_msg, 'text', '') or getattr(orig_msg, 'raw_text', '') or ""
+        if not r_text and getattr(orig_msg, 'media', None):
+            r_media = extract_media_info(orig_msg)
+            r_text = r_media.get("fallback_text", "[Attachment]")
+            reply_info["reply_to_media_type"] = r_media.get("media_type")
+
+        if not reply_info["reply_to_text"]:
+            reply_info["reply_to_text"] = r_text
+    else:
+        if not reply_info["reply_to_sender"]:
+            reply_info["reply_to_sender"] = "Replied Message"
+        if not reply_info["reply_to_text"]:
+            reply_info["reply_to_text"] = f"Message #{reply_to_id}"
+
+    return reply_info

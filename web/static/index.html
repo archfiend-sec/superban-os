@@ -1389,6 +1389,92 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   color: #34d399;
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
+
+/* WIRETAP TAGGED / REPLIED MESSAGE BANNER */
+.wiretap-reply-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--vermilion);
+  border-radius: 3px;
+  padding: 6px 10px;
+  margin: 4px 0 8px 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.wiretap-reply-bar:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(224, 35, 28, 0.6);
+  border-left-color: #ef4444;
+  transform: translateX(2px);
+}
+.wiretap-reply-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.wiretap-reply-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #38bdf8;
+  font-family: 'JetBrains Mono', monospace;
+}
+.wiretap-reply-user {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wiretap-reply-text {
+  font-size: 11px;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.wiretap-card.highlight-target {
+  animation: pulseCardHighlight 1.8s ease-out;
+  border-color: var(--vermilion) !important;
+  box-shadow: 0 0 20px rgba(224, 35, 28, 0.5) !important;
+}
+@keyframes pulseCardHighlight {
+  0% { transform: scale(1.02); background: rgba(224, 35, 28, 0.25); }
+  50% { transform: scale(1.01); background: rgba(224, 35, 28, 0.15); }
+  100% { transform: scale(1); }
+}
+.wiretap-mention {
+  color: #38bdf8;
+  font-weight: 600;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 0 4px;
+  border-radius: 2px;
+  display: inline-block;
+  cursor: pointer;
+}
+.wiretap-mention:hover {
+  background: rgba(56, 189, 248, 0.25);
+  text-decoration: underline;
+}
+.wiretap-hashtag {
+  color: #c084fc;
+  font-weight: 500;
+}
+.wiretap-link {
+  color: #38bdf8;
+  text-decoration: underline;
+  word-break: break-all;
+}
+.wiretap-link:hover {
+  color: #7dd3fc;
+}
 .wiretap-threat-badge {
   display: inline-flex;
   align-items: center;
@@ -8234,6 +8320,60 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     return html;
   }
 
+  function renderWiretapReplyHtml(data) {
+    if (!data.is_reply && !data.reply_to_msg_id) return '';
+
+    const replyId = data.reply_to_msg_id;
+    const sender = data.reply_to_sender || 'Replied Message';
+    const text = data.reply_to_text || `#${replyId}`;
+
+    return `
+      <div class="wiretap-reply-bar" onclick="scrollToWiretapTarget(${replyId})" title="Click to jump to tagged message #${replyId}">
+        <div class="wiretap-reply-inner">
+          <div class="wiretap-reply-header">
+            <i data-lucide="corner-down-right" style="width: 10px; height: 10px; color: var(--vermilion); flex-shrink: 0;"></i>
+            <span class="wiretap-reply-user">${escapeHtml(sender)}</span>
+          </div>
+          <div class="wiretap-reply-text">${escapeHtml(text)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function formatMessageTextWithTags(rawText) {
+    if (!rawText) return '';
+    let escaped = escapeHtml(rawText);
+    
+    // Highlight @mentions (e.g. @username)
+    escaped = escaped.replace(/(^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{3,32})/g, '$1<span class="wiretap-mention" onclick="quickAddWatchdog(\'user\', \'@$2\')" title="Tag @$2 — Click to track in Watchdog">@$2</span>');
+    
+    // Highlight #hashtags
+    escaped = escaped.replace(/(^|[^a-zA-Z0-9_])#([a-zA-Z0-9_]{2,32})/g, '$1<span class="wiretap-hashtag">#$2</span>');
+    
+    // Make URLs clickable
+    escaped = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" class="wiretap-link">$1</a>');
+
+    return escaped;
+  }
+
+  function scrollToWiretapTarget(msgId) {
+    if (!msgId) return;
+    const targetCard = document.getElementById(`wiretap-card-${msgId}`);
+    if (targetCard) {
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetCard.classList.remove('highlight-target');
+      void targetCard.offsetWidth; // Force CSS reflow to re-trigger animation
+      targetCard.classList.add('highlight-target');
+      setTimeout(() => {
+        targetCard.classList.remove('highlight-target');
+      }, 2000);
+      playZenSound('blip');
+    } else {
+      showToast(`Tagged message #${msgId} was sent earlier in history`, 'info');
+      playZenSound('click');
+    }
+  }
+
   function appendWiretapMessage(data, playSoundFx = true) {
     const activeGid = getActiveGroupId();
 
@@ -8331,11 +8471,12 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       </button>
     ` : '';
 
+    const replyHtml = renderWiretapReplyHtml(data);
     const mediaHtml = renderWiretapMediaHtml(data);
     const hasRichMedia = !!mediaHtml;
     const isFallbackText = (data.text || '').startsWith('[') && (data.text || '').endsWith(']');
     const rawTxt = data.raw_text !== undefined ? data.raw_text : data.text;
-    const textToShow = rawTxt ? escapeHtml(rawTxt) : (!hasRichMedia || !isFallbackText ? escapeHtml(data.text || '') : '');
+    const textToShow = rawTxt ? formatMessageTextWithTags(rawTxt) : (!hasRichMedia || !isFallbackText ? formatMessageTextWithTags(data.text || '') : '');
 
     card.innerHTML = `
       <div class="wiretap-header">
@@ -8350,6 +8491,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <span class="wiretap-time">${formatLocalTime(data.timestamp || data.date)}</span>
         </div>
       </div>
+      ${replyHtml}
       ${mediaHtml}
       ${textToShow ? `<div class="wiretap-text">${textToShow}</div>` : ''}
       ${alphaHtml}

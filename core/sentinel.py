@@ -17,7 +17,7 @@ from telethon.errors import RPCError
 
 from core.forensics import ForensicInspector
 from core.config import Config
-from core.media import extract_media_info
+from core.media import extract_media_info, extract_reply_info
 
 logger = logging.getLogger("SentinelShield")
 
@@ -221,6 +221,9 @@ class SentinelShield:
             if media_info["file_name"] and not file_name:
                 file_name = media_info["file_name"]
 
+            # Extract tagged / replied-to message context
+            reply_info = await extract_reply_info(getattr(event, 'message', None) or event)
+
             if self.db:
                 asyncio.create_task(self.db.save_intercepted_message(
                     group_id, group_title, event.id, sender.id, full_name, username, display_text,
@@ -281,7 +284,12 @@ class SentinelShield:
                 "media_type": media_info["media_type"],
                 "media_emoji": media_info["media_emoji"],
                 "file_name": file_name or media_info["file_name"],
-                "media_url": media_info["media_url"]
+                "media_url": media_info["media_url"],
+                "is_reply": bool(reply_info),
+                "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
+                "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
+                "reply_to_text": reply_info["reply_to_text"] if reply_info else None,
+                "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None
             })
 
             if group_id not in self.active_groups:

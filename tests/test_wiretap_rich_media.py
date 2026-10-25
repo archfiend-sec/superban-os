@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, AsyncMock
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.media import extract_media_info
+from core.media import extract_media_info, extract_reply_info
 from core.engine import SuperBanEngine
 from web.app import create_app, OPERATOR_SESSIONS
 
@@ -303,6 +303,42 @@ class TestWiretapRichMedia(unittest.TestCase):
 
         asyncio.run(run_test())
         print("  ✅ PASS: /api/media/preview endpoint verified with HTTP 200, WebP MIME, and security headers.")
+
+    def test_06_tagged_reply_extraction(self):
+        """Verify tagged / replied message context extraction."""
+        async def run_test():
+            # Replied-to original message (from Boni)
+            orig_msg = MagicMock()
+            orig_msg.id = 555
+            orig_msg.text = "Sorry guys I was stuck in traffic"
+            orig_msg.media = None
+            orig_msg.get_sender = AsyncMock(return_value=MagicMock(first_name="Boni", last_name="M", username="boni_m", id=999))
+
+            # Incoming reply message (from Kairos: "It's ok boni no sorry")
+            reply_msg = MagicMock()
+            reply_msg.id = 556
+            reply_msg.text = "It's ok boni no sorry"
+            reply_msg.is_reply = True
+            reply_msg.reply_to_msg_id = 555
+            reply_msg.reply_to = MagicMock(quote_text="Sorry guys")
+            reply_msg.media = None
+
+            # Test extract_reply_info with cache
+            msg_cache = {555: orig_msg}
+            reply_info = await extract_reply_info(reply_msg, msg_cache=msg_cache)
+            self.assertIsNotNone(reply_info)
+            self.assertEqual(reply_info["reply_to_msg_id"], 555)
+            self.assertEqual(reply_info["reply_to_sender"], "Boni M")
+            self.assertEqual(reply_info["reply_to_text"], "Sorry guys")
+
+            # Non-reply message returns None
+            non_reply = MagicMock()
+            non_reply.is_reply = False
+            non_reply.reply_to_msg_id = None
+            self.assertIsNone(await extract_reply_info(non_reply))
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: Tagged / replied-to message extracted with sender Boni M & quote context!")
 
 if __name__ == "__main__":
     print("=" * 70)
