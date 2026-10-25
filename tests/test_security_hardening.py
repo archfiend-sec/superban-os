@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import secrets
+import time
 from pathlib import Path
 
 # Add project root to path
@@ -16,6 +17,10 @@ class MockSentinel:
     def register_callback(self, cb):
         pass
 
+class MockDb:
+    async def get_stats(self):
+        return {"total_actions": 100, "completed_sessions": 10, "scraped_leads": 50}
+
 class MockEngine:
     def __init__(self):
         self.sentinel = MockSentinel()
@@ -26,7 +31,7 @@ class MockEngine:
             "speed": 8.5,
             "state": "IDLE"
         }
-        self.db = None
+        self.db = MockDb()
         self.client = None
 
     def register_listener(self, cb):
@@ -373,8 +378,117 @@ async def run_security_tests():
     assert Config.verify_pin("5555", migrated_pin) is True
     print("  ✅ PASS: Legacy plaintext PIN automatically upgraded to PBKDF2-HMAC-SHA256 hash on disk.")
 
+    # ---------------------------------------------------------
+    # TEST 11: SEC-01 Unauthenticated Owner Setup Defense
+    # ---------------------------------------------------------
+    print("\n[TEST 11] Owner Setup Verification & Lockout (SEC-01)...")
+    setup_attacker_ip = "198.51.100.99"
+    # Attempting to override owner PIN without providing current PIN must fail with 403
+    res_setup_bad = await client.request(
+        "POST",
+        "/api/owner/setup",
+        json_data={"new_pin": "9999"},
+        headers={"x-forwarded-for": setup_attacker_ip}
+    )
+    assert res_setup_bad.status == 403, f"Expected 403 Forbidden without current PIN, got {res_setup_bad.status}"
+    assert "Current Master PIN verification failed" in res_setup_bad.json().get("detail", "")
+
+    # Supplying valid current master PIN (1704 or 5555) must succeed
+    res_setup_good = await client.request(
+        "POST",
+        "/api/owner/setup",
+        json_data={"current_pin": "5555", "new_pin": "7777"},
+        headers={"x-forwarded-for": setup_attacker_ip}
+    )
+    assert res_setup_good.status == 200, f"Expected 200 with valid current PIN, got {res_setup_good.status}"
+    assert Config.verify_pin("7777", Config.get_owner_pin()) is True
+    print("  ✅ PASS: /api/owner/setup strictly requires verified master PIN; unauthenticated hijack blocked.")
+
+    # ---------------------------------------------------------
+    # TEST 12: SEC-02 & SEC-04 Operator Privilege Escalation Defense
+    # ---------------------------------------------------------
+    print("\n[TEST 12] Role-Based Access Control on Administrative & Auth Endpoints (SEC-02/04)...")
+    # Simulate an authenticated operator token (role: "operator")
+    from web.app import OPERATOR_SESSIONS
+    op_token = secrets.token_hex(32)
+    OPERATOR_SESSIONS[op_token] = {
+        "username": "junior_operative",
+        "role": "operator",
+        "expires": time.time() + 3600
+    }
+
+    # Operator attempting to import telegram session or send auth codes must receive 403
+    res_op_import = await client.request(
+        "POST",
+        "/api/auth/import_session",
+        json_data={"session_string": "fake_string"},
+        headers={"x-owner-token": op_token}
+    )
+    assert res_op_import.status == 403, f"Expected 403 Forbidden for operator on /api/auth/import_session, got {res_op_import.status}"
+    assert "Master Owner (@archfiend000) authorization required" in res_op_import.json().get("detail", "")
+
+    res_op_term = await client.request(
+        "POST",
+        "/api/terminal/launch",
+        headers={"x-owner-token": op_token}
+    )
+    assert res_op_term.status == 403, f"Expected 403 Forbidden for operator on /api/terminal/launch, got {res_op_term.status}"
+    print("  ✅ PASS: Operator role strictly blocked from Telegram auth manipulation and host execution (403 Forbidden).")
+
+    # ---------------------------------------------------------
+    # TEST 13: SEC-05 & SEC-06 Production Swagger Hardening & HTTPS Redirect
+    # ---------------------------------------------------------
+    print("\n[TEST 13] Production OpenAPI Disablement & HTTPS Enforcement (SEC-05/06)...")
+    # Unauthenticated requests are blocked with 401
+    res_docs_unauth = await client.request("GET", "/api/docs")
+    assert res_docs_unauth.status == 401, f"Unauthenticated docs must return 401, got {res_docs_unauth.status}"
+    
+    # Authenticated requests return 404 because Swagger UI is completely disabled in production
+    owner_token_test = res_setup_good.json().get("token")
+    res_docs_auth = await client.request("GET", "/api/docs", headers={"x-owner-token": owner_token_test})
+    assert res_docs_auth.status == 404, f"Authenticated docs must return 404 when disabled, got {res_docs_auth.status}"
+    res_schema = await client.request("GET", "/api/openapi.json", headers={"x-owner-token": owner_token_test})
+    assert res_schema.status == 404, f"OpenAPI JSON schema must return 404 when disabled, got {res_schema.status}"
+
+    # Plain HTTP request with x-forwarded-proto: http must be redirected to https
+    res_http = await client.request("GET", "/health", headers={"x-forwarded-proto": "http"})
+    assert res_http.status == 307, f"Expected 307 Redirect to HTTPS, got {res_http.status}"
+    assert res_http.headers.get("location", "").startswith("https://")
+    print("  ✅ PASS: OpenAPI documentation disabled in production; plain HTTP redirected to HTTPS.")
+
+    # ---------------------------------------------------------
+    # TEST 14: SEC-07 Operational Rate Limiting
+    # ---------------------------------------------------------
+    print("\n[TEST 14] Operational Throttling & FloodWait Protection (SEC-07)...")
+    throttle_ip = "198.51.100.22"
+    # Issue 30 requests within limit
+    owner_token_test = res_setup_good.json().get("token")
+    for _ in range(30):
+        res_op = await client.request(
+            "POST",
+            "/api/copilot/execute",
+            json_data={"prompt": "status", "group_id": 123},
+            headers={"x-owner-token": owner_token_test, "x-forwarded-for": throttle_ip}
+        )
+        assert res_op.status in (200, 400, 404), f"Under-limit request got unexpected status: {res_op.status}"
+
+    # 31st request must trigger 429 Too Many Requests
+    res_throttled = await client.request(
+        "POST",
+        "/api/copilot/execute",
+        json_data={"prompt": "status", "group_id": 123},
+        headers={"x-owner-token": owner_token_test, "x-forwarded-for": throttle_ip}
+    )
+    assert res_throttled.status == 429, f"31st request expected 429 Too Many Requests, got {res_throttled.status}"
+    assert "rate limit exceeded" in res_throttled.json().get("detail", "")
+    assert "retry-after" in res_throttled.headers
+    print("  ✅ PASS: Operational rate limiter active (429 Too Many Requests after 30 commands/min).")
+
+    # Restore clean master owner PIN hash
+    Config.save_owner_pin("1704")
+
     print("\n" + "=" * 70)
-    print("🏆 ALL 10 COMPREHENSIVE SECURITY TESTS PASSED WITH 100% SUCCESS!")
+    print("🏆 ALL 14 COMPREHENSIVE SECURITY TESTS PASSED WITH 100% SUCCESS!")
     print("=" * 70)
 
 if __name__ == "__main__":

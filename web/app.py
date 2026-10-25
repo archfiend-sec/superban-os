@@ -85,12 +85,13 @@ def find_mp3_sync_offset(filepath: str, target_pos: int, max_scan: int = 4096) -
     return max(0, target_pos)
 
 def create_app(engine: SuperBanEngine):
+    enable_docs = os.environ.get("ENABLE_API_DOCS", "0").strip().lower() in ("1", "true", "yes")
     app = FastAPI(
         title="SuperBan Mission Control",
         version="3.2",
-        docs_url="/api/docs",
+        docs_url="/api/docs" if enable_docs else None,
         redoc_url=None,
-        openapi_url="/api/openapi.json"
+        openapi_url="/api/openapi.json" if enable_docs else None
     )
 
     app.add_middleware(
@@ -128,6 +129,7 @@ def create_app(engine: SuperBanEngine):
     OWNER_TOKENS: Dict[str, float] = {}
     global OPERATOR_SESSIONS
     FAILED_VERIFY_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+    OPERATIONAL_RATE_LIMITS: Dict[str, List[float]] = {}
 
     def get_client_ip(req: Request) -> str:
         forwarded = req.headers.get("x-forwarded-for")
@@ -137,7 +139,12 @@ def create_app(engine: SuperBanEngine):
 
     @app.middleware("http")
     async def security_headers_and_limits_middleware(request: Request, call_next):
-        # 1. Enforce payload size limit (reject payloads > 10MB to mitigate DoS)
+        # 1. Enforce HTTPS redirect if reverse proxy received plain HTTP
+        if request.headers.get("x-forwarded-proto") == "http":
+            url = request.url.replace(scheme="https")
+            return Response(status_code=307, headers={"Location": str(url)})
+
+        # 2. Enforce payload size limit (reject payloads > 10MB to mitigate DoS)
         content_length = request.headers.get("content-length")
         if content_length:
             try:
@@ -148,7 +155,7 @@ def create_app(engine: SuperBanEngine):
 
         response = await call_next(request)
 
-        # 2. Strict Defense-in-Depth Security Headers
+        # 3. Strict Defense-in-Depth Security Headers
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -217,19 +224,46 @@ def create_app(engine: SuperBanEngine):
                 headers={"X-Owner-Required": "true"}
             )
 
-        # Owner-exclusive route protection: only master owner (@archfiend000) can manage operators
-        if path.startswith("/api/operators"):
+        # Strict Role-Based Access Control: Routes requiring Master Owner clearance
+        owner_exclusive_prefixes = (
+            "/api/operators",
+            "/api/auth/send_code",
+            "/api/auth/verify_code",
+            "/api/auth/import_session",
+            "/api/terminal/launch",
+        )
+        if any(path.startswith(prefix) for prefix in owner_exclusive_prefixes):
             if user_role != "owner":
                 return JSONResponse(
                     status_code=403,
                     content={"detail": "Forbidden: Master Owner (@archfiend000) authorization required."}
                 )
 
+        # Operational command throttling (protect Telethon from FloodWait)
+        operational_paths = (
+            "/api/scan", "/api/execute", "/api/leads/scrape",
+            "/api/copilot/execute", "/api/broadcast", "/api/service_messages/clean"
+        )
+        if any(path.startswith(op) for op in operational_paths):
+            client_ip = get_client_ip(request)
+            now_t = time.time()
+            req_history = OPERATIONAL_RATE_LIMITS.setdefault(client_ip, [])
+            OPERATIONAL_RATE_LIMITS[client_ip] = [t for t in req_history if t > now_t - 60]
+            if len(OPERATIONAL_RATE_LIMITS[client_ip]) >= 30:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Too Many Requests: Operational command rate limit exceeded. Please wait a minute."},
+                    headers={"Retry-After": "60"}
+                )
+            OPERATIONAL_RATE_LIMITS[client_ip].append(now_t)
+
         return await call_next(request)
 
     class OwnerPinReq(BaseModel):
         username: Optional[str] = None
-        pin: str
+        current_pin: Optional[str] = None
+        new_pin: Optional[str] = None
+        pin: Optional[str] = None
 
     class OperatorAssignReq(BaseModel):
         username: str
@@ -267,31 +301,76 @@ def create_app(engine: SuperBanEngine):
 
     @app.post("/api/owner/setup")
     async def setup_owner_pin(req: OwnerPinReq, request: Request, response: Response):
-        current_pin = Config.get_owner_pin()
-        if current_pin and current_pin != Config.DEFAULT_MASTER_OWNER_PIN:
-            raise HTTPException(status_code=400, detail="Owner PIN already configured. Please verify.")
-        pin = req.pin.strip()
-        if len(pin) < 4:
+        client_ip = get_client_ip(request)
+        now = time.time()
+        record = FAILED_VERIFY_ATTEMPTS.get(client_ip, {"count": 0, "lockout_until": 0.0, "last_attempt": 0.0})
+
+        if record["lockout_until"] > now:
+            retry_after = max(1, int(record["lockout_until"] - now))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Security lockout active. Try again in {retry_after} seconds.",
+                headers={"Retry-After": str(retry_after)}
+            )
+
+        clean_user = (req.username or Config.get_owner_username()).strip().lstrip('@').lower()
+        target_new_pin = (req.new_pin or req.pin or "").strip()
+
+        # Check if caller already has active authenticated owner session
+        token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
+        is_already_owner = bool(
+            token and (
+                (token in OPERATOR_SESSIONS and OPERATOR_SESSIONS[token].get("role") == "owner" and OPERATOR_SESSIONS[token].get("expires", 0) >= now) or
+                (token in OWNER_TOKENS and OWNER_TOKENS[token] >= now)
+            )
+        )
+
+        # If not already an authenticated owner, caller MUST provide and verify current_pin
+        if not is_already_owner:
+            provided_current = (req.current_pin or "").strip()
+            if not provided_current or not Config.verify_owner_credentials(clean_user, provided_current):
+                await asyncio.sleep(0.5)
+                record["count"] += 1
+                record["last_attempt"] = now
+                if record["count"] >= 5:
+                    record["lockout_until"] = now + 900
+                    FAILED_VERIFY_ATTEMPTS[client_ip] = record
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Too many failed clearance attempts. Account locked for 15 minutes.",
+                        headers={"Retry-After": "900"}
+                    )
+                FAILED_VERIFY_ATTEMPTS[client_ip] = record
+                remaining = 5 - record["count"]
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Current Master PIN verification failed. Setup denied. ({remaining} attempts remaining before temporary lockout)"
+                )
+
+        if len(target_new_pin) < 4:
             raise HTTPException(status_code=400, detail="Owner PIN must be at least 4 characters.")
-        Config.save_owner_pin(pin)
-        token = secrets.token_hex(32)
-        expiry = time.time() + (7 * 86400)
-        OWNER_TOKENS[token] = expiry
-        OPERATOR_SESSIONS[token] = {
-            "username": Config.get_owner_username(),
+
+        Config.save_owner_pin(target_new_pin)
+        FAILED_VERIFY_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
+
+        new_token = secrets.token_hex(32)
+        expiry = now + (7 * 86400)
+        OWNER_TOKENS[new_token] = expiry
+        OPERATOR_SESSIONS[new_token] = {
+            "username": clean_user,
             "role": "owner",
             "expires": expiry
         }
         is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
         response.set_cookie(
             key="owner_token",
-            value=token,
+            value=new_token,
             max_age=7 * 86400,
             httponly=True,
             secure=is_secure,
             samesite="lax"
         )
-        return {"status": "success", "token": token, "username": Config.get_owner_username(), "role": "owner"}
+        return {"status": "success", "token": new_token, "username": clean_user, "role": "owner"}
 
     @app.post("/api/owner/verify")
     async def verify_owner_pin(req: OwnerPinReq, request: Request, response: Response):
@@ -650,7 +729,7 @@ def create_app(engine: SuperBanEngine):
             me = await engine.client.get_me()
             return {
                 "status": "authorized",
-                "session_string": saved_str,
+                "session_saved": bool(saved_str),
                 "user": {
                     "id": me.id,
                     "first_name": me.first_name,
@@ -698,7 +777,7 @@ def create_app(engine: SuperBanEngine):
 
             return {
                 "status": "authorized",
-                "session_string": session_str,
+                "session_saved": True,
                 "user": {
                     "id": me.id,
                     "first_name": me.first_name,
@@ -1930,7 +2009,10 @@ def create_app(engine: SuperBanEngine):
         return await engine.simulate_presence(entity, req.action)
 
     @app.post("/api/terminal/launch")
-    async def launch_native_terminal():
+    async def launch_native_terminal(request: Request):
+        op = getattr(request.state, "operator", {})
+        if op.get("role") != "owner":
+            raise HTTPException(status_code=403, detail="Forbidden: Master Owner (@archfiend000) authorization required.")
         import platform
         import subprocess
         if platform.system() != "Darwin":
