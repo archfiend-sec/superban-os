@@ -127,7 +127,12 @@ async def extract_reply_info(msg, msg_cache: Optional[Dict[int, Any]] = None) ->
         except Exception:
             reply_info["reply_to_sender"] = "User"
 
-        r_text = getattr(orig_msg, 'text', '') or getattr(orig_msg, 'raw_text', '') or ""
+        orig_raw = getattr(orig_msg, 'raw_text', None)
+        if not isinstance(orig_raw, str):
+            orig_raw = getattr(orig_msg, 'message', None)
+        if not isinstance(orig_raw, str):
+            orig_raw = getattr(orig_msg, 'text', None)
+        r_text = orig_raw if isinstance(orig_raw, str) else ""
         if not r_text and getattr(orig_msg, 'media', None):
             r_media = extract_media_info(orig_msg)
             r_text = r_media.get("fallback_text", "[Attachment]")

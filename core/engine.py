@@ -617,7 +617,12 @@ class SuperBanEngine:
                 sender_id = getattr(sender, 'id', 0) if sender else 0
                 
                 media_info = extract_media_info(msg, group_id=gid)
-                raw_text = msg.text or ""
+                msg_raw = getattr(msg, 'raw_text', None)
+                if not isinstance(msg_raw, str):
+                    msg_raw = getattr(msg, 'message', None)
+                if not isinstance(msg_raw, str):
+                    msg_raw = getattr(msg, 'text', None)
+                raw_text = msg_raw if isinstance(msg_raw, str) else ""
                 display_text = raw_text or media_info.get("fallback_text", "")
                 reply_info = await extract_reply_info(msg, msg_cache=msg_map)
                 reactions_info = extract_reactions_info(msg)

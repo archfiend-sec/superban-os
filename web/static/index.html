@@ -8714,12 +8714,58 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     return html;
   }
 
+  function decodeHtmlEntities(str) {
+    if (!str) return '';
+    let s = String(str);
+    if (!s.includes('&')) return s;
+
+    // Fast-path decode for common entities (decimal numeric, hex numeric, and named)
+    s = s
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#0*39;/g, "'")
+      .replace(/&#x0*27;/gi, "'")
+      .replace(/&apos;/gi, "'")
+      .replace(/&#0*34;/g, '"')
+      .replace(/&#x0*22;/gi, '"')
+      .replace(/&#0*38;/g, '&')
+      .replace(/&#x0*26;/gi, '&')
+      .replace(/&#0*60;/g, '<')
+      .replace(/&#x0*3c;/gi, '<')
+      .replace(/&#0*62;/g, '>')
+      .replace(/&#x0*3e;/gi, '>');
+
+    // Second pass to resolve double-escaped entities (e.g. &amp;#039; -> &#039; -> ')
+    if (s.includes('&#') || s.includes('&apos;') || s.includes('&quot;')) {
+      s = s
+        .replace(/&#0*39;/g, "'")
+        .replace(/&#x0*27;/gi, "'")
+        .replace(/&apos;/gi, "'")
+        .replace(/&#0*34;/g, '"')
+        .replace(/&#x0*22;/gi, '"')
+        .replace(/&quot;/gi, '"');
+    }
+
+    // If any entity pattern still remains, decode via DOMParser across all browsers
+    if (s.includes('&') && (s.includes('&#') || s.includes(';'))) {
+      try {
+        const doc = new DOMParser().parseFromString(s, 'text/html');
+        if (doc && doc.body) {
+          s = doc.body.textContent || s;
+        }
+      } catch (e) {}
+    }
+    return s;
+  }
+
   function renderWiretapReplyHtml(data) {
     if (!data.is_reply && !data.reply_to_msg_id) return '';
 
     const replyId = data.reply_to_msg_id;
     const sender = data.reply_to_sender || 'Replied Message';
-    const text = data.reply_to_text || `#${replyId}`;
+    const text = decodeHtmlEntities(data.reply_to_text || `#${replyId}`);
 
     return `
       <div class="wiretap-reply-bar" onclick="scrollToWiretapTarget(${replyId})" title="Click to jump to tagged message #${replyId}">
@@ -8736,15 +8782,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
   function formatMessageTextWithTags(rawText) {
     if (!rawText) return '';
-    let text = rawText;
-    // Decode pre-encoded HTML entities to prevent double-encoding (e.g. &#039; -> ' so it doesn't render as literal &#039;)
-    if (text.includes('&#') || text.includes('&amp;') || text.includes('&lt;') || text.includes('&gt;') || text.includes('&quot;')) {
-      try {
-        const txt = document.createElement('textarea');
-        txt.innerHTML = text;
-        text = txt.value;
-      } catch (e) {}
-    }
+    // Fully decode any pre-encoded HTML entities (e.g. &#039; or &#x27; from MTProto) so plain apostrophes render cleanly
+    let text = decodeHtmlEntities(rawText);
     let escaped = escapeHtml(text);
     
     // Highlight @mentions (e.g. @username)
@@ -8974,6 +9013,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const isFallbackText = (data.text || '').startsWith('[') && (data.text || '').endsWith(']');
     const rawTxt = data.raw_text !== undefined ? data.raw_text : data.text;
     const textToShow = rawTxt ? formatMessageTextWithTags(rawTxt) : (!hasRichMedia || !isFallbackText ? formatMessageTextWithTags(data.text || '') : '');
+    const cleanCopyText = decodeHtmlEntities(rawTxt || data.text || '');
 
     card.innerHTML = `
       <div class="wiretap-header">
@@ -9019,7 +9059,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
             <i data-lucide="send" style="width: 10px; height: 10px;"></i>
             <span class="desktop-label">Siphon to Phone</span><span class="mobile-label">Siphon</span>
           </button>
-          <button type="button" onclick="navigator.clipboard.writeText(this.getAttribute('data-txt')); showToast('Copied to clipboard!', 'info');" data-txt="${escapeQuote(rawTxt || data.text || '')}" class="act-pill act-pill-copy" title="Copy message text">
+          <button type="button" onclick="navigator.clipboard.writeText(this.getAttribute('data-txt')); showToast('Copied to clipboard!', 'info');" data-txt="${escapeHtml(cleanCopyText)}" class="act-pill act-pill-copy" title="Copy message text">
             <i data-lucide="copy" style="width: 10px; height: 10px;"></i>
             <span class="desktop-label">Copy</span><span class="mobile-label">Copy</span>
           </button>
@@ -10190,13 +10230,12 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+      .replace(/"/g, '&quot;');
   }
 
   function escapeQuote(str) {
     if (!str) return '';
-    return String(str).replace(/'/g, "\\'");
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   }
 
   // ==========================================
