@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import aiohttp
@@ -180,7 +181,8 @@ def create_app(engine: SuperBanEngine):
         # Unprotected static routes, owner authentication, and uptime health probes
         public_paths = (
             "/", "/health", "/ping", "/favicon.ico", 
-            "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"
+            "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png",
+            "/manifest.json", "/site.webmanifest", "/icon-192.png", "/icon-512.png", "/icon.svg"
         )
         if path in public_paths or path.startswith("/static") or path.startswith("/api/owner/"):
             return await call_next(request)
@@ -493,6 +495,53 @@ def create_app(engine: SuperBanEngine):
             "Pragma": "no-cache",
             "Expires": "0"
         })
+
+    # ═══════════════════════════════════════════════════════
+    #   PWA & BRAND ASSET SERVING (ICONS, MANIFEST, FAVICONS)
+    # ═══════════════════════════════════════════════════════
+    @app.get("/manifest.json")
+    @app.get("/site.webmanifest")
+    async def get_manifest():
+        f = STATIC_DIR / "manifest.json"
+        if not f.exists():
+            raise HTTPException(status_code=404, detail="Manifest not found")
+        return FileResponse(f, media_type="application/manifest+json")
+
+    @app.get("/favicon.ico")
+    async def get_favicon():
+        f = STATIC_DIR / "favicon.ico"
+        if not f.exists():
+            raise HTTPException(status_code=404, detail="Favicon not found")
+        return FileResponse(f, media_type="image/x-icon")
+
+    @app.get("/apple-touch-icon.png")
+    @app.get("/apple-touch-icon-precomposed.png")
+    async def get_apple_touch_icon():
+        f = STATIC_DIR / "apple-touch-icon.png"
+        if not f.exists():
+            raise HTTPException(status_code=404, detail="Icon not found")
+        return FileResponse(f, media_type="image/png")
+
+    @app.get("/icon-192.png")
+    async def get_icon_192():
+        f = STATIC_DIR / "icon-192.png"
+        if not f.exists():
+            raise HTTPException(status_code=404, detail="Icon not found")
+        return FileResponse(f, media_type="image/png")
+
+    @app.get("/icon-512.png")
+    async def get_icon_512():
+        f = STATIC_DIR / "icon-512.png"
+        if not f.exists():
+            raise HTTPException(status_code=404, detail="Icon not found")
+        return FileResponse(f, media_type="image/png")
+
+    @app.get("/icon.svg")
+    async def get_icon_svg():
+        f = STATIC_DIR / "icon.svg"
+        if not f.exists():
+            raise HTTPException(status_code=404, detail="Icon not found")
+        return FileResponse(f, media_type="image/svg+xml")
 
     # Dedicated Keep-Alive & Health Check Probes for UptimeRobot / Cloud Monitoring
     @app.get("/health")
@@ -1951,5 +2000,8 @@ def create_app(engine: SuperBanEngine):
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=superban_ghost_vault_evidence.csv"}
         )
+
+    # Mount /static for public assets (icons, manifest, etc.)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     return app
