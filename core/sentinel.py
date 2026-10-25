@@ -17,6 +17,7 @@ from telethon.errors import RPCError
 
 from core.forensics import ForensicInspector
 from core.config import Config
+from core.media import extract_media_info
 
 logger = logging.getLogger("SentinelShield")
 
@@ -214,10 +215,17 @@ class SentinelShield:
                 except Exception as me:
                     logger.debug(f"Ghost media vault download note: {me}")
 
+            # Extract rich media metadata (stickers, gifs, photos, videos, voice)
+            media_info = extract_media_info(getattr(event, 'message', None) or event, group_id=group_id)
+            display_text = text or media_info.get("fallback_text", "")
+            if media_info["file_name"] and not file_name:
+                file_name = media_info["file_name"]
+
             if self.db:
                 asyncio.create_task(self.db.save_intercepted_message(
-                    group_id, group_title, event.id, sender.id, full_name, username, text,
-                    "media" if event.media else "text", media_path, file_name, file_size, file_hash
+                    group_id, group_title, event.id, sender.id, full_name, username, display_text,
+                    media_info.get("media_type") or ("media" if event.media else "text"),
+                    media_path, file_name, file_size, file_hash
                 ))
                 asyncio.create_task(self.db.update_user_cross_profile(
                     sender.id, full_name, username, group_id, group_title,
@@ -255,7 +263,8 @@ class SentinelShield:
                 "user_id": sender.id,
                 "full_name": full_name,
                 "username": username,
-                "text": text,
+                "text": display_text,
+                "raw_text": text,
                 "date": msg_date_str,
                 "timestamp": msg_ts,
                 "is_threat": is_threat,
@@ -267,7 +276,12 @@ class SentinelShield:
                 "trust_color": user_profile.get("trust_color", "#38bdf8"),
                 "vintage": user_profile.get("vintage", ""),
                 "is_premium": bool(getattr(sender, 'premium', False)),
-                "is_verified": bool(getattr(sender, 'verified', False))
+                "is_verified": bool(getattr(sender, 'verified', False)),
+                "has_media": media_info["has_media"],
+                "media_type": media_info["media_type"],
+                "media_emoji": media_info["media_emoji"],
+                "file_name": file_name or media_info["file_name"],
+                "media_url": media_info["media_url"]
             })
 
             if group_id not in self.active_groups:

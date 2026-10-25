@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import logging
+import mimetypes
 import os
 import secrets
 import shutil
@@ -1648,6 +1649,51 @@ def create_app(engine: SuperBanEngine):
             str(file_path),
             filename=record.get("file_name") or file_path.name,
             headers={"X-Content-Type-Options": "nosniff"}
+        )
+
+    @app.get("/api/media/preview/{group_id}/{message_id}")
+    async def get_media_preview(group_id: int, message_id: int, thumb: bool = False):
+        """Live wiretap media & sticker/GIF/photo/video preview streaming."""
+        file_path_str = await engine.get_media_preview_file(group_id, message_id, prefer_thumb=thumb)
+        if not file_path_str:
+            raise HTTPException(status_code=404, detail="Media preview unavailable")
+
+        file_path = Path(file_path_str).resolve()
+        vault_root = MEDIA_VAULT_DIR.resolve()
+
+        # Path traversal guard
+        try:
+            file_path.relative_to(vault_root)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied: Invalid media path")
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Media file missing from vault")
+
+        ext = file_path.suffix.lower()
+        mime_map = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+            ".gif": "image/gif",
+            ".mp4": "video/mp4",
+            ".mov": "video/quicktime",
+            ".webm": "video/webm",
+            ".ogg": "audio/ogg",
+            ".oga": "audio/ogg",
+            ".mp3": "audio/mpeg",
+            ".pdf": "application/pdf"
+        }
+        mime_type = mime_map.get(ext) or mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
+
+        return FileResponse(
+            str(file_path),
+            media_type=mime_type,
+            headers={
+                "Cache-Control": "public, max-age=604800, immutable",
+                "X-Content-Type-Options": "nosniff"
+            }
         )
 
     @app.get("/api/vc/replay")

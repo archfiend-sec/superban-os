@@ -1172,7 +1172,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   flex-direction: column;
   gap: 8px;
   padding: 8px 4px 16px 0;
-  scroll-behavior: smooth;
+  scroll-behavior: auto !important;
 }
 .wiretap-init-state {
   display: flex;
@@ -1256,6 +1256,138 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   color: #c4d0c7;
   word-break: break-word;
   white-space: pre-wrap;
+}
+
+/* WIRETAP RICH MEDIA ATTACHMENTS */
+.wiretap-media-box {
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wiretap-sticker-box {
+  align-items: flex-start;
+}
+.wiretap-sticker-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+}
+.wiretap-sticker-img {
+  max-width: 140px;
+  max-height: 140px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+.wiretap-sticker-img:hover {
+  transform: scale(1.08);
+}
+.wiretap-sticker-fallback {
+  font-size: 52px;
+  line-height: 1;
+  padding: 6px;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  animation: popInSticker 0.25s ease-out;
+}
+@keyframes popInSticker {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.wiretap-media-img {
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: 4px;
+  border: 1px solid var(--line-soft);
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.4);
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+  cursor: zoom-in;
+}
+.wiretap-media-img:hover {
+  border-color: var(--line);
+  opacity: 0.95;
+}
+.wiretap-media-video {
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: 4px;
+  border: 1px solid var(--line-soft);
+  background: #000;
+  outline: none;
+}
+.wiretap-gif-player {
+  cursor: pointer;
+}
+.wiretap-round-video-box {
+  display: inline-flex;
+}
+.wiretap-round-video {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 2px solid var(--vermilion);
+  object-fit: cover;
+  background: #000;
+}
+.wiretap-audio-box {
+  background: rgba(8, 12, 16, 0.7);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+.wiretap-audio-player {
+  width: 100%;
+  height: 32px;
+  border-radius: 16px;
+  outline: none;
+}
+.wiretap-doc-box {
+  background: rgba(8, 12, 16, 0.7);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.wiretap-media-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8.5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 2px;
+  width: fit-content;
+}
+.sticker-badge {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.gif-badge {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+.photo-badge {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+.video-badge {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.audio-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 .wiretap-threat-badge {
   display: inline-flex;
@@ -7761,11 +7893,17 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
   function scrollWiretapToBottom(force = false) {
     const wrap = document.getElementById('tab-content-wiretap');
-    const stream = document.getElementById('wiretap-stream');
-    if (!wrap && !stream) return;
-    if (force || (wiretapAutoScroll && !isUserInteractingWithWiretap && !userScrolledUpWiretap)) {
-      if (wrap) wrap.scrollTop = wrap.scrollHeight;
-      if (stream) stream.scrollTop = stream.scrollHeight;
+    if (!wrap) return;
+    if (force || (wiretapAutoScroll && !userScrolledUpWiretap)) {
+      requestAnimationFrame(() => {
+        wrap.scrollTop = wrap.scrollHeight + 5000;
+      });
+    }
+  }
+
+  function onWiretapMediaLoaded() {
+    if (wiretapAutoScroll && !userScrolledUpWiretap) {
+      scrollWiretapToBottom(false);
     }
   }
 
@@ -7783,13 +7921,36 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
       wiretapTouchTimer = setTimeout(() => {
         isUserInteractingWithWiretap = false;
-      }, 1000);
+        const distFromBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight;
+        if (distFromBottom <= 80 && wiretapAutoScroll) {
+          userScrolledUpWiretap = false;
+          const btn = document.getElementById('btn-wiretap-scroll');
+          if (btn) {
+            btn.innerText = 'SCROLL: AUTO';
+            btn.classList.add('active');
+          }
+          scrollWiretapToBottom(true);
+        }
+      }, 400);
     }, { passive: true });
 
     wrap.addEventListener('scroll', () => {
-      const threshold = 60;
+      const threshold = 120;
       const distFromBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight;
-      userScrolledUpWiretap = distFromBottom > threshold;
+      const btn = document.getElementById('btn-wiretap-scroll');
+      if (distFromBottom > threshold) {
+        userScrolledUpWiretap = true;
+        if (btn && wiretapAutoScroll) {
+          btn.innerText = 'SCROLL: PAUSED (RESUME ↓)';
+          btn.classList.remove('active');
+        }
+      } else {
+        userScrolledUpWiretap = false;
+        if (wiretapAutoScroll && btn) {
+          btn.innerText = 'SCROLL: AUTO';
+          btn.classList.add('active');
+        }
+      }
     }, { passive: true });
   }
 
@@ -7976,6 +8137,103 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     }
   }
 
+  function renderWiretapMediaHtml(data) {
+    if (!data.has_media && !data.media_type) return '';
+
+    const type = data.media_type || '';
+    let mediaUrl = data.media_url || '';
+    if (!mediaUrl && data.message_id && data.group_id) {
+      mediaUrl = `/api/media/preview/${Math.abs(data.group_id)}/${data.message_id}`;
+    }
+    if (mediaUrl) {
+      const tok = (sessionStorage.getItem('owner_token') || '').trim();
+      if (tok && !mediaUrl.includes('token=')) {
+        mediaUrl += (mediaUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(tok)}`;
+      }
+    }
+
+    const emoji = data.media_emoji || '';
+    const fileName = data.file_name || '';
+
+    let html = '';
+    if (type === 'sticker') {
+      html = `
+        <div class="wiretap-media-box wiretap-sticker-box">
+          <div class="wiretap-sticker-inner">
+            ${mediaUrl ? `
+              <img src="${mediaUrl}" class="wiretap-sticker-img" loading="lazy" alt="Sticker ${escapeQuote(emoji)}"
+                   onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';"
+                   onload="onWiretapMediaLoaded()">
+              <div class="wiretap-sticker-fallback" style="display: none;">${escapeHtml(emoji || '🎨')}</div>
+            ` : `
+              <div class="wiretap-sticker-fallback">${escapeHtml(emoji || '🎨')}</div>
+            `}
+          </div>
+          <span class="wiretap-media-badge sticker-badge">🎨 STICKER ${escapeHtml(emoji)}</span>
+        </div>
+      `;
+    } else if (type === 'gif') {
+      html = `
+        <div class="wiretap-media-box">
+          <video src="${mediaUrl}" class="wiretap-media-video wiretap-gif-player" autoplay loop muted playsinline preload="metadata" onloadeddata="onWiretapMediaLoaded()"></video>
+          <span class="wiretap-media-badge gif-badge">🎬 GIF ANIMATION</span>
+        </div>
+      `;
+    } else if (type === 'photo') {
+      html = `
+        <div class="wiretap-media-box">
+          <a href="${mediaUrl}" target="_blank" rel="noopener" title="Click to view full photo">
+            <img src="${mediaUrl}" class="wiretap-media-img" loading="lazy" alt="Photo" onload="onWiretapMediaLoaded()">
+          </a>
+          <span class="wiretap-media-badge photo-badge">🖼️ PHOTO</span>
+        </div>
+      `;
+    } else if (type === 'video' || type === 'video_note') {
+      const isRound = type === 'video_note';
+      html = `
+        <div class="wiretap-media-box ${isRound ? 'wiretap-round-video-box' : ''}">
+          <video src="${mediaUrl}" class="${isRound ? 'wiretap-round-video' : 'wiretap-media-video'}" controls playsinline preload="metadata" onloadeddata="onWiretapMediaLoaded()"></video>
+          <span class="wiretap-media-badge video-badge">📹 ${isRound ? 'ROUND VIDEO NOTE' : 'VIDEO'}</span>
+        </div>
+      `;
+    } else if (type === 'voice' || type === 'audio') {
+      const isVoice = type === 'voice';
+      html = `
+        <div class="wiretap-media-box wiretap-audio-box">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+            <span class="wiretap-media-badge audio-badge" style="margin: 0;">🎙️ ${isVoice ? 'VOICE NOTE' : 'AUDIO: ' + escapeHtml(fileName || 'TRACK')}</span>
+          </div>
+          <audio src="${mediaUrl}" controls preload="metadata" class="wiretap-audio-player" oncanplay="onWiretapMediaLoaded()"></audio>
+        </div>
+      `;
+    } else if (type === 'document') {
+      html = `
+        <div class="wiretap-media-box wiretap-doc-box">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
+              <i data-lucide="file-text" style="width: 14px; height: 14px; color: #38bdf8; flex-shrink: 0;"></i>
+              <span style="font-size: 11px; color: var(--bone); font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(fileName || 'Document')}</span>
+            </div>
+            ${mediaUrl ? `
+              <a href="${mediaUrl}" download="${escapeQuote(fileName || 'file')}" class="btn-xs-outline" style="font-size: 9px; padding: 2px 7px; color: #38bdf8; border-color: rgba(56,189,248,0.3);">⬇️ Download</a>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    } else if (data.has_media && mediaUrl) {
+      html = `
+        <div class="wiretap-media-box">
+          <a href="${mediaUrl}" target="_blank" rel="noopener" class="btn-xs-outline" style="font-size: 10px; display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px;">
+            <i data-lucide="paperclip" style="width: 12px; height: 12px;"></i>
+            <span>📎 View Attachment</span>
+          </a>
+        </div>
+      `;
+    }
+
+    return html;
+  }
+
   function appendWiretapMessage(data, playSoundFx = true) {
     const activeGid = getActiveGroupId();
 
@@ -8073,6 +8331,12 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       </button>
     ` : '';
 
+    const mediaHtml = renderWiretapMediaHtml(data);
+    const hasRichMedia = !!mediaHtml;
+    const isFallbackText = (data.text || '').startsWith('[') && (data.text || '').endsWith(']');
+    const rawTxt = data.raw_text !== undefined ? data.raw_text : data.text;
+    const textToShow = rawTxt ? escapeHtml(rawTxt) : (!hasRichMedia || !isFallbackText ? escapeHtml(data.text || '') : '');
+
     card.innerHTML = `
       <div class="wiretap-header">
         <div class="wiretap-user-meta">
@@ -8086,7 +8350,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <span class="wiretap-time">${formatLocalTime(data.timestamp || data.date)}</span>
         </div>
       </div>
-      <div class="wiretap-text">${escapedText}</div>
+      ${mediaHtml}
+      ${textToShow ? `<div class="wiretap-text">${textToShow}</div>` : ''}
       ${alphaHtml}
       ${data.is_threat ? `
         <div class="wiretap-threat-badge">
@@ -8113,7 +8378,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <i data-lucide="send" style="width: 10px; height: 10px;"></i>
           <span class="desktop-label">Siphon to Phone</span><span class="mobile-label">Siphon</span>
         </button>
-        <button type="button" onclick="navigator.clipboard.writeText(this.getAttribute('data-txt')); showToast('Copied to clipboard!', 'info');" data-txt="${escapedText}" class="act-pill act-pill-copy" title="Copy message text">
+        <button type="button" onclick="navigator.clipboard.writeText(this.getAttribute('data-txt')); showToast('Copied to clipboard!', 'info');" data-txt="${escapeQuote(rawTxt || data.text || '')}" class="act-pill act-pill-copy" title="Copy message text">
           <i data-lucide="copy" style="width: 10px; height: 10px;"></i>
           <span class="desktop-label">Copy</span><span class="mobile-label">Copy</span>
         </button>
@@ -8499,6 +8764,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       wiretapControls.style.display = (tab === 'wiretap') ? 'flex' : 'none';
     }
 
+    if (tab === 'wiretap') {
+      scrollWiretapToBottom(true);
+    }
     if (tab === 'alpha') refreshAlphaRadar();
     if (tab === 'ghost') refreshCenterGhostVault();
     if (tab === 'intel') {
@@ -9031,22 +9299,38 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   }
 
   function toggleWiretapScroll() {
-    wiretapAutoScroll = !wiretapAutoScroll;
     const btn = document.getElementById('btn-wiretap-scroll');
-    if (wiretapAutoScroll) {
+    if (userScrolledUpWiretap && wiretapAutoScroll) {
+      userScrolledUpWiretap = false;
+      isUserInteractingWithWiretap = false;
       if (btn) {
         btn.innerText = 'SCROLL: AUTO';
         btn.classList.add('active');
       }
+      scrollWiretapToBottom(true);
+      showToast('Resumed autoscroll to latest messages', 'info');
+      playZenSound('click');
+      return;
+    }
+
+    wiretapAutoScroll = !wiretapAutoScroll;
+    if (wiretapAutoScroll) {
       userScrolledUpWiretap = false;
       isUserInteractingWithWiretap = false;
+      if (btn) {
+        btn.innerText = 'SCROLL: AUTO';
+        btn.classList.add('active');
+      }
       scrollWiretapToBottom(true);
+      showToast('Wiretap autoscroll locked to newest messages', 'info');
     } else {
       if (btn) {
         btn.innerText = 'SCROLL: PAUSED';
         btn.classList.remove('active');
       }
+      showToast('Wiretap autoscroll paused', 'info');
     }
+    playZenSound('click');
   }
 
   function clearWiretapFeed() {

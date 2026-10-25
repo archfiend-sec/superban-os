@@ -56,6 +56,7 @@ from core.rate_limiter import AdaptiveRateLimiter
 from core.forensics import ForensicInspector
 from core.sentinel import SentinelShield
 from core.config import Config
+from core.media import extract_media_info
 
 logger = logging.getLogger("SuperBanEngine")
 
@@ -597,12 +598,15 @@ class SuperBanEngine:
         return await self.db.get_ai_threat_logs(group_id, limit)
 
     async def get_recent_messages(self, group_entity, limit: int = 30) -> List[Dict[str, Any]]:
-        """Retrieve recent messages for live surveillance wiretap."""
+        """Retrieve recent messages for live surveillance wiretap (including stickers, gifs, photos, videos, voice)."""
         res = []
         try:
             messages = await self.client.get_messages(group_entity, limit=limit)
+            gid = getattr(group_entity, 'id', 0)
+            if not gid and isinstance(group_entity, int):
+                gid = group_entity
             for msg in reversed(messages):
-                if not msg or not msg.text:
+                if not msg:
                     continue
                 sender = await msg.get_sender()
                 first_name = getattr(sender, 'first_name', '') or ''
@@ -611,22 +615,82 @@ class SuperBanEngine:
                 username = getattr(sender, 'username', '') or ''
                 sender_id = getattr(sender, 'id', 0) if sender else 0
                 
+                media_info = extract_media_info(msg, group_id=gid)
+                raw_text = msg.text or ""
+                display_text = raw_text or media_info.get("fallback_text", "")
+
                 res.append({
                     "message_id": msg.id,
                     "user_id": sender_id,
                     "full_name": full_name,
                     "username": username,
-                    "text": msg.text,
+                    "text": display_text,
+                    "raw_text": raw_text,
                     "date": msg.date.strftime("%H:%M:%S") if msg.date else "",
                     "timestamp": msg.date.timestamp() if msg.date else time.time(),
                     "is_threat": False,
                     "threat_type": None,
                     "confidence": 0,
-                    "reason": None
+                    "reason": None,
+                    "has_media": media_info["has_media"],
+                    "media_type": media_info["media_type"],
+                    "media_emoji": media_info["media_emoji"],
+                    "file_name": media_info["file_name"],
+                    "media_url": media_info["media_url"]
                 })
         except Exception as e:
             logger.error(f"Error fetching recent messages: {e}")
         return res
+
+    async def get_media_preview_file(self, group_id: int, message_id: int, prefer_thumb: bool = False) -> Optional[str]:
+        """Fetch or retrieve cached media preview (photo, sticker, gif, video, voice, doc) for wiretap."""
+        norm_gid = abs(int(group_id))
+        vault_dir = Path(__file__).resolve().parent.parent / "media_vault"
+        vault_dir.mkdir(parents=True, exist_ok=True)
+
+        # 1. Check if already cached in media_vault
+        for prefix in (f"ghost_{norm_gid}_{message_id}.", f"preview_{norm_gid}_{message_id}.", f"thumb_{norm_gid}_{message_id}."):
+            for f in vault_dir.iterdir():
+                if f.name.startswith(prefix) and f.is_file() and f.stat().st_size > 0:
+                    return str(f.resolve())
+
+        # 2. If not cached, fetch via Telegram client if connected
+        if not self.client or not self.client.is_connected():
+            return None
+
+        try:
+            entity = await self.get_group_entity(group_id)
+            if not entity:
+                return None
+            msg = await self.client.get_messages(entity, ids=message_id)
+            if not msg or not msg.media:
+                return None
+
+            f_size = getattr(getattr(msg, 'file', None), 'size', 0) or 0
+            ext = getattr(getattr(msg, 'file', None), 'ext', '') or ''
+            mime = getattr(getattr(msg, 'file', None), 'mime_type', '') or ''
+
+            download_thumb = prefer_thumb
+            if getattr(msg, 'sticker', None):
+                if 'tgsticker' in mime or ext.lower() == '.tgs':
+                    download_thumb = True
+            elif f_size > 15 * 1024 * 1024:
+                download_thumb = True
+
+            clean_ext = ext if ext.startswith('.') else f".{ext}" if ext else ".jpg"
+            if download_thumb:
+                target_file = vault_dir / f"thumb_{norm_gid}_{message_id}.jpg"
+                downloaded = await self.client.download_media(msg, file=str(target_file), thumb=-1)
+            else:
+                target_file = vault_dir / f"preview_{norm_gid}_{message_id}{clean_ext}"
+                downloaded = await self.client.download_media(msg, file=str(target_file))
+
+            if downloaded and Path(downloaded).exists() and Path(downloaded).stat().st_size > 0:
+                return str(Path(downloaded).resolve())
+        except Exception as e:
+            logger.debug(f"Failed to fetch media preview for {group_id}/{message_id}: {e}")
+
+        return None
 
     # ═══════════════════════════════════════════════════════
     #   TACTICAL VOICE CHAT // GROUP CALL APEX
