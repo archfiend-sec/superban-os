@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, AsyncMock
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.media import extract_media_info, extract_reply_info
+from core.media import extract_media_info, extract_reply_info, extract_reactions_info, extract_reactions_from_obj
 from core.engine import SuperBanEngine
 from web.app import create_app, OPERATOR_SESSIONS
 
@@ -376,6 +376,71 @@ class TestWiretapRichMedia(unittest.TestCase):
 
         asyncio.run(run_test())
         print("  ✅ PASS: /api/user/avatar/{user_id} endpoint verified with thumbnail, big PFP, and 404 handling.")
+
+    def test_08_extract_reactions_info(self):
+        """Verify message reactions and reactor identification."""
+        msg = MagicMock()
+        r1 = MagicMock()
+        r1.reaction = MagicMock(emoticon="🔥")
+        r1.count = 3
+
+        r2 = MagicMock()
+        r2.reaction = MagicMock(emoticon="👍")
+        r2.count = 1
+
+        recent1 = MagicMock()
+        recent1.peer_id = MagicMock(user_id=8716656267)
+        recent1.reaction = MagicMock(emoticon="🔥")
+
+        msg.reactions = MagicMock()
+        msg.reactions.results = [r1, r2]
+        msg.reactions.recent_reactions = [recent1]
+
+        rx_data = extract_reactions_info(msg)
+        self.assertEqual(len(rx_data["reactions"]), 2)
+        self.assertEqual(rx_data["reactions"][0]["emoji"], "🔥")
+        self.assertEqual(rx_data["reactions"][0]["count"], 3)
+        self.assertEqual(rx_data["reactions"][1]["emoji"], "👍")
+        self.assertEqual(rx_data["reactions"][1]["count"], 1)
+
+        self.assertEqual(len(rx_data["recent_reactors"]), 1)
+        self.assertEqual(rx_data["recent_reactors"][0]["user_id"], 8716656267)
+        self.assertEqual(rx_data["recent_reactors"][0]["emoji"], "🔥")
+
+        # Test empty reactions object
+        empty_msg = MagicMock(reactions=None)
+        empty_data = extract_reactions_info(empty_msg)
+        self.assertEqual(empty_data["reactions"], [])
+        self.assertEqual(empty_data["recent_reactors"], [])
+        print("  ✅ PASS: extract_reactions_info correctly parses results and recent reactors.")
+
+    def test_09_message_reactions_endpoint(self):
+        """Verify /api/message/reactions serves reactors list with owner clearance."""
+        async def run_test():
+            self.engine.get_message_reactions = AsyncMock(return_value={
+                "status": "ok",
+                "group_id": -100123456789,
+                "message_id": 888,
+                "count": 2,
+                "reactions": [{"emoji": "🔥", "count": 2}],
+                "reactors": [
+                    {"user_id": 8716656267, "full_name": "Yami", "username": "yami_x", "emoji": "🔥", "date": "20:30:00"}
+                ]
+            })
+
+            headers = {"X-Owner-Token": self.token}
+            res = await self.client.request("GET", "/api/message/reactions?group_id=-100123456789&message_id=888", headers=headers)
+            self.assertEqual(res.status, 200)
+            data = res.json()
+            self.assertEqual(data["status"], "ok")
+            self.assertEqual(data["count"], 2)
+            self.assertEqual(len(data["reactors"]), 1)
+            self.assertEqual(data["reactors"][0]["user_id"], 8716656267)
+            self.assertEqual(data["reactors"][0]["full_name"], "Yami")
+            self.assertEqual(data["reactors"][0]["emoji"], "🔥")
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: /api/message/reactions endpoint returns who reacted with status 200 and Yami 🔥 details.")
 
 if __name__ == "__main__":
     print("=" * 70)

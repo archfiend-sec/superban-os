@@ -1555,6 +1555,15 @@ def create_app(engine: SuperBanEngine):
             logger.error(f"Failed to react to message: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @app.get("/api/message/reactions")
+    async def get_message_reactions(group_id: int, message_id: int):
+        """Fetch list of users who reacted to a message with their emoji reaction."""
+        try:
+            return await engine.get_message_reactions(group_id, message_id)
+        except Exception as e:
+            logger.error(f"Failed to fetch message reactions: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     class GhostForwardReq(BaseModel):
         ghost_id: int
 

@@ -142,3 +142,52 @@ async def extract_reply_info(msg, msg_cache: Optional[Dict[int, Any]] = None) ->
             reply_info["reply_to_text"] = f"Message #{reply_to_id}"
 
     return reply_info
+
+
+def extract_reactions_from_obj(reactions_obj) -> Dict[str, Any]:
+    """Extract emoji reactions and counts from a Telethon MessageReactions object."""
+    reactions = []
+    recent_reactors = []
+    if not reactions_obj:
+        return {"reactions": reactions, "recent_reactors": recent_reactors}
+
+    results = getattr(reactions_obj, 'results', None) or []
+    for r in results:
+        reaction = getattr(r, 'reaction', None)
+        count = getattr(r, 'count', 0)
+        emoticon = ""
+        if hasattr(reaction, 'emoticon'):
+            emoticon = reaction.emoticon
+        elif hasattr(reaction, 'document_id'):
+            emoticon = "✨"
+        if emoticon and count > 0:
+            reactions.append({
+                "emoji": emoticon,
+                "count": count
+            })
+
+    # Recent reactors (if present on message object)
+    recent = getattr(reactions_obj, 'recent_reactions', None) or []
+    for item in recent:
+        peer = getattr(item, 'peer_id', None)
+        user_id = getattr(peer, 'user_id', None) if peer else None
+        reaction = getattr(item, 'reaction', None)
+        emoji = getattr(reaction, 'emoticon', '') if reaction else ''
+        if user_id:
+            recent_reactors.append({
+                "user_id": user_id,
+                "emoji": emoji
+            })
+
+    return {
+        "reactions": reactions,
+        "recent_reactors": recent_reactors
+    }
+
+
+def extract_reactions_info(msg) -> Dict[str, Any]:
+    """Extract reactions and recent reactors from a Telethon message or event."""
+    if not msg:
+        return {"reactions": [], "recent_reactors": []}
+    reactions_obj = getattr(msg, 'reactions', None)
+    return extract_reactions_from_obj(reactions_obj)

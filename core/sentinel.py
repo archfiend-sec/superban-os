@@ -17,7 +17,7 @@ from telethon.errors import RPCError
 
 from core.forensics import ForensicInspector
 from core.config import Config
-from core.media import extract_media_info, extract_reply_info
+from core.media import extract_media_info, extract_reply_info, extract_reactions_info, extract_reactions_from_obj
 
 logger = logging.getLogger("SentinelShield")
 
@@ -223,6 +223,7 @@ class SentinelShield:
 
             # Extract tagged / replied-to message context
             reply_info = await extract_reply_info(getattr(event, 'message', None) or event)
+            reactions_info = extract_reactions_info(getattr(event, 'message', None) or event)
 
             if self.db:
                 asyncio.create_task(self.db.save_intercepted_message(
@@ -289,7 +290,9 @@ class SentinelShield:
                 "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
                 "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
                 "reply_to_text": reply_info["reply_to_text"] if reply_info else None,
-                "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None
+                "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None,
+                "reactions": reactions_info.get("reactions", []),
+                "recent_reactors": reactions_info.get("recent_reactors", [])
             })
 
             if group_id not in self.active_groups:
@@ -449,6 +452,35 @@ class SentinelShield:
                         })
                 except Exception as e:
                     logger.debug(f"Ghost Vault edit hook note: {e}")
+
+        @self.client.on(events.Raw(types.UpdateMessageReactions))
+        async def on_message_reactions_updated(update):
+            """Real-time reaction telemetry dispatched to live wiretap HUD."""
+            try:
+                peer = getattr(update, 'peer', None)
+                msg_id = getattr(update, 'msg_id', 0)
+                reactions_obj = getattr(update, 'reactions', None)
+                if not peer or not msg_id:
+                    return
+
+                group_id = 0
+                if hasattr(peer, 'channel_id'):
+                    group_id = -1000000000000 - peer.channel_id if peer.channel_id > 0 else peer.channel_id
+                elif hasattr(peer, 'chat_id'):
+                    group_id = -peer.chat_id
+                elif hasattr(peer, 'user_id'):
+                    group_id = peer.user_id
+
+                rx_info = extract_reactions_from_obj(reactions_obj)
+                await self.emit_sentinel_event("message_reactions_updated", {
+                    "group_id": group_id,
+                    "message_id": msg_id,
+                    "reactions": rx_info.get("reactions", []),
+                    "recent_reactors": rx_info.get("recent_reactors", []),
+                    "timestamp": time.strftime("%H:%M:%S", time.localtime())
+                })
+            except Exception as e:
+                logger.debug(f"Reaction update hook notice: {e}")
 
         # ═══════════════════════════════════════════════════════════════
         #   PLAN I: TELEGRAM COMPANION CONTROLLER FOR @archfiend000

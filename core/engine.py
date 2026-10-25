@@ -56,7 +56,7 @@ from core.rate_limiter import AdaptiveRateLimiter
 from core.forensics import ForensicInspector
 from core.sentinel import SentinelShield
 from core.config import Config
-from core.media import extract_media_info, extract_reply_info
+from core.media import extract_media_info, extract_reply_info, extract_reactions_info, extract_reactions_from_obj
 
 logger = logging.getLogger("SuperBanEngine")
 
@@ -620,6 +620,7 @@ class SuperBanEngine:
                 raw_text = msg.text or ""
                 display_text = raw_text or media_info.get("fallback_text", "")
                 reply_info = await extract_reply_info(msg, msg_cache=msg_map)
+                reactions_info = extract_reactions_info(msg)
 
                 res.append({
                     "message_id": msg.id,
@@ -643,7 +644,9 @@ class SuperBanEngine:
                     "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
                     "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
                     "reply_to_text": reply_info["reply_to_text"] if reply_info else None,
-                    "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None
+                    "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None,
+                    "reactions": reactions_info.get("reactions", []),
+                    "recent_reactors": reactions_info.get("recent_reactors", [])
                 })
         except Exception as e:
             logger.error(f"Error fetching recent messages: {e}")
@@ -746,6 +749,77 @@ class SuperBanEngine:
             except Exception:
                 pass
             return None
+
+    async def get_message_reactions(self, group_id: int, message_id: int) -> Dict[str, Any]:
+        """Fetch detailed list of users who reacted to a specific message via GetMessageReactionsListRequest."""
+        if not self.client or not self.client.is_connected():
+            return {
+                "status": "error",
+                "message": "Telegram client not connected",
+                "group_id": group_id,
+                "message_id": message_id,
+                "reactions": [],
+                "reactors": []
+            }
+
+        try:
+            entity = await self.client.get_entity(group_id)
+            from telethon.tl.functions.messages import GetMessageReactionsListRequest
+            req = GetMessageReactionsListRequest(
+                peer=entity,
+                id=int(message_id),
+                limit=50
+            )
+            res = await self.client(req)
+            users_map = {u.id: u for u in getattr(res, 'users', [])}
+            reactors = []
+            for r in getattr(res, 'reactions', []):
+                peer = getattr(r, 'peer_id', None)
+                uid = getattr(peer, 'user_id', None) if peer else None
+                user_obj = users_map.get(uid)
+                full_name = "Anonymous"
+                username = ""
+                if user_obj:
+                    first = getattr(user_obj, 'first_name', '') or ''
+                    last = getattr(user_obj, 'last_name', '') or ''
+                    full_name = f"{first} {last}".strip() or getattr(user_obj, 'title', '') or "User"
+                    username = getattr(user_obj, 'username', '') or ''
+
+                reaction = getattr(r, 'reaction', None)
+                emoji = getattr(reaction, 'emoticon', '👍') if reaction else '👍'
+                dt = getattr(r, 'date', None)
+                date_str = dt.strftime("%H:%M:%S") if dt else ""
+                reactors.append({
+                    "user_id": uid,
+                    "full_name": full_name,
+                    "username": username,
+                    "emoji": emoji,
+                    "date": date_str
+                })
+
+            summary = {}
+            for r in reactors:
+                em = r["emoji"]
+                summary[em] = summary.get(em, 0) + 1
+
+            return {
+                "status": "ok",
+                "group_id": group_id,
+                "message_id": message_id,
+                "count": getattr(res, 'count', len(reactors)),
+                "reactions": [{"emoji": k, "count": v} for k, v in summary.items()],
+                "reactors": reactors
+            }
+        except Exception as e:
+            logger.debug(f"Reaction list fetch notice for msg {message_id} in {group_id}: {e}")
+            return {
+                "status": "error",
+                "message": str(e),
+                "group_id": group_id,
+                "message_id": message_id,
+                "reactions": [],
+                "reactors": []
+            }
 
     # ═══════════════════════════════════════════════════════
     #   TACTICAL VOICE CHAT // GROUP CALL APEX
