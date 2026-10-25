@@ -699,6 +699,54 @@ class SuperBanEngine:
 
         return None
 
+    async def get_user_avatar(self, user_id: int, big: bool = False) -> Optional[str]:
+        """Fetch or retrieve cached user profile photo (avatar/PFP)."""
+        uid = int(user_id)
+        vault_dir = Path(__file__).resolve().parent.parent / "media_vault" / "avatars"
+        vault_dir.mkdir(parents=True, exist_ok=True)
+
+        suffix = "_big" if big else ""
+        target_file = vault_dir / f"pfp_{uid}{suffix}.jpg"
+        none_file = vault_dir / f"pfp_{uid}{suffix}.none"
+
+        # Check positive cache (valid for 3 days)
+        if target_file.exists() and target_file.stat().st_size > 0:
+            if time.time() - target_file.stat().st_mtime < 3 * 86400:
+                return str(target_file.resolve())
+
+        # Check negative cache (valid for 6 hours to avoid repeated API requests)
+        if none_file.exists():
+            if time.time() - none_file.stat().st_mtime < 6 * 3600:
+                return None
+            else:
+                try:
+                    none_file.unlink()
+                except Exception:
+                    pass
+
+        if not self.client or not self.client.is_connected():
+            return None
+
+        try:
+            entity = await self.client.get_entity(uid)
+            if not entity:
+                none_file.touch()
+                return None
+
+            dl = await self.client.download_profile_photo(entity, file=str(target_file), download_big=big)
+            if dl and Path(dl).exists() and Path(dl).stat().st_size > 0:
+                return str(Path(dl).resolve())
+            else:
+                none_file.touch()
+                return None
+        except Exception as e:
+            logger.debug(f"PFP fetch notice for user {uid}: {e}")
+            try:
+                none_file.touch()
+            except Exception:
+                pass
+            return None
+
     # ═══════════════════════════════════════════════════════
     #   TACTICAL VOICE CHAT // GROUP CALL APEX
     # ═══════════════════════════════════════════════════════

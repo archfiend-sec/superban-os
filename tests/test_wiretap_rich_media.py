@@ -340,6 +340,43 @@ class TestWiretapRichMedia(unittest.TestCase):
         asyncio.run(run_test())
         print("  ✅ PASS: Tagged / replied-to message extracted with sender Boni M & quote context!")
 
+    def test_07_user_avatar_endpoint(self):
+        """Verify /api/user/avatar/{user_id} serves user profile photos with caching."""
+        async def run_test():
+            avatar_dir = Path(__file__).resolve().parent.parent / "media_vault" / "avatars"
+            avatar_dir.mkdir(parents=True, exist_ok=True)
+            pfp_file = avatar_dir / "pfp_8716656267.jpg"
+            pfp_big_file = avatar_dir / "pfp_8716656267_big.jpg"
+            pfp_file.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb")
+            pfp_big_file.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdbBIG")
+
+            try:
+                headers = {"X-Owner-Token": self.token}
+                # Standard thumbnail PFP
+                res = await self.client.request("GET", "/api/user/avatar/8716656267", headers=headers)
+                self.assertEqual(res.status, 200)
+                self.assertEqual(res.headers.get("content-type"), "image/jpeg")
+                self.assertEqual(res.headers.get("x-content-type-options"), "nosniff")
+                self.assertIn("max-age=259200", res.headers.get("cache-control", ""))
+                self.assertIn("immutable", res.headers.get("cache-control", ""))
+
+                # High-res PFP (big=true)
+                res_big = await self.client.request("GET", "/api/user/avatar/8716656267?big=true", headers=headers)
+                self.assertEqual(res_big.status, 200)
+                self.assertIn(b"BIG", res_big.body)
+
+                # Non-existent PFP returns 404
+                res_404 = await self.client.request("GET", "/api/user/avatar/12345678999", headers=headers)
+                self.assertEqual(res_404.status, 404)
+            finally:
+                if pfp_file.exists():
+                    pfp_file.unlink()
+                if pfp_big_file.exists():
+                    pfp_big_file.unlink()
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: /api/user/avatar/{user_id} endpoint verified with thumbnail, big PFP, and 404 handling.")
+
 if __name__ == "__main__":
     print("=" * 70)
     print("🛰️  WIRETAP AUTOSCROLL & RICH MEDIA PREVIEW VERIFICATION SUITE")

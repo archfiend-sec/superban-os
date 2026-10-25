@@ -1696,6 +1696,34 @@ def create_app(engine: SuperBanEngine):
             }
         )
 
+    @app.get("/api/user/avatar/{user_id}")
+    async def get_user_avatar(user_id: int, big: bool = False):
+        """Serve live cached user profile picture (PFP/Avatar)."""
+        file_path_str = await engine.get_user_avatar(user_id, big=big)
+        if not file_path_str:
+            raise HTTPException(status_code=404, detail="Avatar not found or user has no PFP")
+
+        file_path = Path(file_path_str).resolve()
+        vault_root = MEDIA_VAULT_DIR.resolve()
+
+        # Path traversal guard
+        try:
+            file_path.relative_to(vault_root)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied: Invalid media path")
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Avatar file missing from disk")
+
+        return FileResponse(
+            str(file_path),
+            media_type="image/jpeg",
+            headers={
+                "Cache-Control": "public, max-age=259200, immutable",
+                "X-Content-Type-Options": "nosniff"
+            }
+        )
+
     @app.get("/api/vc/replay")
     async def get_vc_replay(group_id: int, seconds: int = 30):
         slice_path = await engine.get_replay_audio_slice(group_id, seconds=seconds)
