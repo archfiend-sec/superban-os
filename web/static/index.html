@@ -1773,6 +1773,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     --nav-h: 42px;
     --pad: 10px;
   }
+  html, body {
+    scroll-behavior: auto !important;
+    overscroll-behavior-y: none;
+  }
   body {
     font-size: 13px;
     -webkit-tap-highlight-color: transparent;
@@ -1913,22 +1917,70 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     overflow: hidden !important;
     position: relative !important;
   }
-  .hud-body .hud-col {
+  
+  /* Left & Right HUD Columns (Single scrollable pane with momentum) */
+  .hud-body .hud-col-left,
+  .hud-body .hud-col-right {
     display: none;
     width: 100% !important;
     height: 100% !important;
-    flex: 1 1 auto !important;
-    max-height: none !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
     overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
     border: none !important;
-    padding: 6px 6px 48px 6px !important;
+    padding: 8px 8px calc(68px + env(safe-area-inset-bottom, 16px)) 8px !important;
+    scroll-behavior: auto !important;
   }
-  .hud-body .hud-col.mobile-active {
+  .hud-body .hud-col-left.mobile-active,
+  .hud-body .hud-col-right.mobile-active {
     display: flex !important;
+    flex-direction: column !important;
   }
+
+  /* Center HUD Column (Fixed tabs container, NO outer scrollbar) */
+  .hud-body .hud-col-center {
+    display: none;
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    border: none !important;
+    padding: 0 !important;
+    position: relative !important;
+  }
+  .hud-body .hud-col-center.mobile-active {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Center Top Tab Container Fixed */
+  .hud-col-center > div:first-child {
+    flex: 0 0 auto !important;
+  }
+  #wiretap-controls-sub {
+    flex: 0 0 auto !important;
+  }
+
+  /* Dedicated Wiretap Scroll Container with Silky Momentum */
   .wiretap-stream-wrap {
-    padding-right: 0 !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    padding: 4px 6px calc(68px + env(safe-area-inset-bottom, 16px)) 6px !important;
+    scroll-behavior: auto !important;
+    will-change: scroll-position;
+    transform: translateZ(0);
   }
 
   /* Compact Center Tabs (30px) */
@@ -1991,16 +2043,21 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     display: none !important;
   }
 
-  /* Wiretap Feed Mobile Message Cards: Ultra-Lean, No-Clutter */
+  /* Wiretap Feed Mobile Message Cards: Ultra-Lean, No-Clutter, 60fps */
   #wiretap-stream {
     gap: 3px !important;
   }
   .wiretap-card {
     padding: 6px 8px !important;
-    margin-bottom: 2px !important;
+    margin-bottom: 3px !important;
     border-radius: 4px !important;
-    background: rgba(10, 14, 18, 0.65) !important;
+    background: rgba(10, 14, 18, 0.75) !important;
     border-color: rgba(223, 231, 224, 0.08) !important;
+    touch-action: pan-y !important;
+    contain: content;
+    content-visibility: auto;
+    contain-intrinsic-size: 85px;
+    transform: translateZ(0);
   }
   .wiretap-header {
     display: flex !important;
@@ -2083,6 +2140,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     margin-bottom: 1px !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+    touch-action: pan-x pan-y !important;
   }
   .wiretap-react-bar::-webkit-scrollbar { display: none; }
   .react-pill {
@@ -2107,6 +2166,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+    touch-action: pan-x pan-y !important;
   }
   .wiretap-actions::-webkit-scrollbar { display: none; }
   .act-pill {
@@ -2129,13 +2190,21 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     display: inline !important;
   }
 
-  /* Compact Child Tabs */
+  /* Compact Child Tabs with Smooth Momentum Scrolling */
   #tab-content-intel,
   #tab-content-ghost,
   #tab-content-recon,
   #tab-content-alpha {
-    padding: 8px !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
     height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    padding: 8px 8px calc(68px + env(safe-area-inset-bottom, 16px)) 8px !important;
+    scroll-behavior: auto !important;
   }
 
   /* Mobile Modals: Elegant Bottom-Sheet / Full-Screen */
@@ -7580,6 +7649,44 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   let activeWiretapFetchId = 0;
   const wiretapSeenIds = new Set();
 
+  let isUserInteractingWithWiretap = false;
+  let userScrolledUpWiretap = false;
+  let wiretapTouchTimer = null;
+
+  function scrollWiretapToBottom(force = false) {
+    const wrap = document.getElementById('tab-content-wiretap');
+    const stream = document.getElementById('wiretap-stream');
+    if (!wrap && !stream) return;
+    if (force || (wiretapAutoScroll && !isUserInteractingWithWiretap && !userScrolledUpWiretap)) {
+      if (wrap) wrap.scrollTop = wrap.scrollHeight;
+      if (stream) stream.scrollTop = stream.scrollHeight;
+    }
+  }
+
+  function initWiretapScrollListeners() {
+    const wrap = document.getElementById('tab-content-wiretap');
+    if (!wrap || wrap._hasScrollListeners) return;
+    wrap._hasScrollListeners = true;
+
+    wrap.addEventListener('touchstart', () => {
+      isUserInteractingWithWiretap = true;
+      if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
+    }, { passive: true });
+
+    wrap.addEventListener('touchend', () => {
+      if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
+      wiretapTouchTimer = setTimeout(() => {
+        isUserInteractingWithWiretap = false;
+      }, 1000);
+    }, { passive: true });
+
+    wrap.addEventListener('scroll', () => {
+      const threshold = 60;
+      const distFromBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight;
+      userScrolledUpWiretap = distFromBottom > threshold;
+    }, { passive: true });
+  }
+
   function setWiretapScope(scope) {
     wiretapScope = scope;
     const curBtn = document.getElementById('wiretap-scope-current');
@@ -7680,6 +7787,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const gid = getActiveGroupId();
     if (!gid) return;
 
+    initWiretapScrollListeners();
+    userScrolledUpWiretap = false;
+    isUserInteractingWithWiretap = false;
+
     const stream = document.getElementById('wiretap-stream');
     if (!stream) return;
 
@@ -7724,9 +7835,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
             m.group_title = targetName;
             appendWiretapMessage(m, false);
           });
-          if (wiretapAutoScroll) {
-            stream.scrollTop = stream.scrollHeight;
-          }
+          initWiretapScrollListeners();
+          scrollWiretapToBottom(true);
         } else {
           // Empty chat history in this group
           stream.innerHTML = `
@@ -7916,9 +8026,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       playZenSound('blip');
     }
 
-    if (wiretapAutoScroll) {
-      stream.scrollTop = stream.scrollHeight;
-    }
+    scrollWiretapToBottom(false);
     safeCreateIcons();
   }
 
@@ -7946,7 +8054,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       </div>
     `;
     stream.appendChild(card);
-    if (wiretapAutoScroll) stream.scrollTop = stream.scrollHeight;
+    scrollWiretapToBottom(false);
   }
 
   async function deleteWiretapMsg(groupId, messageId) {
@@ -8818,8 +8926,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
         btn.innerText = 'SCROLL: AUTO';
         btn.classList.add('active');
       }
-      const stream = document.getElementById('wiretap-stream');
-      if (stream) stream.scrollTop = stream.scrollHeight;
+      userScrolledUpWiretap = false;
+      isUserInteractingWithWiretap = false;
+      scrollWiretapToBottom(true);
     } else {
       if (btn) {
         btn.innerText = 'SCROLL: PAUSED';
@@ -11421,6 +11530,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     safeCreateIcons();
     checkOwnerStatus();
     detectDeviceProfile();
+    initWiretapScrollListeners();
     if (window.innerWidth < 768) {
       switchMobileHUDCol('center');
     }
