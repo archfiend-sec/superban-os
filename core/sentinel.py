@@ -253,8 +253,15 @@ class SentinelShield:
                     group_id, group_title, sender.id, full_name, username, text, event.id, extracted_entities
                 ))
             
-            # Evaluate user forensic reputation in real-time
-            user_profile = ForensicInspector.inspect_user(sender)
+            # Evaluate user forensic reputation incorporating 100k history if available
+            member_rep = None
+            if self.db and hasattr(self.db, "get_group_member_reputation"):
+                try:
+                    member_rep = await self.db.get_group_member_reputation(group_id, sender.id)
+                except Exception:
+                    pass
+
+            user_profile = ForensicInspector.inspect_user(sender, member_stats=member_rep)
 
             msg_dt = getattr(event, 'date', None) or getattr(getattr(event, 'message', None), 'date', None)
             msg_ts = msg_dt.timestamp() if msg_dt else time.time()
@@ -275,6 +282,7 @@ class SentinelShield:
                 "threat_type": threat_type,
                 "confidence": confidence,
                 "reason": trigger_reason,
+                "message_count": member_rep.get("message_count", 1) if member_rep else 1,
                 "trust_score": user_profile.get("trust_score", 70),
                 "trust_level": user_profile.get("trust_level", "NEUTRAL CITIZEN"),
                 "trust_color": user_profile.get("trust_color", "#38bdf8"),

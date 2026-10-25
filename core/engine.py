@@ -102,6 +102,14 @@ class SuperBanEngine:
         }
         
         self.event_listeners: List[Callable[[Dict[str, Any]], Any]] = []
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
         self._pause_event = asyncio.Event()
         self._pause_event.set()
         
@@ -113,6 +121,10 @@ class SuperBanEngine:
         # Active Voice Chat Tracking Session & Dispatch Policy
         self.active_vc_session: Optional[Dict[str, Any]] = None
         self.auto_send_vc_to_saved: bool = True
+
+        # 100k Deep Message Scan & Reputation Engine State
+        self.active_deep_scans: Dict[int, Dict[str, Any]] = {}
+        self._cancel_deep_scans: Set[int] = set()
 
         # Native PyTgCalls WebRTC Engine
         self.call_py: Optional[Any] = None
@@ -279,9 +291,273 @@ class SuperBanEngine:
                     if len(inspected) % 100 == 0:
                         await self.emit_telemetry("scan_progress", {"scanned": len(inspected)})
                 
+        gid = getattr(group_entity, 'id', 0)
+        if not gid and isinstance(group_entity, int):
+            gid = group_entity
+        norm_gid = abs(int(gid))
+
+        # Enrich member profiles with indexed 100k reputation & message counts if available
+        if inspected and self.db and hasattr(self.db, "get_multiple_member_reputations"):
+            try:
+                member_ids = [m["id"] for m in inspected if m.get("id")]
+                rep_call = self.db.get_multiple_member_reputations(norm_gid, member_ids)
+                rep_map = await rep_call if asyncio.iscoroutine(rep_call) else (rep_call if isinstance(rep_call, dict) else {})
+                for m in inspected:
+                    rep = rep_map.get(m["id"])
+                    if rep:
+                        m["message_count"] = rep.get("message_count", 0)
+                        m["trust_score"] = rep.get("reputation_score", m.get("trust_score", 70))
+                        m["trust_level"] = rep.get("reputation_tier", m.get("trust_level", "NEUTRAL CITIZEN"))
+                        m["trust_color"] = rep.get("reputation_color", m.get("trust_color", "#38bdf8"))
+                        m["reactions_received"] = rep.get("reactions_received", 0)
+                        m["first_seen"] = rep.get("first_seen", "")
+                        m["last_seen"] = rep.get("last_seen", "")
+            except Exception as e:
+                logger.debug(f"Reputation profile enrich note: {e}")
+
         self.state = OperationState.IDLE
         await self.emit_telemetry("scan_complete", {"total_scanned": len(inspected)})
         return inspected
+
+    # ═══════════════════════════════════════════════════════
+    #   100,000 MESSAGE DEEP SCAN & REPUTATION ENGINE
+    # ═══════════════════════════════════════════════════════
+    async def deep_scan_group_messages(self, group_entity, limit: int = 100000) -> Dict[str, Any]:
+        """High-velocity 100,000 message deep scanner for group member reputation and behavioral profiling."""
+        gid = getattr(group_entity, 'id', 0)
+        if not gid and isinstance(group_entity, int):
+            gid = group_entity
+        norm_gid = abs(int(gid))
+        target_limit = max(100, min(int(limit), 100000))
+        group_title = getattr(group_entity, 'title', f"Group {gid}")
+
+        if norm_gid in self._cancel_deep_scans:
+            self._cancel_deep_scans.remove(norm_gid)
+
+        start_t = time.time()
+        scan_info = {
+            "group_id": gid,
+            "group_title": group_title,
+            "target_limit": target_limit,
+            "scanned": 0,
+            "unique_members": 0,
+            "status": "RUNNING",
+            "start_time": start_t,
+            "speed": 0.0,
+            "eta_seconds": 0,
+            "error": None
+        }
+        self.active_deep_scans[norm_gid] = scan_info
+        await self.emit_telemetry("deep_scan_started", scan_info)
+
+        member_aggregates: Dict[int, Dict[str, Any]] = {}
+
+        try:
+            async for msg in self.client.iter_messages(group_entity, limit=target_limit):
+                if norm_gid in self._cancel_deep_scans:
+                    scan_info["status"] = "CANCELLED"
+                    logger.info(f"Deep scan for group {gid} cancelled by user.")
+                    break
+
+                scan_info["scanned"] += 1
+                sender = msg.sender
+                sender_id = getattr(msg, 'sender_id', 0) or getattr(sender, 'id', 0)
+
+                if sender_id:
+                    m = member_aggregates.get(sender_id)
+                    if not m:
+                        fn = getattr(sender, 'first_name', '') or ''
+                        ln = getattr(sender, 'last_name', '') or ''
+                        full_name = f"{fn} {ln}".strip() or "User"
+                        username = getattr(sender, 'username', '') or ''
+                        is_bot = (getattr(sender, 'bot', None) is True)
+                        is_verified = (getattr(sender, 'verified', None) is True)
+                        is_premium = (getattr(sender, 'premium', None) is True)
+                        has_photo = bool(getattr(sender, 'photo', None))
+                        is_deleted = (getattr(sender, 'deleted', None) is True)
+                        is_scam = (getattr(sender, 'scam', None) is True)
+                        is_fake = (getattr(sender, 'fake', None) is True)
+                        m = {
+                            "user_id": sender_id,
+                            "username": username,
+                            "full_name": full_name,
+                            "message_count": 0,
+                            "media_count": 0,
+                            "reactions_received": 0,
+                            "replies_received": 0,
+                            "char_count": 0,
+                            "first_seen": msg.date,
+                            "last_seen": msg.date,
+                            "is_bot": is_bot,
+                            "is_verified": is_verified,
+                            "is_premium": is_premium,
+                            "has_photo": has_photo,
+                            "is_deleted": is_deleted,
+                            "is_scam": is_scam,
+                            "is_fake": is_fake,
+                            "risk_flags": []
+                        }
+                        member_aggregates[sender_id] = m
+
+                    m["message_count"] += 1
+                    raw_content = getattr(msg, 'raw_text', '') or getattr(msg, 'message', '') or ''
+                    m["char_count"] += len(raw_content)
+                    if getattr(msg, 'media', None):
+                        m["media_count"] += 1
+
+                    if getattr(msg, 'date', None):
+                        if not m["first_seen"] or msg.date < m["first_seen"]:
+                            m["first_seen"] = msg.date
+                        if not m["last_seen"] or msg.date > m["last_seen"]:
+                            m["last_seen"] = msg.date
+
+                    if getattr(msg, 'reactions', None) and getattr(msg.reactions, 'results', None):
+                        total_rx = sum(getattr(r, 'count', 0) for r in msg.reactions.results)
+                        m["reactions_received"] += total_rx
+
+                    if getattr(msg, 'reply_to', None):
+                        m["replies_received"] += 1
+
+                # Periodic progress emission and database sync every 500 messages
+                if scan_info["scanned"] % 500 == 0:
+                    elapsed = max(0.1, time.time() - start_t)
+                    speed = scan_info["scanned"] / elapsed
+                    eta = max(0, int((target_limit - scan_info["scanned"]) / speed))
+                    scan_info["speed"] = round(speed, 1)
+                    scan_info["eta_seconds"] = eta
+                    scan_info["unique_members"] = len(member_aggregates)
+
+                    # Periodically flush member reputation to DB
+                    if self.db and hasattr(self.db, "batch_upsert_member_reputation"):
+                        member_payload = self._build_member_reputation_payload(norm_gid, member_aggregates)
+                        asyncio.create_task(self.db.batch_upsert_member_reputation(norm_gid, member_payload))
+
+                    await self.emit_telemetry("deep_scan_progress", {
+                        "group_id": gid,
+                        "group_title": group_title,
+                        "scanned": scan_info["scanned"],
+                        "total": target_limit,
+                        "percent": round((scan_info["scanned"] / target_limit) * 100, 1),
+                        "unique_members": len(member_aggregates),
+                        "speed": scan_info["speed"],
+                        "eta_seconds": eta,
+                        "status": "RUNNING"
+                    })
+                    # Micro-yield to preserve event loop responsiveness
+                    await asyncio.sleep(0.005)
+
+        except FloodWaitError as fwe:
+            logger.warning(f"FloodWait during deep scan: Sleeping {fwe.seconds}s...")
+            scan_info["status"] = f"FLOOD_WAIT ({fwe.seconds}s)"
+            await self.emit_telemetry("deep_scan_progress", {
+                "group_id": gid,
+                "status": scan_info["status"],
+                "sleep": fwe.seconds
+            })
+            await asyncio.sleep(fwe.seconds + 1)
+        except Exception as e:
+            logger.error(f"Error in deep scan for group {gid}: {e}")
+            scan_info["error"] = str(e)
+            scan_info["status"] = "ERROR"
+
+        # Final pass: Compute final scores and persist to SQLite
+        if scan_info["status"] != "CANCELLED":
+            scan_info["status"] = "COMPLETED"
+
+        scan_info["unique_members"] = len(member_aggregates)
+        final_members = self._build_member_reputation_payload(norm_gid, member_aggregates)
+        if self.db and hasattr(self.db, "batch_upsert_member_reputation"):
+            await self.db.batch_upsert_member_reputation(norm_gid, final_members)
+
+        # Sort top chatters for summary
+        top_chatters = sorted(final_members, key=lambda x: x["message_count"], reverse=True)[:10]
+
+        summary = {
+            "group_id": gid,
+            "group_title": group_title,
+            "scanned": scan_info["scanned"],
+            "total_scanned": scan_info["scanned"],
+            "target_limit": target_limit,
+            "unique_members": len(member_aggregates),
+            "status": scan_info["status"],
+            "elapsed_seconds": round(time.time() - start_t, 1),
+            "top_chatters": top_chatters
+        }
+        await self.emit_telemetry("deep_scan_complete", summary)
+        return summary
+
+    def _build_member_reputation_payload(self, group_id: int, aggregates: Dict[int, Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Compute scientific multi-factor reputation scores from 100k aggregates."""
+        result = []
+        for uid, m in aggregates.items():
+            f_seen = m.get("first_seen")
+            l_seen = m.get("last_seen")
+            days_active = 0.0
+            if f_seen and l_seen:
+                try:
+                    days_active = max(0.0, (l_seen - f_seen).total_seconds() / 86400.0)
+                except Exception:
+                    days_active = 0.0
+
+            avg_len = round(m["char_count"] / max(1, m["message_count"]), 1)
+
+            rep = ForensicInspector.calculate_reputation_score(
+                user_id=uid,
+                message_count=m["message_count"],
+                days_active=days_active,
+                reactions_received=m.get("reactions_received", 0),
+                replies_received=m.get("replies_received", 0),
+                media_count=m.get("media_count", 0),
+                is_verified=m.get("is_verified", False),
+                is_premium=m.get("is_premium", False),
+                has_photo=m.get("has_photo", True),
+                has_username=bool(m.get("username")),
+                is_bot=m.get("is_bot", False),
+                is_deleted=m.get("is_deleted", False),
+                is_scam=m.get("is_scam", False),
+                is_fake=m.get("is_fake", False)
+            )
+
+            result.append({
+                "group_id": group_id,
+                "user_id": uid,
+                "username": m.get("username", ""),
+                "full_name": m.get("full_name", "User"),
+                "message_count": m["message_count"],
+                "media_count": m.get("media_count", 0),
+                "reactions_received": m.get("reactions_received", 0),
+                "replies_received": m.get("replies_received", 0),
+                "first_seen": f_seen.isoformat() if f_seen else "",
+                "last_seen": l_seen.isoformat() if l_seen else "",
+                "avg_message_len": avg_len,
+                "reputation_score": rep["score"],
+                "reputation_tier": rep["tier"],
+                "reputation_color": rep["color"],
+                "risk_flags": rep["factors"],
+                "is_premium": m.get("is_premium", False),
+                "is_verified": m.get("is_verified", False),
+                "has_photo": m.get("has_photo", True),
+                "is_bot": m.get("is_bot", False)
+            })
+        return result
+
+    async def cancel_deep_scan(self, group_id: int) -> Dict[str, Any]:
+        """Cancel an in-progress 100k message scan."""
+        norm_gid = abs(int(group_id))
+        self._cancel_deep_scans.add(norm_gid)
+        if norm_gid in self.active_deep_scans:
+            self.active_deep_scans[norm_gid]["status"] = "CANCELLED"
+        return {"cancelled": True, "group_id": norm_gid}
+
+    async def get_deep_scan_status(self, group_id: int) -> Dict[str, Any]:
+        """Retrieve progress and telemetry for an active or completed deep scan."""
+        norm_gid = abs(int(group_id))
+        return self.active_deep_scans.get(norm_gid, {
+            "status": "IDLE",
+            "group_id": group_id,
+            "scanned": 0,
+            "target_limit": 100000
+        })
 
     def build_banned_rights(self, action: str, duration_seconds: int = 0, permission_subtype: str = "full") -> ChatBannedRights:
         until_date = None
@@ -653,6 +929,33 @@ class SuperBanEngine:
                     "reactions": reactions_info.get("reactions", []),
                     "recent_reactors": reactions_info.get("recent_reactors", [])
                 })
+
+            # Inject accurate 100k member reputation intelligence into wiretap messages
+            sender_ids = [m["user_id"] for m in res if m.get("user_id")]
+            rep_map = {}
+            if self.db and hasattr(self.db, "get_multiple_member_reputations"):
+                try:
+                    rep_call = self.db.get_multiple_member_reputations(gid, sender_ids)
+                    if asyncio.iscoroutine(rep_call):
+                        rep_map = await rep_call
+                    elif isinstance(rep_call, dict):
+                        rep_map = rep_call
+                except Exception as e:
+                    logger.debug(f"Reputation lookup bypass: {e}")
+
+            for item in res:
+                uid = item.get("user_id")
+                rep = rep_map.get(uid)
+                if rep:
+                    item["trust_score"] = rep.get("reputation_score", 70)
+                    item["trust_level"] = rep.get("reputation_tier", "NEUTRAL CITIZEN")
+                    item["trust_color"] = rep.get("reputation_color", "#38bdf8")
+                    item["message_count"] = rep.get("message_count", 0)
+                else:
+                    item["trust_score"] = 65
+                    item["trust_level"] = "NEUTRAL CITIZEN"
+                    item["trust_color"] = "#38bdf8"
+                    item["message_count"] = 0
         except Exception as e:
             logger.error(f"Error fetching recent messages: {e}")
         return res

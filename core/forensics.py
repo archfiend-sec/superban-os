@@ -20,9 +20,182 @@ class ForensicInspector:
     """Heuristic engine for scoring member spam risk, ghost status, and profile traits."""
 
     @staticmethod
-    def inspect_user(user, message_count: int = -1) -> Dict[str, Any]:
+    def calculate_reputation_score(
+        user_id: Any = 0,
+        message_count: int = 0,
+        days_active: float = 0.0,
+        reactions_received: int = 0,
+        replies_received: int = 0,
+        media_count: int = 0,
+        is_verified: bool = False,
+        is_premium: bool = False,
+        has_photo: bool = True,
+        has_username: bool = True,
+        is_bot: bool = False,
+        is_deleted: bool = False,
+        is_scam: bool = False,
+        is_fake: bool = False,
+        scam_score: int = 0
+    ) -> Dict[str, Any]:
+        """Multi-factor scientific reputation scoring calibrated for 100k message analysis."""
+        if isinstance(user_id, dict):
+            d = user_id
+            user_id = int(d.get("user_id", 0) or 0)
+            message_count = int(d.get("message_count", message_count))
+            days_active = float(d.get("days_active", days_active))
+            reactions_received = int(d.get("reactions_received", reactions_received))
+            replies_received = int(d.get("replies_received", replies_received))
+            media_count = int(d.get("media_count", media_count))
+            is_verified = bool(d.get("is_verified", is_verified))
+            is_premium = bool(d.get("is_premium", is_premium))
+            has_photo = bool(d.get("has_photo", has_photo))
+            has_username = bool(d.get("has_username", has_username))
+            is_bot = bool(d.get("is_bot", is_bot))
+            is_deleted = bool(d.get("is_deleted", is_deleted))
+            is_scam = bool(d.get("is_scam", is_scam))
+            is_fake = bool(d.get("is_fake", is_fake))
+            scam_score = int(d.get("scam_score", scam_score))
+            if "risk_flags" in d and isinstance(d["risk_flags"], list) and len(d["risk_flags"]) > 0:
+                scam_score = max(scam_score, len(d["risk_flags"]) * 20)
+        else:
+            user_id = int(user_id or 0)
+
+        if is_deleted or is_scam or is_fake:
+            return {
+                "score": 0,
+                "tier": "CRITICAL RISK / SCAM",
+                "color": "#ef4444",
+                "factors": ["Official Telegram Scam / Fake / Deleted marker"]
+            }
+
+        score = 50
+        factors = []
+
+        # 1. Chat Volume Impact (from 100k history)
+        if message_count >= 1000:
+            score += 25
+            factors.append(f"Chat Pillar ({message_count:,} msgs)")
+        elif message_count >= 500:
+            score += 20
+            factors.append(f"Veteran Chatter ({message_count:,} msgs)")
+        elif message_count >= 200:
+            score += 16
+            factors.append(f"Core Regular ({message_count} msgs)")
+        elif message_count >= 50:
+            score += 12
+            factors.append(f"Active Contributor ({message_count} msgs)")
+        elif message_count >= 10:
+            score += 8
+            factors.append(f"Casual Chatter ({message_count} msgs)")
+        elif message_count >= 3:
+            score += 4
+            factors.append(f"New Participant ({message_count} msgs)")
+        elif message_count == 0:
+            score -= 10
+            factors.append("Zero Chat History (Lurker / Inactive)")
+
+        # 2. Longevity / Tenure in Chat
+        if days_active >= 90:
+            score += 15
+            factors.append("Established Member (3+ Months Active)")
+        elif days_active >= 30:
+            score += 10
+            factors.append("Multi-Week Regular (1+ Month Active)")
+        elif days_active >= 7:
+            score += 5
+            factors.append("Recent Regular (1+ Week Active)")
+        elif days_active >= 1:
+            score += 2
+
+        # 3. Social Validation (Reactions & Replies Received)
+        if reactions_received >= 50:
+            score += 10
+            factors.append(f"High Community Approval ({reactions_received} reactions)")
+        elif reactions_received >= 10:
+            score += 5
+            factors.append(f"Received Reactions ({reactions_received})")
+
+        if replies_received >= 30:
+            score += 8
+            factors.append(f"Conversational Anchor ({replies_received} replies)")
+        elif replies_received >= 5:
+            score += 4
+
+        # 4. Account Vintage & Credential Authority
+        if is_verified:
+            score += 20
+            factors.append("Official Telegram Verified")
+        if is_premium:
+            score += 10
+            factors.append("Telegram Premium Subscriber")
+        if 0 < user_id < 1000000000:
+            score += 10
+            factors.append("OG Account (<1B)")
+        elif 1000000000 <= user_id < 4500000000:
+            score += 5
+            factors.append("Established Account (<4.5B)")
+        elif user_id > 6800000000:
+            if message_count < 5:
+                score -= 15
+                factors.append("Unproven New ID (>6.8B)")
+            else:
+                score -= 5
+
+        if has_photo:
+            score += 5
+        else:
+            if message_count < 5:
+                score -= 10
+                factors.append("No Profile Photo")
+
+        if has_username:
+            score += 3
+
+        if is_bot:
+            score -= 25
+            factors.append("Automated Bot")
+
+        if scam_score > 0:
+            deduction = int(scam_score * 0.7)
+            score -= deduction
+            if deduction > 10:
+                factors.append(f"Forensic Risk Penalty (-{deduction} pts)")
+
+        score = max(0, min(100, score))
+
+        if score >= 90:
+            tier = "LEGENDARY PILLAR"
+            color = "#10b981" # Emerald Green
+        elif score >= 80:
+            tier = "SOVEREIGN VERIFIED"
+            color = "#34d399" # Mint Green
+        elif score >= 70:
+            tier = "CORE CONTRIBUTOR"
+            color = "#38bdf8" # Sky Blue
+        elif score >= 55:
+            tier = "REGULAR CITIZEN"
+            color = "#818cf8" # Indigo
+        elif score >= 40:
+            tier = "CASUAL NEWCOMER"
+            color = "#94a3b8" # Slate
+        elif score >= 25:
+            tier = "SUSPICIOUS TRANSIENT"
+            color = "#f59e0b" # Amber
+        else:
+            tier = "CRITICAL RISK"
+            color = "#ef4444" # Crimson
+
+        return {
+            "score": score,
+            "tier": tier,
+            "color": color,
+            "factors": factors
+        }
+
+    @staticmethod
+    def inspect_user(user, message_count: int = -1, member_stats: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Perform comprehensive forensic profiling of a Telegram member."""
-        user_id = user.id
+        user_id = getattr(user, 'id', 0) if user else 0
         first_name = getattr(user, 'first_name', '') or ''
         last_name = getattr(user, 'last_name', '') or ''
         full_name = f"{first_name} {last_name}".strip()
@@ -93,48 +266,59 @@ class ForensicInspector:
         scam_score = min(100, scam_score)
         is_ghost = ghost_score >= 60
 
-        # Non-Admin Sovereign Trust & Reputation Score (0 to 100)
-        trust_score = 65
+        # Determine actual message count and tenure from member_stats or message_count
+        effective_msg_count = message_count if message_count >= 0 else 0
+        days_active = 0.0
+        reactions_recv = 0
+        replies_recv = 0
+        media_cnt = 0
+
+        if member_stats:
+            effective_msg_count = member_stats.get("message_count", effective_msg_count)
+            reactions_recv = member_stats.get("reactions_received", 0)
+            replies_recv = member_stats.get("replies_received", 0)
+            media_cnt = member_stats.get("media_count", 0)
+            f_seen = member_stats.get("first_seen")
+            l_seen = member_stats.get("last_seen")
+            if f_seen and l_seen:
+                try:
+                    from datetime import datetime
+                    if isinstance(f_seen, str): f_seen = datetime.fromisoformat(f_seen)
+                    if isinstance(l_seen, str): l_seen = datetime.fromisoformat(l_seen)
+                    days_active = max(0.0, (l_seen - f_seen).total_seconds() / 86400.0)
+                except Exception:
+                    days_active = 0.0
+
+        # Calculate rich multi-factor reputation score
+        rep = ForensicInspector.calculate_reputation_score(
+            user_id=user_id,
+            message_count=effective_msg_count,
+            days_active=days_active,
+            reactions_received=reactions_recv,
+            replies_received=replies_recv,
+            media_count=media_cnt,
+            is_verified=is_verified,
+            is_premium=is_premium,
+            has_photo=has_photo,
+            has_username=bool(username),
+            is_bot=is_bot,
+            is_deleted=is_deleted,
+            is_scam=is_scam,
+            is_fake=is_fake,
+            scam_score=scam_score
+        )
+        trust_score = rep["score"]
+        trust_level = rep["tier"]
+        trust_color = rep["color"]
+        reputation_factors = rep["factors"]
+
         vintage = "Recent (2024-2026)"
         if user_id < 1000000000:
-            trust_score += 20
             vintage = "OG Early Adopter (2014-2019)"
         elif user_id < 4500000000:
-            trust_score += 10
             vintage = "Established Veteran (2020-2023)"
         elif user_id > 6800000000:
-            trust_score -= 15
             vintage = "New Throwaway (2025-2026)"
-
-        if is_verified:
-            trust_score += 25
-        if is_premium:
-            trust_score += 15
-        if has_photo:
-            trust_score += 10
-        if username:
-            trust_score += 5
-        if is_bot:
-            trust_score -= 10
-
-        if is_scam or is_fake or is_deleted:
-            trust_score = 0
-        else:
-            trust_score -= int(scam_score * 0.8)
-
-        trust_score = max(0, min(100, trust_score))
-        if trust_score >= 85:
-            trust_level = "SOVEREIGN VERIFIED"
-            trust_color = "#34d399" # Emerald
-        elif trust_score >= 60:
-            trust_level = "NEUTRAL CITIZEN"
-            trust_color = "#38bdf8" # Sky
-        elif trust_score >= 35:
-            trust_level = "SUSPICIOUS ENTITY"
-            trust_color = "#f59e0b" # Amber
-        else:
-            trust_level = "CRITICAL THREAT"
-            trust_color = "#e0231c" # Crimson
 
         return {
             "id": user_id,
@@ -154,10 +338,11 @@ class ForensicInspector:
             "scam_score": scam_score,
             "is_suspicious": scam_score >= 40,
             "reasons": reasons,
-            "message_count": message_count,
+            "message_count": effective_msg_count,
             "trust_score": trust_score,
             "trust_level": trust_level,
             "trust_color": trust_color,
+            "reputation_factors": reputation_factors,
             "vintage": vintage
         }
 

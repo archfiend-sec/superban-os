@@ -240,9 +240,13 @@ def create_app(engine: SuperBanEngine):
         if request.method == "HEAD" and path == "/api/vc/audio_stream":
             return await call_next(request)
 
+        auth_header = request.headers.get("authorization", "")
+        bearer_token = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
         token = (
             request.query_params.get("token")
             or request.headers.get("X-Owner-Token")
+            or request.headers.get("x-owner-token")
+            or bearer_token
             or request.cookies.get("owner_token")
         )
         now = time.time()
@@ -982,6 +986,65 @@ def create_app(engine: SuperBanEngine):
         except Exception as e:
             logger.error(f"Scan group error: {e}")
             raise HTTPException(status_code=400, detail=str(e))
+
+    # ═══════════════════════════════════════════════════════
+    #   100,000 MESSAGE DEEP SCAN & REPUTATION SUITE
+    # ═══════════════════════════════════════════════════════
+    class DeepScanReq(BaseModel):
+        group_id: int
+        limit: int = 100000
+
+    @app.post("/api/messages/deep_scan")
+    async def start_deep_scan(req: DeepScanReq):
+        """Initiate background deep scan of up to 100,000 messages to extract rich member reputation."""
+        entity = await engine.get_group_entity(req.group_id)
+        if not entity:
+            raise HTTPException(status_code=404, detail="Target group not found")
+
+        clamped_limit = max(100, min(int(req.limit), 100000))
+        asyncio.create_task(engine.deep_scan_group_messages(entity, limit=clamped_limit))
+        return {
+            "status": "started",
+            "group_id": req.group_id,
+            "target_limit": clamped_limit,
+            "message": f"Deep message scan initialized for {clamped_limit:,} messages."
+        }
+
+    @app.get("/api/messages/deep_scan/status")
+    async def get_deep_scan_status(group_id: int):
+        norm_gid = abs(int(group_id))
+        scan_info = getattr(engine, "active_deep_scans", {}).get(norm_gid)
+        if not scan_info:
+            return {"status": "IDLE", "group_id": group_id, "scanned": 0, "target_limit": 100000}
+        return scan_info
+
+    @app.post("/api/messages/deep_scan/cancel")
+    async def cancel_deep_scan(req: DeepScanReq):
+        if hasattr(engine, "cancel_deep_scan"):
+            res = engine.cancel_deep_scan(req.group_id)
+            if asyncio.iscoroutine(res):
+                await res
+        return {"status": "scan_cancelled", "group_id": req.group_id}
+
+    @app.get("/api/members/reputation")
+    async def get_members_reputation(group_id: int, sort_by: str = "reputation",
+                                     filter_mode: str = "all", limit: int = 200,
+                                     offset: int = 0, query: str = ""):
+        """Fetch ranked group members scored across up to 100,000 messages."""
+        if not engine.db or not hasattr(engine.db, "get_group_members_ranked"):
+            return []
+        norm_gid = abs(int(group_id))
+        return await engine.db.get_group_members_ranked(
+            norm_gid, sort_by=sort_by, filter_mode=filter_mode, limit=limit, offset=offset, query=query
+        )
+
+    @app.get("/api/members/summary")
+    async def get_members_summary(group_id: int):
+        """Aggregate reputation summary for the target group."""
+        if not engine.db or not hasattr(engine.db, "get_group_reputation_summary"):
+            return {"total_members_profiled": 0, "total_messages_indexed": 0}
+        norm_gid = abs(int(group_id))
+        return await engine.db.get_group_reputation_summary(norm_gid)
 
     # ═══════════════════════════════════════════════════════
     #   SENTINEL RAID SHIELD & AUTONOMOUS DEFENSE
@@ -1952,7 +2015,7 @@ def create_app(engine: SuperBanEngine):
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.get("/api/osint/user")
-    async def get_user_osint(user_id: int):
+    async def get_user_osint(user_id: int, group_id: Optional[int] = None):
         u = None
         try:
             u = await engine.client.get_entity(user_id)
@@ -1962,11 +2025,29 @@ def create_app(engine: SuperBanEngine):
         full_name = f"{getattr(u, 'first_name', '') or ''} {getattr(u, 'last_name', '') or ''}".strip()
         username = getattr(u, 'username', '') or ''
 
-        forensic_info = ForensicInspector.inspect_user(u) if u else {
-            "trust_score": 70,
-            "trust_level": "NEUTRAL CITIZEN",
+        group_rep = None
+        if engine.db and hasattr(engine.db, "get_group_member_reputation"):
+            target_gid = abs(int(group_id)) if group_id else 0
+            if target_gid:
+                group_rep = await engine.db.get_group_member_reputation(target_gid, user_id)
+            if not group_rep:
+                try:
+                    engine.db.cursor.execute(
+                        "SELECT group_id FROM group_member_reputation WHERE user_id = ? ORDER BY message_count DESC LIMIT 1",
+                        (user_id,)
+                    )
+                    r = engine.db.cursor.fetchone()
+                    if r:
+                        group_rep = await engine.db.get_group_member_reputation(r[0], user_id)
+                except Exception:
+                    pass
+
+        forensic_info = ForensicInspector.inspect_user(u, member_stats=group_rep) if u else {
+            "trust_score": group_rep.get("reputation_score", 70) if group_rep else 70,
+            "trust_level": group_rep.get("reputation_tier", "NEUTRAL CITIZEN") if group_rep else "NEUTRAL CITIZEN",
+            "trust_color": group_rep.get("reputation_color", "#38bdf8") if group_rep else "#38bdf8",
             "vintage": "Standard Account",
-            "risk_flags": []
+            "risk_flags": group_rep.get("risk_flags", []) if group_rep else []
         }
 
         mutual_chats = []
@@ -1988,32 +2069,37 @@ def create_app(engine: SuperBanEngine):
         if engine.db:
             db_profile = await engine.db.get_user_cross_profile(user_id) or {}
 
-        if not u and not db_profile:
+        if not u and not db_profile and not group_rep:
             raise HTTPException(status_code=404, detail="Target user profile not found in radar")
+
+        msg_cnt = group_rep.get("message_count") if group_rep else db_profile.get("message_count", 0)
 
         return {
             "user_id": user_id,
-            "current_name": full_name or db_profile.get("current_name") or f"User #{user_id}",
-            "current_username": username or db_profile.get("current_username") or "",
+            "current_name": full_name or (group_rep and group_rep.get("full_name")) or db_profile.get("current_name") or f"User #{user_id}",
+            "current_username": username or (group_rep and group_rep.get("username")) or db_profile.get("current_username") or "",
             "phone": getattr(u, 'phone', '') or db_profile.get("phone", ""),
-            "is_premium": bool(getattr(u, 'premium', False)),
-            "is_verified": bool(getattr(u, 'verified', False)),
-            "is_bot": bool(getattr(u, 'bot', False)),
+            "is_premium": bool(getattr(u, 'premium', False)) or (group_rep and group_rep.get("is_premium", False)),
+            "is_verified": bool(getattr(u, 'verified', False)) or (group_rep and group_rep.get("is_verified", False)),
+            "is_bot": bool(getattr(u, 'bot', False)) or (group_rep and group_rep.get("is_bot", False)),
             "is_scam": bool(getattr(u, 'scam', False)),
             "is_fake": bool(getattr(u, 'fake', False)),
             "trust_score": forensic_info.get("trust_score", 70),
             "trust_level": forensic_info.get("trust_level", "NEUTRAL CITIZEN"),
+            "trust_color": forensic_info.get("trust_color", "#38bdf8"),
             "vintage": forensic_info.get("vintage", "Standard Account"),
             "risk_flags": forensic_info.get("risk_flags", []),
+            "reputation_factors": forensic_info.get("reputation_factors", []),
+            "group_reputation": group_rep,
             "mutual_chats": mutual_chats,
             "mutual_chats_count": len(mutual_chats),
             "spotted_groups": db_profile.get("spotted_groups", []),
             "name_history": db_profile.get("name_history", [full_name] if full_name else []),
             "username_history": db_profile.get("username_history", [username] if username else []),
-            "message_count": db_profile.get("message_count", 0),
+            "message_count": msg_cnt,
             "vc_participations": db_profile.get("vc_participations", 0),
-            "first_seen": db_profile.get("first_seen", "Live MTProto Radar"),
-            "last_seen": db_profile.get("last_seen", "Active")
+            "first_seen": (group_rep and group_rep.get("first_seen")) or db_profile.get("first_seen", "Live MTProto Radar"),
+            "last_seen": (group_rep and group_rep.get("last_seen")) or db_profile.get("last_seen", "Active")
         }
 
     @app.get("/api/osint/syndicates")

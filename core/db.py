@@ -286,6 +286,36 @@ class DatabaseManager:
                 severity TEXT DEFAULT 'INFO',
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             );
+
+            -- ═══════════════════════════════════════════════════════
+            --   100K DEEP SCAN REPUTATION & MEMBER INTELLIGENCE
+            -- ═══════════════════════════════════════════════════════
+            CREATE TABLE IF NOT EXISTS group_member_reputation (
+                group_id INTEGER,
+                user_id INTEGER,
+                username TEXT,
+                full_name TEXT,
+                message_count INTEGER DEFAULT 0,
+                media_count INTEGER DEFAULT 0,
+                reactions_received INTEGER DEFAULT 0,
+                replies_received INTEGER DEFAULT 0,
+                first_seen TIMESTAMP,
+                last_seen TIMESTAMP,
+                avg_message_len REAL DEFAULT 0,
+                reputation_score INTEGER DEFAULT 50,
+                reputation_tier TEXT DEFAULT 'NEUTRAL CITIZEN',
+                reputation_color TEXT DEFAULT '#38bdf8',
+                risk_flags TEXT DEFAULT '[]',
+                is_premium BOOLEAN DEFAULT 0,
+                is_verified BOOLEAN DEFAULT 0,
+                has_photo BOOLEAN DEFAULT 1,
+                is_bot BOOLEAN DEFAULT 0,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (group_id, user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_gmr_rep ON group_member_reputation(group_id, reputation_score DESC);
+            CREATE INDEX IF NOT EXISTS idx_gmr_msg ON group_member_reputation(group_id, message_count DESC);
+            CREATE INDEX IF NOT EXISTS idx_gmr_user ON group_member_reputation(user_id);
         ''')
         self.conn.commit()
 
@@ -1532,6 +1562,299 @@ class DatabaseManager:
             except Exception as e:
                 logger.error(f"Error fetching security audit logs: {e}")
                 return []
+
+    # ═══════════════════════════════════════════════════════
+    #   100K DEEP SCAN REPUTATION & MEMBER INTELLIGENCE
+    # ═══════════════════════════════════════════════════════
+    async def batch_upsert_member_reputation(self, group_id_or_members: Any, members: Optional[List[Dict[str, Any]]] = None):
+        """Batch upsert aggregated member reputation data from 100k deep message scan."""
+        if members is None and isinstance(group_id_or_members, list):
+            members = group_id_or_members
+            group_id = int(members[0].get("group_id", 0) if members else 0)
+        else:
+            group_id = int(group_id_or_members)
+
+        if not members:
+            return
+        async with self.lock:
+            try:
+                records = []
+                now_str = datetime.now().isoformat()
+                for m in members:
+                    records.append((
+                        group_id,
+                        m["user_id"],
+                        m.get("username", "") or "",
+                        m.get("full_name", "") or "User",
+                        m.get("message_count", 0),
+                        m.get("media_count", 0),
+                        m.get("reactions_received", 0),
+                        m.get("replies_received", 0),
+                        str(m.get("first_seen") or now_str),
+                        str(m.get("last_seen") or now_str),
+                        float(m.get("avg_message_len", 0.0)),
+                        int(m.get("reputation_score", 50)),
+                        m.get("reputation_tier", "NEUTRAL CITIZEN"),
+                        m.get("reputation_color", "#38bdf8"),
+                        json.dumps(m.get("risk_flags", [])),
+                        int(bool(m.get("is_premium", False))),
+                        int(bool(m.get("is_verified", False))),
+                        int(bool(m.get("has_photo", True))),
+                        int(bool(m.get("is_bot", False))),
+                        now_str
+                    ))
+                self.cursor.executemany(
+                    '''INSERT INTO group_member_reputation
+                    (group_id, user_id, username, full_name, message_count, media_count,
+                     reactions_received, replies_received, first_seen, last_seen,
+                     avg_message_len, reputation_score, reputation_tier, reputation_color,
+                     risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(group_id, user_id) DO UPDATE SET
+                        username = excluded.username,
+                        full_name = excluded.full_name,
+                        message_count = excluded.message_count,
+                        media_count = excluded.media_count,
+                        reactions_received = excluded.reactions_received,
+                        replies_received = excluded.replies_received,
+                        first_seen = MIN(group_member_reputation.first_seen, excluded.first_seen),
+                        last_seen = MAX(group_member_reputation.last_seen, excluded.last_seen),
+                        avg_message_len = excluded.avg_message_len,
+                        reputation_score = excluded.reputation_score,
+                        reputation_tier = excluded.reputation_tier,
+                        reputation_color = excluded.reputation_color,
+                        risk_flags = excluded.risk_flags,
+                        is_premium = excluded.is_premium,
+                        is_verified = excluded.is_verified,
+                        has_photo = excluded.has_photo,
+                        is_bot = excluded.is_bot,
+                        last_updated = excluded.last_updated''',
+                    records
+                )
+                self.conn.commit()
+            except Exception as e:
+                logger.error(f"Failed to batch upsert member reputation: {e}")
+
+    async def get_group_member_reputation(self, group_id: int, user_id: int) -> Optional[Dict[str, Any]]:
+        """Retrieve accurate 100k-history reputation record for a specific member."""
+        async with self.lock:
+            try:
+                self.cursor.execute(
+                    '''SELECT group_id, user_id, username, full_name, message_count, media_count,
+                              reactions_received, replies_received, first_seen, last_seen,
+                              avg_message_len, reputation_score, reputation_tier, reputation_color,
+                              risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated
+                       FROM group_member_reputation WHERE group_id = ? AND user_id = ?''',
+                    (group_id, user_id)
+                )
+                r = self.cursor.fetchone()
+                if not r:
+                    return None
+                return {
+                    "group_id": r[0],
+                    "user_id": r[1],
+                    "username": r[2],
+                    "full_name": r[3],
+                    "message_count": r[4],
+                    "media_count": r[5],
+                    "reactions_received": r[6],
+                    "replies_received": r[7],
+                    "first_seen": str(r[8]),
+                    "last_seen": str(r[9]),
+                    "avg_message_len": r[10],
+                    "reputation_score": r[11],
+                    "reputation_tier": r[12],
+                    "reputation_color": r[13],
+                    "risk_flags": json.loads(r[14] or '[]'),
+                    "is_premium": bool(r[15]),
+                    "is_verified": bool(r[16]),
+                    "has_photo": bool(r[17]),
+                    "is_bot": bool(r[18]),
+                    "last_updated": str(r[19])
+                }
+            except Exception as e:
+                logger.error(f"Error fetching member reputation: {e}")
+                return None
+
+    async def get_multiple_member_reputations(self, group_id: int, user_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        """Batch retrieve reputation records for multiple members (e.g. for wiretap rendering)."""
+        if not user_ids:
+            return {}
+        async with self.lock:
+            try:
+                clean_ids = [int(u) for u in user_ids if u]
+                if not clean_ids:
+                    return {}
+                placeholders = ",".join("?" for _ in clean_ids)
+                params = [group_id] + clean_ids
+                self.cursor.execute(
+                    f'''SELECT user_id, username, full_name, message_count, media_count,
+                               reactions_received, replies_received, first_seen, last_seen,
+                               reputation_score, reputation_tier, reputation_color,
+                               is_premium, is_verified, has_photo, is_bot
+                        FROM group_member_reputation
+                        WHERE group_id = ? AND user_id IN ({placeholders})''',
+                    params
+                )
+                rows = self.cursor.fetchall()
+                res = {}
+                for r in rows:
+                    res[r[0]] = {
+                        "user_id": r[0],
+                        "username": r[1],
+                        "full_name": r[2],
+                        "message_count": r[3],
+                        "media_count": r[4],
+                        "reactions_received": r[5],
+                        "replies_received": r[6],
+                        "first_seen": str(r[7]),
+                        "last_seen": str(r[8]),
+                        "reputation_score": r[9],
+                        "reputation_tier": r[10],
+                        "reputation_color": r[11],
+                        "is_premium": bool(r[12]),
+                        "is_verified": bool(r[13]),
+                        "has_photo": bool(r[14]),
+                        "is_bot": bool(r[15])
+                    }
+                return res
+            except Exception as e:
+                logger.error(f"Error fetching multiple member reputations: {e}")
+                return {}
+
+    async def get_group_members_ranked(self, group_id: int, sort_by: str = "reputation",
+                                       filter_mode: str = "all", limit: int = 200,
+                                       offset: int = 0, query: str = "") -> List[Dict[str, Any]]:
+        """Retrieve ranked members based on 100k message scan intelligence."""
+        async with self.lock:
+            try:
+                clamped_limit = max(1, min(int(limit), 1000))
+                clamped_offset = max(0, int(offset))
+                
+                order_clause = "reputation_score DESC, message_count DESC"
+                if sort_by == "messages":
+                    order_clause = "message_count DESC, reputation_score DESC"
+                elif sort_by == "recent":
+                    order_clause = "last_seen DESC"
+                elif sort_by == "reactions":
+                    order_clause = "reactions_received DESC, message_count DESC"
+
+                where_clauses = ["group_id = ?"]
+                params: List[Any] = [group_id]
+
+                if filter_mode == "top_chatters":
+                    where_clauses.append("message_count >= 10")
+                elif filter_mode == "verified":
+                    where_clauses.append("reputation_score >= 80")
+                elif filter_mode == "premium":
+                    where_clauses.append("is_premium = 1")
+                elif filter_mode == "risky":
+                    where_clauses.append("(reputation_score < 40 OR is_bot = 1)")
+                elif filter_mode == "lurkers":
+                    where_clauses.append("message_count <= 2")
+
+                if query:
+                    clean_q = f"%{query.strip().lstrip('@')}%"
+                    where_clauses.append("(username LIKE ? OR full_name LIKE ? OR CAST(user_id AS TEXT) LIKE ?)")
+                    params.extend([clean_q, clean_q, clean_q])
+
+                where_sql = " AND ".join(where_clauses)
+                params.extend([clamped_limit, clamped_offset])
+
+                self.cursor.execute(
+                    f'''SELECT user_id, username, full_name, message_count, media_count,
+                               reactions_received, replies_received, first_seen, last_seen,
+                               avg_message_len, reputation_score, reputation_tier, reputation_color,
+                               risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated
+                        FROM group_member_reputation
+                        WHERE {where_sql}
+                        ORDER BY {order_clause}
+                        LIMIT ? OFFSET ?''',
+                    params
+                )
+                rows = self.cursor.fetchall()
+                return [
+                    {
+                        "user_id": r[0],
+                        "username": r[1],
+                        "full_name": r[2],
+                        "message_count": r[3],
+                        "media_count": r[4],
+                        "reactions_received": r[5],
+                        "replies_received": r[6],
+                        "first_seen": str(r[7]),
+                        "last_seen": str(r[8]),
+                        "avg_message_len": r[9],
+                        "reputation_score": r[10],
+                        "reputation_tier": r[11],
+                        "reputation_color": r[12],
+                        "risk_flags": json.loads(r[13] or '[]'),
+                        "is_premium": bool(r[14]),
+                        "is_verified": bool(r[15]),
+                        "has_photo": bool(r[16]),
+                        "is_bot": bool(r[17]),
+                        "last_updated": str(r[18])
+                    }
+                    for r in rows
+                ]
+            except Exception as e:
+                logger.error(f"Error fetching ranked members: {e}")
+                return []
+
+    async def get_group_reputation_summary(self, group_id: int) -> Dict[str, Any]:
+        """Aggregate high-level reputation metrics across the group."""
+        async with self.lock:
+            try:
+                self.cursor.execute(
+                    '''SELECT COUNT(*), COALESCE(SUM(message_count), 0),
+                              COALESCE(AVG(reputation_score), 50),
+                              COALESCE(SUM(reactions_received), 0)
+                       FROM group_member_reputation WHERE group_id = ?''',
+                    (group_id,)
+                )
+                tot_members, tot_msgs, avg_score, tot_reactions = self.cursor.fetchone() or (0, 0, 50, 0)
+
+                # Tier counts
+                self.cursor.execute(
+                    '''SELECT reputation_tier, COUNT(*)
+                       FROM group_member_reputation WHERE group_id = ?
+                       GROUP BY reputation_tier''',
+                    (group_id,)
+                )
+                tiers = {r[0]: r[1] for r in self.cursor.fetchall()}
+
+                # Top 5 chatters
+                self.cursor.execute(
+                    '''SELECT user_id, full_name, username, message_count, reputation_score, reputation_tier, reputation_color
+                       FROM group_member_reputation WHERE group_id = ?
+                       ORDER BY message_count DESC LIMIT 5''',
+                    (group_id,)
+                )
+                top_chatters = [
+                    {
+                        "user_id": r[0],
+                        "full_name": r[1],
+                        "username": r[2],
+                        "message_count": r[3],
+                        "reputation_score": r[4],
+                        "reputation_tier": r[5],
+                        "reputation_color": r[6]
+                    }
+                    for r in self.cursor.fetchall()
+                ]
+
+                return {
+                    "group_id": group_id,
+                    "total_members_profiled": tot_members,
+                    "total_messages_indexed": tot_msgs,
+                    "avg_reputation_score": round(float(avg_score), 1),
+                    "total_reactions": tot_reactions,
+                    "tiers": tiers,
+                    "top_chatters": top_chatters
+                }
+            except Exception as e:
+                logger.error(f"Error fetching reputation summary: {e}")
+                return {"group_id": group_id, "total_members_profiled": 0, "total_messages_indexed": 0}
 
     def close(self):
         try:

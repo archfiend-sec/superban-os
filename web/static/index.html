@@ -3367,8 +3367,14 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
             <div style="font-size: 10px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase;">DEEP PARTICIPANT RECONNAISSANCE</div>
             <h3 style="font-size: 18px; color: var(--bone); font-weight: 500; margin-top: 4px; font-family: 'Onest', sans-serif;">Target Member Surveillance Grid</h3>
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" onclick="runMemberRecon()" id="btn-run-recon" class="kage-action-btn">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" onclick="start100kScan(100000)" id="btn-deep-scan-100k" class="kage-action-btn" style="background: linear-gradient(135deg, #059669, #10b981); color: #fff; border: 1px solid #34d399; font-weight: 700; box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);">
+              <i data-lucide="zap" style="width: 14px; height: 14px;"></i> ⚡ 100K REPUTATION SCAN
+            </button>
+            <button type="button" onclick="start100kScan(10000)" class="kage-sub-btn" title="Quick scan of recent 10,000 messages">
+              ⚡ 10K QUICK
+            </button>
+            <button type="button" onclick="runMemberRecon()" id="btn-run-recon" class="kage-sub-btn">
               <i data-lucide="scan" style="width: 14px; height: 14px;"></i> SCAN MEMBERS
             </button>
             <button type="button" onclick="exportReconMembers()" class="kage-sub-btn">
@@ -3377,12 +3383,36 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           </div>
         </div>
 
+        <!-- 100K DEEP SCAN REAL-TIME TELEMETRY PANEL -->
+        <div id="deep-scan-progress-panel" style="display: none; background: rgba(5,7,10,0.95); border: 1px solid #10b981; border-radius: 6px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.6);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="loading-spin" style="width: 14px; height: 14px; border: 2px solid #10b981; border-top-color: transparent;"></span>
+              <span style="font-size: 12px; font-weight: 700; color: #10b981; letter-spacing: 0.12em;">100,000 MESSAGE DEEP REPUTATION SCAN IN PROGRESS</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span id="deep-scan-speed-label" style="font-size: 11px; color: #38bdf8; font-weight: 600;">0 msgs/sec</span>
+              <span id="deep-scan-eta-label" style="font-size: 11px; color: var(--bone-dim);">ETA: calculating...</span>
+              <button type="button" onclick="cancel100kScan()" class="btn-xs-outline" style="border-color: var(--vermilion); color: var(--vermilion); font-size: 9px; padding: 2px 8px;">ABORT</button>
+            </div>
+          </div>
+          <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; position: relative;">
+            <div id="deep-scan-progress-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #10b981, #38bdf8); transition: width 0.3s ease; box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 11px; color: var(--muted);">
+            <span id="deep-scan-counts-label" style="color: var(--bone); font-weight: 600;">Scanned 0 / 100,000 messages (0%)</span>
+            <span id="deep-scan-members-label" style="color: #34d399;">0 unique members profiled</span>
+          </div>
+        </div>
+
         <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;">
           <input type="text" id="recon-search-filter" oninput="filterReconTable()" placeholder="Filter by name, @handle, or ID..." style="background: #030609; border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 240px;" />
           <button type="button" onclick="setReconFilter('all')" id="recon-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
-          <button type="button" onclick="setReconFilter('premium')" id="recon-flt-premium" class="flt-btn" style="font-size: 10px;">⭐ PREMIUM ONLY</button>
-          <button type="button" onclick="setReconFilter('verified')" id="recon-flt-verified" class="flt-btn" style="font-size: 10px;">🛡️ HIGH TRUST (80%+)</button>
+          <button type="button" onclick="setReconFilter('chatters')" id="recon-flt-chatters" class="flt-btn" style="font-size: 10px;">🔥 TOP CHATTERS (10+ MSGS)</button>
+          <button type="button" onclick="setReconFilter('verified')" id="recon-flt-verified" class="flt-btn" style="font-size: 10px;">🛡️ HIGH REPUTATION (80%+)</button>
+          <button type="button" onclick="setReconFilter('premium')" id="recon-flt-premium" class="flt-btn" style="font-size: 10px;">⭐ PREMIUM</button>
           <button type="button" onclick="setReconFilter('risky')" id="recon-flt-risky" class="flt-btn danger" style="font-size: 10px;">⚠️ SUSPICIOUS</button>
+          <button type="button" onclick="setReconFilter('lurkers')" id="recon-flt-lurkers" class="flt-btn" style="font-size: 10px;">💤 LURKERS (0-2 MSGS)</button>
           <span id="recon-count-label" style="margin-left: auto; font-size: 11px; color: var(--muted);">0 members</span>
         </div>
 
@@ -6889,6 +6919,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           handleSiphonTriggered(msg.data || msg);
         } else if (msg.type === 'message_reactions_updated') {
           handleMessageReactionsUpdated(msg.data || msg);
+        } else if (msg.type === 'deep_scan_progress' || msg.type === 'scan_progress') {
+          if (typeof handleDeepScanProgress === 'function') handleDeepScanProgress(msg.data || msg);
+        } else if (msg.type === 'deep_scan_complete' || msg.type === 'scan_complete') {
+          if (typeof handleDeepScanComplete === 'function') handleDeepScanComplete(msg.data || msg);
         }
       } catch (e) {}
     };
@@ -8943,9 +8977,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
     const effectiveGid = data.group_id || activeGid;
 
+    const msgCountSuffix = data.message_count ? ` • ${data.message_count >= 1000 ? (data.message_count/1000).toFixed(1) + 'k' : data.message_count} msgs` : '';
+    const tierName = data.trust_level ? data.trust_level.split(' ')[0] : 'TRUST';
     const trustBadge = data.trust_score !== undefined ? `
-      <span class="badge" style="font-size: 8px; padding: 1px 5px; background: rgba(5,7,10,0.8); border: 1px solid ${data.trust_color || '#38bdf8'}; color: ${data.trust_color || '#38bdf8'}; cursor: pointer;" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" title="${data.vintage || ''} — Trust Score: ${data.trust_score}/100">
-        ${data.trust_score}% TRUST
+      <span class="badge" style="font-size: 8px; padding: 1px 6px; background: rgba(5,7,10,0.85); border: 1px solid ${data.trust_color || '#38bdf8'}; color: ${data.trust_color || '#38bdf8'}; cursor: pointer;" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" title="${data.trust_level || 'Reputation'}: ${data.trust_score}/100 • ${data.message_count ? data.message_count + ' msgs in 100k history' : 'Unindexed chatter'}">
+        ${data.trust_score}% ${tierName}${msgCountSuffix}
       </span>
     ` : '';
 
@@ -9696,6 +9732,125 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     }
   }
 
+  async function start100kScan(limit = 100000) {
+    const gid = getActiveGroupId();
+    if (!gid) {
+      showToast("Select a target group first", "error");
+      return;
+    }
+    const panel = document.getElementById('deep-scan-progress-panel');
+    if (panel) panel.style.display = 'block';
+    
+    const fill = document.getElementById('deep-scan-progress-fill');
+    if (fill) fill.style.width = '0%';
+    const countLbl = document.getElementById('deep-scan-counts-label');
+    if (countLbl) countLbl.innerText = `Starting deep scan for ${limit.toLocaleString()} messages...`;
+
+    try {
+      const res = await fetch('/api/messages/deep_scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: parseInt(gid), limit: limit })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to start scan");
+      showToast(`⚡ Deep scan initiated for ${limit.toLocaleString()} messages!`, "success");
+    } catch (e) {
+      showToast("Deep scan error: " + e.message, "error");
+      if (panel) panel.style.display = 'none';
+    }
+  }
+
+  async function cancel100kScan() {
+    const gid = getActiveGroupId();
+    if (!gid) return;
+    try {
+      await fetch('/api/messages/deep_scan/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: parseInt(gid), limit: 100000 })
+      });
+      showToast("Deep scan cancelled.", "info");
+      const panel = document.getElementById('deep-scan-progress-panel');
+      if (panel) panel.style.display = 'none';
+    } catch (e) {
+      showToast("Cancel error: " + e.message, "error");
+    }
+  }
+
+  function handleDeepScanProgress(data) {
+    const panel = document.getElementById('deep-scan-progress-panel');
+    if (panel) panel.style.display = 'block';
+
+    const pct = data.percent || 0;
+    const fill = document.getElementById('deep-scan-progress-fill');
+    if (fill) fill.style.width = pct + '%';
+
+    const countLbl = document.getElementById('deep-scan-counts-label');
+    if (countLbl) {
+      countLbl.innerText = `Scanned ${data.scanned.toLocaleString()} / ${data.total.toLocaleString()} messages (${pct}%)`;
+    }
+
+    const memLbl = document.getElementById('deep-scan-members-label');
+    if (memLbl) {
+      memLbl.innerText = `${data.unique_members.toLocaleString()} unique members profiled`;
+    }
+
+    const spdLbl = document.getElementById('deep-scan-speed-label');
+    if (spdLbl) spdLbl.innerText = `${data.speed || 0} msgs/sec`;
+
+    const etaLbl = document.getElementById('deep-scan-eta-label');
+    if (etaLbl) {
+      const eta = data.eta_seconds || 0;
+      etaLbl.innerText = eta > 60 ? `ETA: ~${Math.ceil(eta / 60)} min` : `ETA: ~${eta}s`;
+    }
+  }
+
+  async function handleDeepScanComplete(data) {
+    showToast(`🏆 100K Deep Scan Complete! Profiled ${data.unique_members.toLocaleString()} members across ${data.total_scanned.toLocaleString()} messages.`, "success");
+    const panel = document.getElementById('deep-scan-progress-panel');
+    if (panel) {
+      setTimeout(() => { panel.style.display = 'none'; }, 3000);
+    }
+    await loadGroupReputationGrid();
+  }
+
+  async function loadGroupReputationGrid() {
+    const gid = getActiveGroupId();
+    if (!gid) return;
+    try {
+      const res = await fetch(`/api/members/reputation?group_id=${gid}&limit=500`);
+      if (res.ok) {
+        const members = await res.json();
+        if (members && members.length > 0) {
+          cachedReconMembers = members.map(m => ({
+            id: m.user_id,
+            full_name: m.full_name,
+            username: m.username,
+            trust_score: m.reputation_score,
+            trust_level: m.reputation_tier,
+            trust_color: m.reputation_color,
+            message_count: m.message_count,
+            reactions_received: m.reactions_received,
+            replies_received: m.replies_received,
+            is_premium: m.is_premium,
+            is_verified: m.is_verified,
+            has_photo: m.has_photo,
+            is_bot: m.is_bot,
+            vintage: m.vintage || (m.message_count >= 100 ? 'Chat Veteran' : 'Active Chatter'),
+            first_seen: m.first_seen,
+            last_seen: m.last_seen
+          }));
+          filterReconTable();
+          return true;
+        }
+      }
+    } catch (e) {
+      console.debug("Failed to load group reputation grid:", e);
+    }
+    return false;
+  }
+
   async function runMemberRecon() {
     const gid = getActiveGroupId();
     if (!gid) {
@@ -9708,6 +9863,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     btn.disabled = true;
 
     try {
+      // First, check if we already have 100k indexed reputation data
+      const loaded = await loadGroupReputationGrid();
+      
       const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -9716,9 +9874,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Failed to scan members');
 
-      cachedReconMembers = data.members || [];
+      if (!loaded || !cachedReconMembers || cachedReconMembers.length === 0) {
+        cachedReconMembers = data.members || [];
+      }
       renderReconTable(cachedReconMembers);
-      showToast(`🎯 Scanned ${cachedReconMembers.length} members with forensic intelligence!`, 'success');
+      showToast(`🎯 Profiled ${cachedReconMembers.length} members with forensic intelligence!`, 'success');
     } catch (e) {
       wrap.innerHTML = `<div style="color: var(--vermilion); padding: 20px;">Scan failed: ${escapeHtml(e.message)}</div>`;
       showToast("Recon error: " + e.message, "error");
@@ -9731,7 +9891,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
   function setReconFilter(flt) {
     currentReconFilter = flt;
-    const btns = ['all', 'premium', 'verified', 'risky'];
+    const btns = ['all', 'chatters', 'verified', 'premium', 'risky', 'lurkers'];
     btns.forEach(b => {
       const el = document.getElementById(`recon-flt-${b}`);
       if (el) {
@@ -9751,9 +9911,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       const matchesQ = !query || name.includes(query) || user.includes(query) || idStr.includes(query);
       if (!matchesQ) return false;
 
-      if (currentReconFilter === 'premium') return m.is_premium;
+      if (currentReconFilter === 'chatters') return (m.message_count || 0) >= 10;
       if (currentReconFilter === 'verified') return (m.trust_score || 0) >= 80;
-      if (currentReconFilter === 'risky') return (m.trust_score || 100) < 50 || m.is_suspicious || m.is_scam;
+      if (currentReconFilter === 'premium') return m.is_premium;
+      if (currentReconFilter === 'risky') return (m.trust_score || 100) < 40 || m.is_suspicious || m.is_scam;
+      if (currentReconFilter === 'lurkers') return (m.message_count || 0) <= 2;
       return true;
     });
 
@@ -9766,7 +9928,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     if (label) label.innerText = `${members.length} members`;
 
     if (!members || members.length === 0) {
-      wrap.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--muted);">No matching participants found.</div>';
+      wrap.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--muted);">No matching participants found. Click "⚡ 100K REPUTATION SCAN" to ingest group history.</div>';
       return;
     }
 
@@ -9776,9 +9938,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
           <tr style="border-bottom: 1px solid var(--line); color: var(--muted); background: #070a0e;">
             <th style="padding: 10px 12px;">PARTICIPANT</th>
             <th style="padding: 10px 12px;">HANDLE / ID</th>
-            <th style="padding: 10px 12px;">VINTAGE / AGE</th>
-            <th style="padding: 10px 12px;">TRUST REPUTATION</th>
-            <th style="padding: 10px 12px;">STATUS</th>
+            <th style="padding: 10px 12px;">REPUTATION (100K)</th>
+            <th style="padding: 10px 12px;">MESSAGES</th>
+            <th style="padding: 10px 12px;">ACTIVITY &amp; TENURE</th>
             <th style="padding: 10px 12px; text-align: right;">INTEL ACTION</th>
           </tr>
         </thead>
@@ -9801,16 +9963,24 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
                 <td style="padding: 10px 12px; color: var(--bone-dim);">
                   ${m.username ? '@' + escapeHtml(m.username) : '#' + m.id}
                 </td>
-                <td style="padding: 10px 12px; color: var(--muted); font-size: 10px;">
-                  ${m.vintage || 'Established'}
-                </td>
                 <td style="padding: 10px 12px;">
-                  <span class="badge" style="font-size: 8px; padding: 2px 6px; background: rgba(5,7,10,0.8); border: 1px solid ${color}; color: ${color}; font-weight: 700;">
-                    ${m.trust_score || 70}% ${m.trust_level || 'NEUTRAL'}
+                  <span class="badge" style="font-size: 8px; padding: 2px 7px; background: rgba(5,7,10,0.85); border: 1px solid ${color}; color: ${color}; font-weight: 700; white-space: nowrap;">
+                    ${m.trust_score || 50}% ${m.trust_level || 'NEUTRAL'}
                   </span>
                 </td>
-                <td style="padding: 10px 12px; color: var(--muted); font-size: 10px;">
-                  ${m.last_seen || 'Recently'}
+                <td style="padding: 10px 12px;">
+                  <div style="font-weight: 700; color: #38bdf8;">
+                    ${(m.message_count || 0).toLocaleString()} <span style="color: var(--muted); font-size: 9px; font-weight: 400;">msgs</span>
+                    ${m.reactions_received ? `<span style="color: #f59e0b; margin-left: 4px;" title="${m.reactions_received} reactions received">🔥 ${m.reactions_received}</span>` : ''}
+                  </div>
+                </td>
+                <td style="padding: 10px 12px;">
+                  <div style="font-size: 10px; color: var(--bone-dim);">
+                    ${m.first_seen ? m.first_seen.split('T')[0] : (m.vintage || 'Active')}
+                  </div>
+                  <div style="font-size: 9px; color: var(--muted);">
+                    ${m.last_seen ? 'Last: ' + (m.last_seen.includes('T') ? m.last_seen.split('T')[0] : m.last_seen) : 'Observed in radar'}
+                  </div>
                 </td>
                 <td style="padding: 10px 12px; text-align: right;">
                   <button type="button" onclick="openWiretapDossier(${m.id}, '${escapeQuote(m.full_name)}', '${m.username || ''}')" class="act-pill">
