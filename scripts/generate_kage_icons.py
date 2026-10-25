@@ -326,7 +326,7 @@ def generate_svg():
 def generate_manifest():
     """Generate Progressive Web App (PWA) webmanifest."""
     manifest_data = """{
-  "name": "KAGE // 影の道 — SuperBan OS",
+  "name": "KAGE - SuperBan OS",
   "short_name": "KAGE",
   "description": "Tactical Sovereign Telegram OS & Kyoto War Room Mission Control",
   "start_url": "/",

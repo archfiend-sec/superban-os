@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>KAGE // 影の道 — SuperBan OS v5.0 APEX</title>
+<title>KAGE - SuperBan OS</title>
 
 <!-- Progressive Web App (PWA) & Mobile Homescreen Branding -->
 <link rel="manifest" href="/manifest.json">
@@ -68,7 +68,14 @@
   --nav-h: 84px;
 }
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+html {
+  -webkit-text-size-adjust: 100%;
+}
+@media (min-width: 769px) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
 body {
   margin: 0; background: var(--ink); color: var(--bone);
   font-family: 'Onest', system-ui, -apple-system, sans-serif;
@@ -84,12 +91,21 @@ input, select, textarea { font-family: 'JetBrains Mono', 'Onest', sans-serif; }
 #gl {
   position: fixed; inset: 0; width: 100%; height: 100%;
   display: block; z-index: 0; background: #05070a; pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
+  contain: strict;
 }
 #vignette {
   position: fixed; inset: 0; z-index: 1; pointer-events: none;
   background: radial-gradient(125% 95% at 50% 42%, transparent 40%, rgba(2,4,6,.65) 100%);
+  transform: translateZ(0);
+  pointer-events: none;
 }
-.page { position: relative; z-index: 10; }
+.page {
+  position: relative;
+  z-index: 10;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* Typography */
 .eyebrow {
@@ -1794,7 +1810,17 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   }
   html, body {
     scroll-behavior: auto !important;
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.warroom-active {
+    overflow: hidden !important;
+    overscroll-behavior-y: none !important;
+  }
+  .kage-box {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(10, 14, 18, 0.94) !important;
   }
   body {
     font-size: 13px;
@@ -4941,6 +4967,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   const canvas = document.getElementById('gl');
   if (!canvas || !window.THREE) return;
 
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isMobile = (window.innerWidth < 768) || (isTouch && window.innerWidth < 920);
+
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x050a0e, 0.018);
   scene.background = new THREE.Color(0x05070a);
@@ -4948,9 +4977,16 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   const camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.1, 200);
   camera.position.set(0, 3.8, 14);
 
-  const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+  const renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    antialias: !isMobile,
+    powerPreference: 'high-performance',
+    alpha: false,
+    stencil: false,
+    depth: true
+  });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.75));
 
   // Lights
   const hemi = new THREE.HemisphereLight(0x53838f, 0x060a08, 0.35);
@@ -5018,7 +5054,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   scene.add(templeGroup);
 
   // Stone Lanterns
-  function addLantern(x, z) {
+  function addLantern(x, z, hasLight) {
     const lantern = new THREE.Group();
     const stMat = new THREE.MeshStandardMaterial({ color: 0x222629, roughness: 0.9 });
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.4, 8), stMat);
@@ -5027,19 +5063,21 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), stMat);
     head.position.y = 1.6;
     lantern.add(head);
-    const fire = new THREE.PointLight(0xff5a24, 1.5, 8);
-    fire.position.y = 1.6;
-    lantern.add(fire);
+    if (hasLight) {
+      const fire = new THREE.PointLight(0xff5a24, 1.5, 8);
+      fire.position.y = 1.6;
+      lantern.add(fire);
+    }
     lantern.position.set(x, 0, z);
     scene.add(lantern);
   }
-  addLantern(-6.5, -5);
-  addLantern(6.5, -5);
-  addLantern(-4.5, -16);
-  addLantern(4.5, -16);
+  addLantern(-6.5, -5, true);
+  addLantern(6.5, -5, true);
+  addLantern(-4.5, -16, !isMobile);
+  addLantern(4.5, -16, !isMobile);
 
-  // Floating embers particles
-  const emberCount = 180;
+  // Floating embers particles (reduced count on mobile for butter-smooth frame pacing)
+  const emberCount = isMobile ? 45 : 180;
   const emberGeo = new THREE.BufferGeometry();
   const emberPos = new Float32Array(emberCount * 3);
   for (let i = 0; i < emberCount * 3; i += 3) {
@@ -5048,14 +5086,14 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     emberPos[i+2] = -35 + Math.random() * 45;
   }
   emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPos, 3));
-  const emberMat = new THREE.PointsMaterial({ color: 0xff6a3c, size: 0.14, transparent: true, opacity: 0.75 });
+  const emberMat = new THREE.PointsMaterial({ color: 0xff6a3c, size: isMobile ? 0.2 : 0.14, transparent: true, opacity: 0.75 });
   const embers = new THREE.Points(emberGeo, emberMat);
   scene.add(embers);
 
-  // Celestial Member Orbit (140 Glowing Spheres around Sanctuary)
+  // Celestial Member Orbit (adaptive node count)
   const orbitGroup = new THREE.Group();
-  const nodeCount = 140;
-  const nodeGeo = new THREE.SphereGeometry(0.14, 8, 8);
+  const nodeCount = isMobile ? 36 : 140;
+  const nodeGeo = new THREE.SphereGeometry(0.14, 6, 6);
   const nodes = [];
   const colors = [0x34d399, 0x38bdf8, 0xfbbf24, 0xe0231c];
   for (let i = 0; i < nodeCount; i++) {
@@ -5072,40 +5110,78 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   }
   scene.add(orbitGroup);
 
-  // Mouse Parallax Tilt
+  // Mouse Parallax Tilt (desktop only)
   let mouseX = 0, mouseY = 0;
-  window.addEventListener('mousemove', function(e) {
-    mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-    mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-  }, { passive: true });
+  if (!isMobile) {
+    window.addEventListener('mousemove', function(e) {
+      mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+      mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+    }, { passive: true });
+  }
 
-  // Scroll Reactive Camera Motion
+  // Scroll Reactive Camera Motion (Layout-Thrash Free)
   let targetCamY = 3.8;
   let targetCamZ = 14;
+  let latestScrollY = 0;
+  let cachedMaxScroll = 1;
 
-  window.addEventListener('scroll', function() {
-    const s = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight);
-    targetCamY = 3.8 + s * 8.0;
-    targetCamZ = 14 - s * 22.0;
-  }, { passive: true });
+  function updateScrollMetrics() {
+    const docH = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    cachedMaxScroll = Math.max(1, docH - window.innerHeight);
+  }
+  window.updateKageScrollMetrics = updateScrollMetrics;
 
   window.addEventListener('resize', function() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+    updateScrollMetrics();
+  }, { passive: true });
+
+  window.addEventListener('orientationchange', function() {
+    setTimeout(function() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      updateScrollMetrics();
+    }, 150);
+  }, { passive: true });
+
+  window.addEventListener('load', updateScrollMetrics, { passive: true });
+  setTimeout(updateScrollMetrics, 300);
+  setTimeout(updateScrollMetrics, 1200);
+
+  // Zero-overhead scroll listener: does NOT trigger layout recalculation
+  window.addEventListener('scroll', function() {
+    latestScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  }, { passive: true });
 
   function animate(t) {
     requestAnimationFrame(animate);
+
+    // Save GPU & battery when backgrounded
+    if (document.hidden) return;
+
+    // Pause Sanctuary 3D scene when inside War Room HUD
+    if (typeof currentViewMode !== 'undefined' && currentViewMode === 'warroom') return;
+
+    const s = Math.min(Math.max(latestScrollY / cachedMaxScroll, 0), 1);
+    targetCamY = 3.8 + s * 8.0;
+    targetCamZ = 14 - s * 22.0;
+
     camera.position.x += (mouseX * 1.6 - camera.position.x) * 0.05;
     camera.position.y += (targetCamY - mouseY * 0.8 - camera.position.y) * 0.05;
     
     // Rotate celestial member orbit
-    nodes.forEach(n => {
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
       n.angle += n.speed;
       n.mesh.position.x = Math.cos(n.angle) * n.radius;
       n.mesh.position.z = -22 + Math.sin(n.angle) * n.radius;
-    });
+    }
     camera.position.z += (targetCamZ - camera.position.z) * 0.05;
     camera.lookAt(0, targetCamY * 0.6 + 2.0, targetCamZ - 28);
 
@@ -6372,19 +6448,30 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     };
   }
 
-  // Active nav highlighting on scroll
+  // Active nav highlighting on scroll (throttled via RAF, skips layout thrashing on mobile)
+  let navScrollTicking = false;
   window.addEventListener('scroll', () => {
-    const sections = ['gate', 'pathways', 'lessons', 'eternity'];
-    const scrollPos = window.scrollY + 200;
-    sections.forEach(s => {
-      const el = document.getElementById(s);
-      if (el) {
-        const top = el.offsetTop;
-        const h = el.offsetHeight;
-        if (scrollPos >= top && scrollPos < top + h) {
-          document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('on'));
-          const link = document.querySelector(`.nav-link[href="#${s}"]`);
-          if (link) link.classList.add('on');
+    if (navScrollTicking) return;
+    navScrollTicking = true;
+    requestAnimationFrame(() => {
+      navScrollTicking = false;
+      if (window.innerWidth <= 768 || (typeof currentViewMode !== 'undefined' && currentViewMode === 'warroom')) {
+        return;
+      }
+      const sections = ['gate', 'pathways', 'lessons', 'eternity'];
+      const scrollPos = (window.pageYOffset || document.documentElement.scrollTop || 0) + 200;
+      for (let i = 0; i < sections.length; i++) {
+        const s = sections[i];
+        const el = document.getElementById(s);
+        if (el) {
+          const top = el.offsetTop;
+          const h = el.offsetHeight;
+          if (scrollPos >= top && scrollPos < top + h) {
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('on'));
+            const link = document.querySelector(`.nav-link[href="#${s}"]`);
+            if (link) link.classList.add('on');
+            break;
+          }
         }
       }
     });
@@ -7757,6 +7844,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       if (mobSanctuary) mobSanctuary.classList.remove('active');
       if (mobWarroom) mobWarroom.classList.add('active');
       if (navLinks) navLinks.style.display = 'none';
+      document.body.classList.add('warroom-active');
 
       refreshWiretap();
       loadThreatsHistory();
@@ -7768,6 +7856,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
       if (mobSanctuary) mobSanctuary.classList.add('active');
       if (mobWarroom) mobWarroom.classList.remove('active');
       if (navLinks) navLinks.style.display = 'flex';
+      document.body.classList.remove('warroom-active');
+
+      if (window.updateKageScrollMetrics) {
+        window.updateKageScrollMetrics();
+      }
     }
     safeCreateIcons();
   }
@@ -11553,9 +11646,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     if (window.innerWidth < 768) {
       switchMobileHUDCol('center');
     }
-    if (currentViewMode === 'warroom') {
-      switchViewMode('warroom');
-    }
+    switchViewMode(currentViewMode || 'sanctuary');
   };
 
 </script>
