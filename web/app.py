@@ -1012,8 +1012,14 @@ def create_app(engine: SuperBanEngine):
 
     @app.get("/api/messages/deep_scan/status")
     async def get_deep_scan_status(group_id: int):
-        norm_gid = abs(int(group_id))
-        scan_info = getattr(engine, "active_deep_scans", {}).get(norm_gid)
+        if hasattr(engine, "get_deep_scan_status"):
+            res = engine.get_deep_scan_status(group_id)
+            if asyncio.iscoroutine(res):
+                res = await res
+            return res
+        norm_gid = getattr(engine, "normalize_gid", lambda g: abs(int(str(g).replace("-100", "").replace("-", "") or 0)))(group_id)
+        abs_gid = abs(int(group_id))
+        scan_info = getattr(engine, "active_deep_scans", {}).get(norm_gid) or getattr(engine, "active_deep_scans", {}).get(abs_gid)
         if not scan_info:
             return {"status": "IDLE", "group_id": group_id, "scanned": 0, "target_limit": 100000}
         return scan_info

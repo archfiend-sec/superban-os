@@ -319,24 +319,37 @@ class SuperBanEngine:
         await self.emit_telemetry("scan_complete", {"total_scanned": len(inspected)})
         return inspected
 
+    @staticmethod
+    def normalize_gid(gid: Any) -> int:
+        """Uniform Telegram channel/supergroup ID normalizer."""
+        if gid is None:
+            return 0
+        s = str(gid).replace("-100", "").replace("-", "").strip()
+        try:
+            return int(s) if s else 0
+        except ValueError:
+            return 0
+
     # ═══════════════════════════════════════════════════════
     #   100,000 MESSAGE DEEP SCAN & REPUTATION ENGINE
     # ═══════════════════════════════════════════════════════
     async def deep_scan_group_messages(self, group_entity, limit: int = 100000) -> Dict[str, Any]:
         """High-velocity 100,000 message deep scanner for group member reputation and behavioral profiling."""
-        gid = getattr(group_entity, 'id', 0)
-        if not gid and isinstance(group_entity, int):
-            gid = group_entity
-        norm_gid = abs(int(gid))
+        raw_gid = getattr(group_entity, 'id', 0)
+        if not raw_gid and isinstance(group_entity, (int, str)):
+            raw_gid = group_entity
+        norm_gid = self.normalize_gid(raw_gid)
+        abs_gid = abs(int(raw_gid)) if str(raw_gid).lstrip("-").isdigit() else norm_gid
         target_limit = max(100, min(int(limit), 100000))
-        group_title = getattr(group_entity, 'title', f"Group {gid}")
+        group_title = getattr(group_entity, 'title', f"Group {raw_gid}")
 
-        if norm_gid in self._cancel_deep_scans:
-            self._cancel_deep_scans.remove(norm_gid)
+        self._cancel_deep_scans.discard(norm_gid)
+        self._cancel_deep_scans.discard(abs_gid)
 
         start_t = time.time()
         scan_info = {
-            "group_id": gid,
+            "group_id": raw_gid,
+            "norm_group_id": norm_gid,
             "group_title": group_title,
             "target_limit": target_limit,
             "scanned": 0,
@@ -348,6 +361,7 @@ class SuperBanEngine:
             "error": None
         }
         self.active_deep_scans[norm_gid] = scan_info
+        self.active_deep_scans[abs_gid] = scan_info
         await self.emit_telemetry("deep_scan_started", scan_info)
 
         member_aggregates: Dict[int, Dict[str, Any]] = {}
@@ -356,9 +370,9 @@ class SuperBanEngine:
             await self.ensure_connected()
             last_emit_t = 0.0
             async for msg in self.client.iter_messages(group_entity, limit=target_limit):
-                if norm_gid in self._cancel_deep_scans:
+                if norm_gid in self._cancel_deep_scans or abs_gid in self._cancel_deep_scans:
                     scan_info["status"] = "CANCELLED"
-                    logger.info(f"Deep scan for group {gid} cancelled by user.")
+                    logger.info(f"Deep scan for group {raw_gid} cancelled by user.")
                     break
 
                 scan_info["scanned"] += 1
@@ -446,7 +460,8 @@ class SuperBanEngine:
                         asyncio.create_task(self.db.batch_upsert_member_reputation(norm_gid, member_payload))
 
                     await self.emit_telemetry("deep_scan_progress", {
-                        "group_id": gid,
+                        "group_id": raw_gid,
+                        "norm_group_id": norm_gid,
                         "group_title": group_title,
                         "scanned": scanned_now,
                         "total": target_limit,
@@ -463,17 +478,19 @@ class SuperBanEngine:
             logger.warning(f"FloodWait during deep scan: Sleeping {fwe.seconds}s...")
             scan_info["status"] = f"FLOOD_WAIT ({fwe.seconds}s)"
             await self.emit_telemetry("deep_scan_progress", {
-                "group_id": gid,
+                "group_id": raw_gid,
+                "norm_group_id": norm_gid,
                 "status": scan_info["status"],
                 "sleep": fwe.seconds
             })
             await asyncio.sleep(fwe.seconds + 1)
         except Exception as e:
-            logger.error(f"Error in deep scan for group {gid}: {e}")
+            logger.error(f"Error in deep scan for group {raw_gid}: {e}")
             scan_info["error"] = str(e)
             scan_info["status"] = "ERROR"
             await self.emit_telemetry("deep_scan_error", {
-                "group_id": gid,
+                "group_id": raw_gid,
+                "norm_group_id": norm_gid,
                 "error": str(e),
                 "scanned": scan_info["scanned"],
                 "status": "ERROR"
@@ -492,7 +509,8 @@ class SuperBanEngine:
         top_chatters = sorted(final_members, key=lambda x: x["message_count"], reverse=True)[:10]
 
         summary = {
-            "group_id": gid,
+            "group_id": raw_gid,
+            "norm_group_id": norm_gid,
             "group_title": group_title,
             "scanned": scan_info["scanned"],
             "total_scanned": scan_info["scanned"],
@@ -562,21 +580,25 @@ class SuperBanEngine:
 
     async def cancel_deep_scan(self, group_id: int) -> Dict[str, Any]:
         """Cancel an in-progress 100k message scan."""
-        norm_gid = abs(int(group_id))
+        norm_gid = self.normalize_gid(group_id)
+        abs_gid = abs(int(group_id)) if str(group_id).lstrip("-").isdigit() else norm_gid
         self._cancel_deep_scans.add(norm_gid)
-        if norm_gid in self.active_deep_scans:
-            self.active_deep_scans[norm_gid]["status"] = "CANCELLED"
-        return {"cancelled": True, "group_id": norm_gid}
+        self._cancel_deep_scans.add(abs_gid)
+        for k in (norm_gid, abs_gid):
+            if k in self.active_deep_scans:
+                self.active_deep_scans[k]["status"] = "CANCELLED"
+        return {"cancelled": True, "group_id": group_id}
 
     async def get_deep_scan_status(self, group_id: int) -> Dict[str, Any]:
         """Retrieve progress and telemetry for an active or completed deep scan."""
-        norm_gid = abs(int(group_id))
-        return self.active_deep_scans.get(norm_gid, {
+        norm_gid = self.normalize_gid(group_id)
+        abs_gid = abs(int(group_id)) if str(group_id).lstrip("-").isdigit() else norm_gid
+        return self.active_deep_scans.get(norm_gid) or self.active_deep_scans.get(abs_gid) or {
             "status": "IDLE",
             "group_id": group_id,
             "scanned": 0,
             "target_limit": 100000
-        })
+        }
 
     def build_banned_rights(self, action: str, duration_seconds: int = 0, permission_subtype: str = "full") -> ChatBannedRights:
         until_date = None

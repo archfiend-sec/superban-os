@@ -23,8 +23,8 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
 <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/static/apple-touch-icon-precomposed.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<!-- Google Fonts: Onest & Noto Sans JP & JetBrains Mono -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<!-- Google Fonts: DM Serif Display & Inter & JetBrains Mono & Noto Sans JP & Onest -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&family=Onest:wght@300;400;500;600;700&display=swap">
 <!-- Lucide Icons -->
 <script src="https://unpkg.com/lucide@latest"></script>
 <!-- Chart.js -->
@@ -2166,6 +2166,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   color: var(--vermilion);
 }
 
+/* Default state: mobile group pill hidden on desktop */
+.nav-mob-group-pill {
+  display: none !important;
+}
+
 /* ═══════════════════════════════════════════════════════
    MEDIA QUERIES: MOBILE & TALL RATIO (SMARTPHONES)
    ═══════════════════════════════════════════════════════ */
@@ -2882,598 +2887,743 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 }
 
 /* ╔══════════════════════════════════════════════════════════════════════════╗
-   ║  KAGE WAR ROOM — PREMIUM DESIGN SYSTEM OVERHAUL                        ║
-   ║  Cyber Intelligence Command Centre · SOC-Grade Visual Refinement        ║
+   ║  KAGE — OBSIDIAN INTELLIGENCE                                          ║
+   ║  Editorial Brutalism · Obsidian Luxury · Tactical Intelligence         ║
+   ║  "Intelligence without noise."                                          ║
    ╚══════════════════════════════════════════════════════════════════════════╝ */
 
-/* ── ENHANCED DESIGN TOKENS ── */
+/* ── 01. THE OBSIDIAN COLOR SYSTEM ── */
 :root {
-  /* Core palette — tightened to spec */
-  --bg-base:        #07090B;
-  --bg-surface:     #0D1115;
-  --bg-elevated:    #111820;
-  --bg-panel:       rgba(13, 17, 21, 0.92);
-  --bg-card:        rgba(17, 24, 32, 0.80);
-  --bg-hover:       rgba(255, 255, 255, 0.034);
-  --bg-active:      rgba(255, 48, 61, 0.08);
+  /* Foundations */
+  --obsidian:       #08090B;
+  --deep-carbon:    #0D0F12;
+  --graphite:       #15171A;
+  --elevated:       #1A1C20;
+  --surface-hover:  rgba(240, 239, 236, 0.035);
+  --surface-active: rgba(229, 43, 47, 0.08);
 
-  /* Accent colors */
-  --red:            #FF303D;
-  --red-dim:        rgba(255, 48, 61, 0.65);
-  --red-glow:       rgba(255, 48, 61, 0.22);
-  --red-bg:         rgba(255, 48, 61, 0.09);
-  --red-border:     rgba(255, 48, 61, 0.35);
-  --cyan:           #00D9FF;
-  --cyan-dim:       rgba(0, 217, 255, 0.65);
-  --cyan-glow:      rgba(0, 217, 255, 0.18);
-  --cyan-bg:        rgba(0, 217, 255, 0.07);
-  --cyan-border:    rgba(0, 217, 255, 0.28);
-  --green:          #00D69A;
-  --green-dim:      rgba(0, 214, 154, 0.65);
-  --green-glow:     rgba(0, 214, 154, 0.18);
-  --green-bg:       rgba(0, 214, 154, 0.07);
-  --green-border:   rgba(0, 214, 154, 0.28);
-  --amber:          #F59E0B;
-  --amber-bg:       rgba(245, 158, 11, 0.09);
-  --amber-border:   rgba(245, 158, 11, 0.28);
+  /* Accents */
+  --signal-red:     #E52B2F;
+  --signal-red-dim: rgba(229, 43, 47, 0.22);
+  --signal-red-bg:  rgba(229, 43, 47, 0.08);
+  --signal-red-bdr: rgba(229, 43, 47, 0.38);
 
-  /* Text */
-  --text-primary:   #E5E9EC;
-  --text-secondary: #8A949D;
-  --text-muted:     #4A5568;
-  --text-mono:      'JetBrains Mono', monospace;
+  --burnt-orange:   #F26A35;
+  --orange-dim:     rgba(242, 106, 53, 0.22);
+  --orange-bg:      rgba(242, 106, 53, 0.08);
+  --orange-bdr:     rgba(242, 106, 53, 0.35);
 
-  /* Structural */
-  --border:         #20282F;
-  --border-soft:    rgba(32, 40, 47, 0.7);
-  --border-bright:  rgba(229, 233, 236, 0.1);
+  --warm-white:     #F0EFEC;
+  --steel-grey:     #92949A;
+  --muted-grey:     #555B62;
 
-  /* Shadows */
-  --shadow-card:    0 2px 12px rgba(0, 0, 0, 0.5);
-  --shadow-panel:   0 4px 24px rgba(0, 0, 0, 0.6);
-  --shadow-modal:   0 24px 64px rgba(0, 0, 0, 0.9);
-  --shadow-red:     0 0 20px var(--red-glow);
-  --shadow-cyan:    0 0 16px var(--cyan-glow);
-  --shadow-green:   0 0 16px var(--green-glow);
+  --op-green:       #38B98C;
+  --op-green-bg:    rgba(56, 185, 140, 0.08);
+  --op-green-bdr:   rgba(56, 185, 140, 0.32);
 
-  /* Transitions */
-  --ease-fast:      0.14s cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-mid:       0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-slow:      0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  --intel-cyan:     #65C9E8;
+  --intel-cyan-bg:  rgba(101, 201, 232, 0.08);
+  --intel-cyan-bdr: rgba(101, 201, 232, 0.30);
 
-  /* Typography scale */
-  --font-xs:   10px;
-  --font-sm:   11px;
-  --font-base: 12px;
-  --font-md:   13px;
-  --font-lg:   14px;
+  /* Hairline borders & geometry */
+  --dark-border:    #1F2328;
+  --hairline:       rgba(240, 239, 236, 0.065);
+  --hairline-hover: rgba(240, 239, 236, 0.14);
+  --hairline-focus: rgba(229, 43, 47, 0.45);
+
+  /* Typography Stacks */
+  --font-serif:     'DM Serif Display', Georgia, serif;
+  --font-sans:      'Inter', 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:      'JetBrains Mono', monospace;
+
+  /* Universal Shadows & Transitions */
+  --shadow-obsidian: 0 4px 28px rgba(0, 0, 0, 0.75);
+  --shadow-card:     0 2px 10px rgba(0, 0, 0, 0.55);
+  --ease-editorial:  0.18s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Backwards-compatibility aliases for existing JS & CSS */
+  --ink:            var(--obsidian);
+  --ink-2:          var(--deep-carbon);
+  --bone:           var(--warm-white);
+  --bone-dim:       var(--steel-grey);
+  --muted:          var(--muted-grey);
+  --line:           var(--dark-border);
+  --line-soft:      var(--hairline);
+  --vermilion:      var(--signal-red);
+  --ember:          var(--burnt-orange);
+  --bg-base:        var(--obsidian);
+  --bg-surface:     var(--deep-carbon);
+  --bg-elevated:    var(--graphite);
+  --bg-card:        var(--deep-carbon);
+  --red:            var(--signal-red);
+  --cyan:           var(--intel-cyan);
+  --green:          var(--op-green);
+  --text-primary:   var(--warm-white);
+  --text-secondary: var(--steel-grey);
 }
 
-/* ── CUSTOM SCROLLBAR ── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+/* ── 02. TYPOGRAPHIC FOUNDATION & BASE ── */
+body {
+  background: var(--obsidian) !important;
+  color: var(--warm-white) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+::selection {
+  background: var(--signal-red) !important;
+  color: #ffffff !important;
+}
+
+/* Minimal bespoke scrollbar */
+::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(32, 40, 47, 0.9); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 48, 61, 0.5); }
-* { scrollbar-width: thin; scrollbar-color: rgba(32, 40, 47, 0.9) transparent; }
+::-webkit-scrollbar-thumb { background: rgba(146, 148, 154, 0.22); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--signal-red); }
+* { scrollbar-width: thin; scrollbar-color: rgba(146, 148, 154, 0.22) transparent; }
 
-/* ── BODY & BASE ── */
-body { background: var(--bg-base); color: var(--text-primary); font-size: 13px; }
-
-/* ── GLOBAL FOCUS RING ── */
-:focus-visible { outline: 1.5px solid var(--red); outline-offset: 2px; border-radius: 2px; }
-
-/* ══════════════════════════════════════════════════
-   NAVIGATION BAR — Premium Command Bar
-   ══════════════════════════════════════════════════ */
+/* ── 03. TOP COMMAND BAR (Obsidian Luxury) ── */
 .nav {
-  background: rgba(7, 9, 11, 0.96) !important;
-  border-bottom: 1px solid var(--border) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 24px rgba(0, 0, 0, 0.5) !important;
+  height: 54px !important;
+  background: rgba(8, 9, 11, 0.96) !important;
+  border-bottom: 1px solid var(--dark-border) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  padding: 0 20px !important;
+  box-shadow: 0 1px 0 rgba(240, 239, 236, 0.04), 0 8px 32px rgba(0, 0, 0, 0.7) !important;
 }
 
-/* Brand */
-.brand svg { opacity: 0.9; }
+/* Brand Identity */
+.brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+.brand svg {
+  width: 28px !important;
+  height: 28px !important;
+  opacity: 0.95 !important;
+}
 .brand-tx b {
-  font-size: 14px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13.5px !important;
   font-weight: 700 !important;
-  letter-spacing: 0.08em !important;
-  color: var(--text-primary) !important;
+  letter-spacing: 0.14em !important;
+  color: var(--warm-white) !important;
 }
 .brand-tx i {
-  font-size: 9px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 8.5px !important;
   letter-spacing: 0.22em !important;
-  color: var(--text-secondary) !important;
+  color: var(--steel-grey) !important;
   font-style: normal !important;
+  text-transform: uppercase !important;
+  margin-top: 1px !important;
 }
 
-/* Nav mode pill */
+/* Sanctuary vs War Room Mode Switcher */
 .view-mode-pill {
-  background: var(--bg-surface) !important;
-  border-color: var(--border) !important;
-  border-radius: 6px !important;
+  background: var(--deep-carbon) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 4px !important;
   padding: 2px !important;
+  gap: 2px !important;
 }
 .view-pill-btn {
-  border-radius: 4px !important;
-  font-size: 11px !important;
-  letter-spacing: 0.08em !important;
-  font-weight: 500 !important;
-  padding: 5px 12px !important;
-  color: var(--text-secondary) !important;
-  transition: all var(--ease-fast) !important;
-}
-.view-pill-btn:hover { color: var(--text-primary) !important; background: var(--bg-hover) !important; }
-.view-pill-btn.active {
-  background: var(--red-bg) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--red-border) !important;
-  box-shadow: var(--shadow-red), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-}
-
-/* Nav pills (Voice Chamber, Search, Tools, etc.) */
-.kage-btn-pill {
-  background: var(--bg-surface) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text-secondary) !important;
-  border-radius: 5px !important;
-  padding: 5px 12px !important;
+  border-radius: 3px !important;
+  font-family: var(--font-sans) !important;
   font-size: 11px !important;
   letter-spacing: 0.06em !important;
-  transition: all var(--ease-fast) !important;
+  font-weight: 500 !important;
+  padding: 5px 12px !important;
+  color: var(--steel-grey) !important;
+  transition: all var(--ease-editorial) !important;
+}
+.view-pill-btn:hover {
+  color: var(--warm-white) !important;
+  background: var(--surface-hover) !important;
+}
+.view-pill-btn.active {
+  background: var(--signal-red-bg) !important;
+  color: var(--warm-white) !important;
+  border: 1px solid var(--signal-red-bdr) !important;
+  box-shadow: 0 0 16px var(--signal-red-dim) !important;
+}
+.live-dot-pulse {
+  background: var(--signal-red) !important;
+  box-shadow: 0 0 8px var(--signal-red) !important;
+}
+
+/* Header Action Buttons */
+.kage-btn-pill {
+  background: var(--deep-carbon) !important;
+  border: 1px solid var(--hairline) !important;
+  color: var(--steel-grey) !important;
+  border-radius: 4px !important;
+  padding: 5px 12px !important;
+  font-size: 11px !important;
+  font-family: var(--font-sans) !important;
+  letter-spacing: 0.04em !important;
+  transition: all var(--ease-editorial) !important;
 }
 .kage-btn-pill:hover {
-  color: var(--text-primary) !important;
-  border-color: var(--border-bright) !important;
-  background: var(--bg-hover) !important;
+  color: var(--warm-white) !important;
+  border-color: var(--hairline-hover) !important;
+  background: var(--surface-hover) !important;
 }
 
-/* Operator badge */
+/* Active Operator Clearance Badge */
 .op-badge {
-  background: var(--bg-surface) !important;
-  border: 1px solid var(--border) !important;
-  font-size: 11px !important;
-  color: var(--text-secondary) !important;
-  border-radius: 5px !important;
-  padding: 5px 12px !important;
+  background: var(--deep-carbon) !important;
+  border: 1px solid var(--hairline) !important;
+  font-size: 10.5px !important;
+  color: var(--steel-grey) !important;
+  border-radius: 4px !important;
+  padding: 5px 11px !important;
+  font-family: var(--font-mono) !important;
 }
 .op-badge .dot {
-  background: var(--green) !important;
-  box-shadow: var(--shadow-green) !important;
+  background: var(--op-green) !important;
+  box-shadow: 0 0 8px rgba(56, 185, 140, 0.5) !important;
 }
 
-/* Nav dropdown */
+/* Tools Dropdown */
 #nav-tools-dropdown {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  box-shadow: var(--shadow-modal) !important;
-  padding: 8px !important;
+  background: var(--deep-carbon) !important;
+  border: 1px solid var(--dark-border) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--shadow-obsidian) !important;
+  padding: 6px !important;
 }
 .kage-dropdown-item {
-  border-radius: 5px !important;
-  color: var(--text-secondary) !important;
-  font-size: 12px !important;
+  border-radius: 4px !important;
+  color: var(--steel-grey) !important;
+  font-size: 11.5px !important;
   padding: 7px 10px !important;
-  transition: all var(--ease-fast) !important;
+  font-family: var(--font-sans) !important;
+  transition: all var(--ease-editorial) !important;
 }
 .kage-dropdown-item:hover {
-  background: var(--bg-hover) !important;
-  color: var(--text-primary) !important;
+  background: var(--surface-hover) !important;
+  color: var(--warm-white) !important;
   transform: none !important;
 }
 
-/* Device pill */
-.kage-device-pill {
-  background: var(--bg-surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 5px !important;
-  color: var(--text-secondary) !important;
-  font-size: 10px !important;
-}
-.kage-device-pill:hover { border-color: var(--border-bright) !important; color: var(--text-primary) !important; background: var(--bg-hover) !important; }
-
-/* Audio button */
-.btn-round {
-  width: 32px !important;
-  height: 32px !important;
-  border: 1px solid var(--border) !important;
-  background: var(--bg-surface) !important;
-  border-radius: 6px !important;
-  color: var(--text-secondary) !important;
-  transition: all var(--ease-fast) !important;
-}
-.btn-round:hover { border-color: var(--border-bright) !important; color: var(--text-primary) !important; }
-
-/* ══════════════════════════════════════════════════
-   WAR ROOM HUD — Layout Foundations
-   ══════════════════════════════════════════════════ */
+/* ── 04. WAR ROOM HUD STRUCTURE & PANELS ── */
 .war-room-hud {
-  background: var(--bg-base) !important;
+  background: var(--obsidian) !important;
   backdrop-filter: none !important;
 }
 
-/* Top status bar */
+/* Top Ticker Bar */
 .hud-top-bar {
-  height: 36px !important;
-  flex: 0 0 36px !important;
-  background: var(--bg-surface) !important;
-  border-bottom: 1px solid var(--border) !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: var(--deep-carbon) !important;
+  border-bottom: 1px solid var(--dark-border) !important;
   padding: 0 16px !important;
-  font-size: 10px !important;
+  font-size: 10.5px !important;
+  font-family: var(--font-mono) !important;
+  gap: 12px !important;
+  overflow: hidden !important;
+}
+.hud-ticker-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+}
+.hud-ticker-center {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-align: center !important;
+  padding: 0 14px !important;
+}
+.hud-target-title {
+  display: inline-block !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: var(--warm-white) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+}
+.hud-ticker-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
 }
 .hud-sys-tag {
-  font-size: 10px !important;
-  letter-spacing: 0.18em !important;
-  color: var(--red) !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.16em !important;
+  color: var(--signal-red) !important;
   font-weight: 600 !important;
 }
 .hud-status-live {
-  color: var(--green) !important;
-  font-size: 10px !important;
-  gap: 5px !important;
+  color: var(--op-green) !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.08em !important;
 }
 .hud-blink-dot {
-  background: var(--green) !important;
-  box-shadow: var(--shadow-green) !important;
+  background: var(--op-green) !important;
+  box-shadow: 0 0 6px var(--op-green) !important;
 }
-.hud-divider { color: var(--border) !important; opacity: 1 !important; }
-#hud-defcon-display { font-size: 9px !important; }
-
-/* Top bar controls */
+.hud-divider {
+  color: var(--dark-border) !important;
+  opacity: 0.8 !important;
+}
+#hud-target-group-name {
+  color: var(--intel-cyan) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+}
 .btn-xs-outline {
   background: transparent !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text-secondary) !important;
+  border: 1px solid var(--hairline) !important;
+  color: var(--steel-grey) !important;
   border-radius: 3px !important;
   padding: 2px 7px !important;
   font-size: 9px !important;
-  letter-spacing: 0.08em !important;
-  transition: all var(--ease-fast) !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0.06em !important;
+  transition: all var(--ease-editorial) !important;
 }
 .btn-xs-outline:hover, .btn-xs-outline.active {
-  color: var(--text-primary) !important;
-  border-color: var(--border-bright) !important;
+  color: var(--warm-white) !important;
+  border-color: var(--hairline-hover) !important;
+  background: var(--surface-hover) !important;
 }
-#hud-target-group-name {
-  color: var(--cyan) !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-}
-.hud-ticker-center { flex: 1; display: flex; align-items: center; justify-content: center; }
 
-/* 3-col body */
+/* 3-Column Asymmetric Cockpit Grid */
 .hud-body {
-  grid-template-columns: 290px minmax(0, 1fr) 360px !important;
-  height: calc(100% - 36px) !important;
+  grid-template-columns: 295px minmax(0, 1fr) 365px !important;
+  height: calc(100% - 35px) !important;
 }
-
-/* Column chrome */
 .hud-col {
-  padding: 14px !important;
-  gap: 0;
+  padding: 14px 16px !important;
 }
 .hud-col-left {
-  background: var(--bg-surface) !important;
-  border-right: 1px solid var(--border) !important;
+  background: var(--deep-carbon) !important;
+  border-right: 1px solid var(--dark-border) !important;
 }
-.hud-col-center { background: var(--bg-base) !important; }
+.hud-col-center {
+  background: var(--obsidian) !important;
+}
 .hud-col-right {
-  background: var(--bg-surface) !important;
-  border-left: 1px solid var(--border) !important;
+  background: var(--deep-carbon) !important;
+  border-left: 1px solid var(--dark-border) !important;
 }
 
-/* Panel section titles */
+/* Editorial Section Panel Titles */
 .hud-panel-title {
-  font-size: 9px !important;
-  letter-spacing: 0.22em !important;
-  color: var(--text-secondary) !important;
-  border-bottom: 1px solid var(--border) !important;
-  margin-bottom: 10px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: var(--steel-grey) !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  margin-bottom: 12px !important;
   padding-bottom: 8px !important;
-  font-weight: 600 !important;
+  font-weight: 500 !important;
   display: flex !important;
   align-items: center !important;
+  justify-content: space-between !important;
 }
-.hud-panel-title b {
-  color: var(--red) !important;
-  font-family: var(--text-mono) !important;
-  font-size: 9px !important;
+.hud-panel-title span b {
+  font-family: var(--font-serif) !important;
+  font-size: 16px !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  color: var(--signal-red) !important;
+  margin-right: 4px !important;
+  letter-spacing: 0 !important;
 }
-
-/* Labels */
 .hud-label {
+  font-family: var(--font-mono) !important;
   font-size: 9px !important;
-  letter-spacing: 0.18em !important;
-  color: var(--text-secondary) !important;
-  font-weight: 500 !important;
-  margin-bottom: 5px !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: var(--steel-grey) !important;
+  margin-bottom: 6px !important;
 }
 
-/* Inner boxes */
-.hud-box {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 6px !important;
-  padding: 10px !important;
-}
-
-/* ══════════════════════════════════════════════════
-   INPUT & SELECT — Refined Forms
-   ══════════════════════════════════════════════════ */
+/* ── 05. LEFT RAIL: TARGET RECON & DEFCON ── */
 .kage-select, .kage-input {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text-primary) !important;
-  border-radius: 5px !important;
-  padding: 8px 10px !important;
+  background: var(--graphite) !important;
+  border: 1px solid var(--dark-border) !important;
+  color: var(--warm-white) !important;
+  border-radius: 4px !important;
+  padding: 8px 11px !important;
   font-size: 11px !important;
-  transition: border-color var(--ease-fast), box-shadow var(--ease-fast) !important;
+  font-family: var(--font-mono) !important;
+  transition: border-color var(--ease-editorial) !important;
 }
 .kage-select:focus, .kage-input:focus {
-  border-color: var(--red-border) !important;
-  box-shadow: 0 0 0 2px var(--red-glow) !important;
+  border-color: var(--hairline-focus) !important;
   outline: none !important;
 }
-.kage-select option { background: var(--bg-elevated); color: var(--text-primary); }
-
-/* ══════════════════════════════════════════════════
-   DEFCON MATRIX — Tactical Status Control
-   ══════════════════════════════════════════════════ */
-.hud-defcon-grid { gap: 5px !important; }
-.hud-defcon-btn {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
+.hud-box {
+  background: var(--graphite) !important;
+  border: 1px solid var(--hairline) !important;
   border-radius: 5px !important;
-  color: var(--text-secondary) !important;
-  padding: 9px 4px !important;
-  transition: all var(--ease-fast) !important;
+  padding: 11px !important;
+}
+
+/* DEFCON Defense Posture Matrix */
+.hud-defcon-grid {
+  gap: 4px !important;
+}
+.hud-defcon-btn {
+  background: var(--deep-carbon) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 4px !important;
+  color: var(--steel-grey) !important;
+  padding: 8px 4px !important;
+  transition: all var(--ease-editorial) !important;
 }
 .hud-defcon-btn b {
-  font-size: 15px !important;
-  font-family: var(--text-mono) !important;
-  font-weight: 700 !important;
+  font-family: var(--font-serif) !important;
+  font-size: 17px !important;
+  font-weight: 400 !important;
   line-height: 1 !important;
 }
 .hud-defcon-btn span {
+  font-family: var(--font-mono) !important;
   font-size: 7px !important;
-  letter-spacing: 0.1em !important;
+  letter-spacing: 0.12em !important;
   font-weight: 600 !important;
+  text-transform: uppercase !important;
+  margin-top: 3px !important;
 }
-.hud-defcon-btn:hover { border-color: var(--border-bright) !important; color: var(--text-primary) !important; background: var(--bg-hover) !important; }
-.hud-defcon-btn.active { background: rgba(229, 233, 236, 0.07) !important; border-color: var(--border-bright) !important; color: var(--text-primary) !important; }
-#hud-defcon-4.active  { background: var(--amber-bg) !important; border-color: var(--amber-border) !important; color: var(--amber) !important; box-shadow: 0 0 10px rgba(245,158,11,0.2) !important; }
-#hud-defcon-3.active  { background: rgba(249,115,22,0.1) !important; border-color: rgba(249,115,22,0.35) !important; color: #F97316 !important; box-shadow: 0 0 10px rgba(249,115,22,0.2) !important; }
-#hud-defcon-2.active  { background: var(--red-bg) !important; border-color: var(--red-border) !important; color: var(--red) !important; box-shadow: var(--shadow-red) !important; }
-#hud-defcon-1.active, .hud-defcon-btn.defcon-nuclear.active { background: rgba(255,48,61,0.2) !important; border-color: var(--red) !important; color: #fff !important; box-shadow: 0 0 24px var(--red-glow) !important; animation: pulseNuclear 1.4s infinite !important; }
+.hud-defcon-btn:hover {
+  border-color: var(--hairline-hover) !important;
+  color: var(--warm-white) !important;
+  background: var(--surface-hover) !important;
+}
+.hud-defcon-btn.active {
+  background: rgba(240, 239, 236, 0.08) !important;
+  border-color: var(--warm-white) !important;
+  color: var(--warm-white) !important;
+}
+#hud-defcon-4.active {
+  background: var(--orange-bg) !important;
+  border-color: var(--burnt-orange) !important;
+  color: var(--burnt-orange) !important;
+}
+#hud-defcon-3.active {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: #F59E0B !important;
+  color: #F59E0B !important;
+}
+#hud-defcon-2.active {
+  background: var(--signal-red-bg) !important;
+  border-color: var(--signal-red) !important;
+  color: var(--signal-red) !important;
+}
+#hud-defcon-1.active, .hud-defcon-btn.defcon-nuclear.active {
+  background: rgba(229, 43, 47, 0.22) !important;
+  border-color: var(--signal-red) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 24px var(--signal-red-dim) !important;
+}
 
-/* ══════════════════════════════════════════════════
-   ACTION BUTTONS — Left Sidebar Tactical Strikes
-   ══════════════════════════════════════════════════ */
-.hud-action-list { gap: 3px !important; }
+/* Tactical Strikes List */
+.hud-action-list {
+  gap: 2px !important;
+}
 .hud-action-btn {
   background: transparent !important;
   border: 1px solid transparent !important;
   border-left: 2px solid transparent !important;
-  border-radius: 5px !important;
-  color: var(--text-secondary) !important;
-  font-size: 11px !important;
+  border-radius: 4px !important;
+  color: var(--steel-grey) !important;
+  font-size: 11.5px !important;
   padding: 7px 10px !important;
-  gap: 9px !important;
-  transition: all var(--ease-fast) !important;
-  font-family: 'Onest', sans-serif !important;
+  gap: 10px !important;
+  font-family: var(--font-sans) !important;
+  transition: all var(--ease-editorial) !important;
 }
-.hud-action-btn i { color: var(--text-muted) !important; flex-shrink: 0 !important; transition: color var(--ease-fast) !important; }
+.hud-action-btn i {
+  color: var(--muted-grey) !important;
+  flex-shrink: 0 !important;
+  transition: color var(--ease-editorial) !important;
+}
 .hud-action-btn:hover {
-  background: var(--bg-hover) !important;
-  border-color: var(--border) !important;
-  border-left-color: var(--red) !important;
-  color: var(--text-primary) !important;
-  transform: translateX(1px) !important;
+  background: var(--surface-hover) !important;
+  border-color: var(--hairline) !important;
+  border-left-color: var(--signal-red) !important;
+  color: var(--warm-white) !important;
+  transform: translateX(2px) !important;
 }
-.hud-action-btn:hover i { color: var(--red) !important; }
-.hud-action-btn.danger { border-color: rgba(255, 48, 61, 0.15) !important; }
-.hud-action-btn.danger:hover { background: var(--red-bg) !important; border-color: var(--red-border) !important; border-left-color: var(--red) !important; color: #ff7070 !important; }
-.hud-action-btn.terminal { border-color: rgba(255, 48, 61, 0.2) !important; color: var(--text-primary) !important; }
-
-/* Tag pills on action buttons */
+.hud-action-btn:hover i {
+  color: var(--signal-red) !important;
+}
+.hud-action-btn.danger {
+  border-color: rgba(229, 43, 47, 0.15) !important;
+}
+.hud-action-btn.danger:hover {
+  background: var(--signal-red-bg) !important;
+  border-color: var(--signal-red-bdr) !important;
+  border-left-color: var(--signal-red) !important;
+  color: #ff6c70 !important;
+}
 .hud-tag-pill {
-  font-family: var(--text-mono) !important;
+  font-family: var(--font-mono) !important;
   font-size: 8px !important;
-  letter-spacing: 0.08em !important;
-  color: var(--text-secondary) !important;
-  border: 1px solid var(--border) !important;
+  letter-spacing: 0.1em !important;
+  color: var(--steel-grey) !important;
+  border: 1px solid var(--hairline) !important;
   background: transparent !important;
   padding: 1px 5px !important;
-  border-radius: 3px !important;
-  transition: all var(--ease-fast) !important;
+  border-radius: 2px !important;
 }
-.hud-action-btn:hover .hud-tag-pill { border-color: var(--red-border) !important; color: var(--text-primary) !important; }
-.hud-tag-pill.danger { border-color: var(--red-border) !important; color: var(--red) !important; background: var(--red-bg) !important; }
+.hud-action-btn:hover .hud-tag-pill {
+  border-color: var(--signal-red-bdr) !important;
+  color: var(--warm-white) !important;
+}
 
-/* Stats grid */
-.hud-stat-grid { border-top: 1px solid var(--border) !important; padding-top: 10px !important; gap: 6px !important; }
+/* Bottom Stats Grid */
+.hud-stat-grid {
+  border-top: 1px solid var(--dark-border) !important;
+  padding-top: 12px !important;
+  gap: 6px !important;
+}
 .hud-stat-cell {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 5px !important;
-  padding: 8px 6px !important;
+  background: var(--graphite) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 4px !important;
+  padding: 9px 6px !important;
 }
-.hud-stat-cell b { font-size: 16px !important; font-weight: 600 !important; color: var(--text-primary) !important; }
-.hud-stat-cell span { font-size: 8px !important; color: var(--text-secondary) !important; letter-spacing: 0.12em !important; }
-#hud-stat-threats { color: var(--red) !important; }
+.hud-stat-cell b {
+  font-family: var(--font-mono) !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: var(--warm-white) !important;
+}
+.hud-stat-cell span {
+  font-family: var(--font-mono) !important;
+  font-size: 8px !important;
+  color: var(--steel-grey) !important;
+  letter-spacing: 0.14em !important;
+}
+#hud-stat-threats {
+  color: var(--signal-red) !important;
+}
 
-/* ══════════════════════════════════════════════════
-   CENTER COLUMN — Tab Bar & Intelligence Feed
-   ══════════════════════════════════════════════════ */
-/* Tab container */
-.kage-hud-tabs { gap: 0 !important; border-bottom: none !important; }
+/* ── 06. CENTRAL STAGE: SIGNAL WIRE & INTELLIGENCE SUITE ── */
+.hud-tabs-bar {
+  background: var(--deep-carbon) !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  width: 100% !important;
+  flex-shrink: 0 !important;
+}
+.kage-hud-tabs {
+  display: flex !important;
+  width: 100% !important;
+  gap: 0 !important;
+  border-bottom: none !important;
+  background: transparent !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+.kage-hud-tabs::-webkit-scrollbar {
+  display: none !important;
+}
 .kage-hud-tab {
-  padding: 10px 16px !important;
+  flex: 1 1 0 !important;
+  min-width: 125px !important;
+  justify-content: center !important;
+  padding: 12px 14px !important;
   border-bottom: 2px solid transparent !important;
   border-radius: 0 !important;
-  color: var(--text-secondary) !important;
-  font-size: 11px !important;
-  gap: 8px !important;
-  transition: all var(--ease-fast) !important;
-  position: relative;
+  color: var(--steel-grey) !important;
+  font-size: 11.5px !important;
+  gap: 9px !important;
+  transition: all var(--ease-editorial) !important;
+  white-space: nowrap !important;
 }
-.kage-hud-tab:hover { background: var(--bg-hover) !important; color: var(--text-primary) !important; }
+.kage-hud-tab:hover {
+  background: var(--surface-hover) !important;
+  color: var(--warm-white) !important;
+}
 .kage-hud-tab.active {
-  background: rgba(255, 48, 61, 0.04) !important;
-  border-bottom-color: var(--red) !important;
-  color: var(--text-primary) !important;
+  background: rgba(229, 43, 47, 0.05) !important;
+  border-bottom-color: var(--signal-red) !important;
+  color: var(--warm-white) !important;
 }
-.kage-tab-num { font-size: 10px !important; font-weight: 700 !important; color: var(--text-muted) !important; font-family: var(--text-mono) !important; }
-.kage-hud-tab.active .kage-tab-num { color: var(--red) !important; }
-.kage-tab-title { font-size: 11px !important; font-weight: 600 !important; letter-spacing: 0.08em !important; }
-.kage-tab-jp { font-size: 9px !important; color: var(--text-secondary) !important; letter-spacing: 0.12em !important; }
-.kage-hud-tab.active .kage-tab-jp { color: var(--text-secondary) !important; }
+.kage-tab-num {
+  font-family: var(--font-serif) !important;
+  font-size: 14px !important;
+  font-style: italic !important;
+  color: var(--muted-grey) !important;
+}
+.kage-hud-tab.active .kage-tab-num {
+  color: var(--signal-red) !important;
+}
+.kage-tab-title {
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+}
+.kage-tab-jp {
+  font-family: 'Noto Sans JP', sans-serif !important;
+  font-size: 8.5px !important;
+  color: var(--steel-grey) !important;
+  letter-spacing: 0.14em !important;
+}
 
-/* Tab bar container */
+/* Stream sub-controls bar */
+.wiretap-sub-header,
 div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba(5,7,10,0.85)"] {
-  background: var(--bg-surface) !important;
-  border-bottom: 1px solid var(--border) !important;
+  background: var(--deep-carbon) !important;
+  border-bottom: 1px solid var(--dark-border) !important;
 }
-
-/* Filter toggles */
 .hud-filter-toggle {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 5px !important;
+  background: var(--graphite) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 4px !important;
   padding: 2px !important;
 }
 .flt-btn {
-  font-family: var(--text-mono) !important;
+  font-family: var(--font-mono) !important;
   font-size: 9px !important;
-  color: var(--text-secondary) !important;
-  border-radius: 3px !important;
-  padding: 2px 7px !important;
+  color: var(--steel-grey) !important;
+  border-radius: 2px !important;
+  padding: 3px 8px !important;
   letter-spacing: 0.06em !important;
-  transition: all var(--ease-fast) !important;
+  transition: all var(--ease-editorial) !important;
 }
-.flt-btn.active { background: rgba(229, 233, 236, 0.09) !important; color: var(--text-primary) !important; }
-.flt-btn.danger.active { background: var(--red-bg) !important; color: var(--red) !important; }
+.flt-btn.active {
+  background: rgba(240, 239, 236, 0.09) !important;
+  color: var(--warm-white) !important;
+}
+.flt-btn.danger.active {
+  background: var(--signal-red-bg) !important;
+  color: var(--signal-red) !important;
+}
 
-/* ══════════════════════════════════════════════════
-   WIRETAP STREAM — Intelligence Message Feed
-   ══════════════════════════════════════════════════ */
-.wiretap-stream-wrap { gap: 5px !important; padding: 10px 8px 16px 8px !important; }
-
-/* Message cards */
+/* Wiretap Stream Cards */
+.wiretap-stream-wrap {
+  gap: 5px !important;
+  padding: 12px 10px 18px 10px !important;
+}
 .wiretap-card {
-  background: var(--bg-card) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 7px !important;
-  padding: 10px 12px !important;
-  transition: background var(--ease-fast), border-color var(--ease-fast), box-shadow var(--ease-fast) !important;
-  animation: slideInMsg 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  background: var(--deep-carbon) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 5px !important;
+  padding: 11px 14px !important;
+  transition: background var(--ease-editorial), border-color var(--ease-editorial) !important;
+  animation: slideInMsg 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 .wiretap-card:hover {
-  background: rgba(17, 24, 32, 0.95) !important;
-  border-color: rgba(32, 40, 47, 0.9) !important;
+  background: var(--graphite) !important;
+  border-color: var(--hairline-hover) !important;
 }
 .wiretap-card.threat-card {
-  background: rgba(26, 7, 7, 0.75) !important;
-  border-color: var(--red-border) !important;
-  box-shadow: var(--shadow-red) !important;
+  background: rgba(22, 7, 8, 0.75) !important;
+  border-color: var(--signal-red-bdr) !important;
+  border-left: 3px solid var(--signal-red) !important;
 }
 .wiretap-card.action-card {
   background: transparent !important;
-  border-color: var(--border-soft) !important;
+  border-color: var(--hairline) !important;
   border-style: dashed !important;
-  padding: 5px 10px !important;
 }
 
-/* Avatar */
+/* Avatar Pill */
 .wiretap-avatar-pill {
-  width: 28px !important;
-  height: 28px !important;
+  width: 27px !important;
+  height: 27px !important;
   border-radius: 50% !important;
-  border: 1.5px solid rgba(255,255,255,0.1) !important;
+  border: 1px solid rgba(240, 239, 236, 0.12) !important;
+  font-family: var(--font-sans) !important;
   font-size: 11px !important;
-  font-weight: 700 !important;
-  transition: transform var(--ease-fast), border-color var(--ease-fast) !important;
-}
-.wiretap-avatar-pill:hover { transform: scale(1.1) !important; border-color: var(--red) !important; }
-
-/* Sender name & handle */
-.wiretap-sender-name {
-  font-size: 12px !important;
   font-weight: 600 !important;
-  color: var(--text-primary) !important;
+}
+
+/* Sender Typography */
+.wiretap-sender-name {
+  font-family: var(--font-sans) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: var(--warm-white) !important;
   letter-spacing: 0.01em !important;
 }
 .wiretap-sender-handle {
+  font-family: var(--font-mono) !important;
   font-size: 10px !important;
-  color: var(--text-secondary) !important;
-  font-family: var(--text-mono) !important;
+  color: var(--steel-grey) !important;
 }
 .wiretap-time {
-  font-size: 10px !important;
-  color: var(--text-secondary) !important;
-  font-family: var(--text-mono) !important;
-  opacity: 0.7 !important;
+  font-family: var(--font-mono) !important;
+  font-size: 9.5px !important;
+  color: var(--steel-grey) !important;
+  opacity: 0.75 !important;
 }
 
-/* Message text */
+/* Message Text */
 .wiretap-text {
-  font-size: 12.5px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
   line-height: 1.55 !important;
-  color: var(--text-primary) !important;
-  opacity: 0.9 !important;
-  word-break: break-word !important;
+  color: var(--warm-white) !important;
+  opacity: 0.93 !important;
 }
 
-/* Reply bar */
+/* Reply Bar */
 .wiretap-reply-bar {
-  border-left: 2px solid var(--cyan) !important;
-  background: var(--cyan-bg) !important;
-  border-radius: 0 4px 4px 0 !important;
+  border-left: 2px solid var(--intel-cyan) !important;
+  background: var(--intel-cyan-bg) !important;
+  border-radius: 0 3px 3px 0 !important;
   padding: 4px 10px !important;
+  font-family: var(--font-sans) !important;
 }
 
-/* Reactions */
+/* Reaction Count Pill */
 .reaction-count-pill {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
+  background: var(--graphite) !important;
+  border: 1px solid var(--hairline) !important;
   border-radius: 100px !important;
   font-size: 10px !important;
-  padding: 2px 7px !important;
-  color: var(--text-secondary) !important;
-  transition: all var(--ease-fast) !important;
+  padding: 2px 8px !important;
+  color: var(--steel-grey) !important;
 }
-.reaction-count-pill:hover { border-color: var(--border-bright) !important; color: var(--text-primary) !important; }
-
-/* Alpha radar pill */
-.wiretap-alpha-pill {
-  background: var(--green-bg) !important;
-  border: 1px solid var(--green-border) !important;
-  border-radius: 5px !important;
-  color: var(--green) !important;
+.reaction-count-pill:hover {
+  border-color: var(--hairline-hover) !important;
+  color: var(--warm-white) !important;
 }
 
-/* Ghost vault cards in stream */
-.wiretap-card.ghost-deleted-card {
-  border-color: var(--red-border) !important;
-  background: rgba(30, 6, 6, 0.8) !important;
-  box-shadow: var(--shadow-red) !important;
-}
-.wiretap-card.ghost-edited-card {
-  border-color: var(--amber-border) !important;
-  background: rgba(25, 18, 5, 0.8) !important;
-}
-
-/* Compact density overrides */
+/* Compact Density Stream Mode */
 .density-compact .wiretap-card {
-  padding: 7px 11px !important;
+  padding: 8px 12px !important;
   margin-bottom: 2px !important;
 }
-.density-compact .wiretap-header { margin-bottom: 3px !important; }
-.density-compact .wiretap-avatar-pill { width: 22px !important; height: 22px !important; font-size: 9px !important; flex: 0 0 22px !important; }
-.density-compact .wiretap-sender-name { font-size: 11px !important; }
-.density-compact .wiretap-text { font-size: 12px !important; line-height: 1.42 !important; margin: 2px 0 2px !important; }
+.density-compact .wiretap-sender-name {
+  font-size: 11.5px !important;
+}
+.density-compact .wiretap-text {
+  font-size: 12.5px !important;
+  line-height: 1.45 !important;
+}
 .density-compact .wiretap-card .wiretap-card-toolbar {
   max-height: 0 !important;
   opacity: 0 !important;
@@ -3486,273 +3636,246 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   max-height: 110px !important;
   opacity: 1 !important;
   margin-top: 5px !important;
-  border-top: 1px solid var(--border) !important;
+  border-top: 1px solid var(--hairline) !important;
   pointer-events: auto !important;
 }
 
-/* Action pills (Dossier, Ban, Mute, etc.) */
-.act-pill {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 4px !important;
-  color: var(--text-secondary) !important;
-  font-size: 10px !important;
-  font-family: var(--text-mono) !important;
-  padding: 3px 8px !important;
-  letter-spacing: 0.06em !important;
-  transition: all var(--ease-fast) !important;
-}
-.act-pill:hover { border-color: var(--border-bright) !important; color: var(--text-primary) !important; background: var(--bg-hover) !important; }
-.act-pill.danger { border-color: var(--red-border) !important; color: var(--red) !important; }
-.act-pill.danger:hover { background: var(--red-bg) !important; }
-
-/* Quick react pills */
-.react-pill {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 100px !important;
-  padding: 2px 8px !important;
-  font-size: 11px !important;
-  transition: all var(--ease-fast) !important;
-}
-.react-pill:hover { transform: scale(1.12) !important; border-color: var(--border-bright) !important; }
-
-/* Init state */
-.wiretap-init-state { color: var(--text-secondary) !important; }
-.wiretap-init-state p { color: var(--text-secondary) !important; font-size: 12px !important; }
-
-/* ══════════════════════════════════════════════════
-   AI COPILOT TERMINAL — Right Sidebar
-   ══════════════════════════════════════════════════ */
+/* ── 07. RIGHT NEURAL CORE: AI COPILOT & THREAT LOG ── */
 .copilot-terminal-card {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 7px !important;
+  background: var(--graphite) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 6px !important;
   overflow: hidden !important;
-  height: 340px !important;
+  height: 350px !important;
+  box-shadow: var(--shadow-card) !important;
 }
 .copilot-log-window {
   padding: 12px !important;
   gap: 8px !important;
+  font-family: var(--font-mono) !important;
   font-size: 11px !important;
 }
-.copilot-msg-meta { font-size: 9px !important; color: var(--text-secondary) !important; }
-.copilot-msg.user .badge-tag { background: var(--cyan-bg) !important; color: var(--cyan) !important; border-radius: 3px !important; }
-.copilot-msg.bot .badge-tag { background: var(--red-bg) !important; color: var(--red) !important; border-radius: 3px !important; }
 .copilot-msg-text {
-  background: var(--bg-surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 5px !important;
-  color: var(--text-primary) !important;
+  background: var(--deep-carbon) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 4px !important;
+  color: var(--warm-white) !important;
   font-size: 11px !important;
   line-height: 1.55 !important;
-  padding: 8px 10px !important;
+  padding: 8px 11px !important;
 }
 .copilot-msg.user .copilot-msg-text {
-  background: rgba(0, 217, 255, 0.07) !important;
-  border-color: var(--cyan-border) !important;
+  background: var(--intel-cyan-bg) !important;
+  border-color: var(--intel-cyan-bdr) !important;
+  color: #ffffff !important;
+}
+.copilot-msg.user .badge-tag {
+  background: var(--intel-cyan-bg) !important;
+  color: var(--intel-cyan) !important;
+}
+.copilot-msg.bot .badge-tag {
+  background: var(--signal-red-bg) !important;
+  color: var(--signal-red) !important;
 }
 
-/* Quick chips */
+/* Prompt chips & input */
 .copilot-quick-chips {
-  background: var(--bg-surface) !important;
-  border-top: 1px solid var(--border) !important;
+  background: var(--deep-carbon) !important;
+  border-top: 1px solid var(--hairline) !important;
   gap: 4px !important;
-  padding: 6px 8px !important;
+  padding: 6px 10px !important;
 }
 .copilot-quick-chips button {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 4px !important;
-  color: var(--text-secondary) !important;
+  background: var(--graphite) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 3px !important;
+  color: var(--steel-grey) !important;
+  font-family: var(--font-mono) !important;
   font-size: 9px !important;
-  padding: 3px 7px !important;
-  transition: all var(--ease-fast) !important;
-  font-family: var(--text-mono) !important;
-  letter-spacing: 0.04em !important;
+  padding: 3px 8px !important;
+  transition: all var(--ease-editorial) !important;
 }
-.copilot-quick-chips button:hover { border-color: var(--border-bright) !important; color: var(--text-primary) !important; background: var(--bg-hover) !important; }
-
-/* Input */
+.copilot-quick-chips button:hover {
+  border-color: var(--hairline-hover) !important;
+  color: var(--warm-white) !important;
+  background: var(--surface-hover) !important;
+}
 .copilot-input-form {
-  background: var(--bg-surface) !important;
-  border-top: 1px solid var(--border) !important;
+  background: var(--deep-carbon) !important;
+  border-top: 1px solid var(--dark-border) !important;
 }
-.copilot-input-wrap { padding: 7px 10px !important; gap: 8px !important; align-items: center !important; }
-.copilot-prompt-sym { color: var(--red) !important; font-size: 13px !important; font-weight: 700 !important; }
+.copilot-prompt-sym {
+  color: var(--signal-red) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
 .copilot-text-input {
+  font-family: var(--font-mono) !important;
   font-size: 11px !important;
-  color: var(--text-primary) !important;
-  font-family: var(--text-mono) !important;
+  color: var(--warm-white) !important;
 }
-.copilot-text-input::placeholder { color: var(--text-muted) !important; }
-.copilot-send-btn { color: var(--text-secondary) !important; border-radius: 4px !important; padding: 4px !important; transition: color var(--ease-fast) !important; }
-.copilot-send-btn:hover { color: var(--red) !important; }
+.copilot-text-input::placeholder {
+  color: var(--muted-grey) !important;
+}
 
-/* ══════════════════════════════════════════════════
-   NEURAL THREATS FEED — Right Sidebar Bottom
-   ══════════════════════════════════════════════════ */
-.neural-threats-list { gap: 6px !important; }
+/* Intercepted Threats Feed */
+.neural-threats-list {
+  gap: 5px !important;
+}
 .threat-empty-state {
-  border: 1px dashed var(--border) !important;
-  border-radius: 6px !important;
-  color: var(--text-secondary) !important;
+  border: 1px dashed var(--dark-border) !important;
+  border-radius: 5px !important;
+  color: var(--steel-grey) !important;
   font-size: 11px !important;
-  padding: 20px 12px !important;
+  padding: 22px 14px !important;
   text-align: center !important;
 }
 .threat-feed-card {
-  background: rgba(26, 7, 7, 0.5) !important;
-  border: 1px solid var(--red-border) !important;
-  border-radius: 6px !important;
+  background: rgba(22, 7, 8, 0.6) !important;
+  border: 1px solid var(--signal-red-bdr) !important;
+  border-left: 2px solid var(--signal-red) !important;
+  border-radius: 4px !important;
   padding: 8px 10px !important;
-  transition: border-color var(--ease-fast) !important;
+  transition: border-color var(--ease-editorial) !important;
 }
-.threat-feed-card:hover { border-color: var(--red) !important; box-shadow: var(--shadow-red) !important; }
-.threat-feed-type { color: var(--red) !important; font-size: 10px !important; font-weight: 700 !important; letter-spacing: 0.08em !important; }
-.threat-feed-action {
-  background: var(--red-bg) !important;
-  color: var(--red) !important;
-  border-radius: 3px !important;
-  font-size: 9px !important;
+.threat-feed-card:hover {
+  border-color: var(--signal-red) !important;
+}
+.threat-feed-type {
+  font-family: var(--font-mono) !important;
+  color: var(--signal-red) !important;
+  font-size: 9.5px !important;
   font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+}
+.threat-feed-action {
+  background: var(--signal-red-bg) !important;
+  color: var(--signal-red) !important;
+  border-radius: 2px !important;
+  font-size: 8.5px !important;
   padding: 1px 5px !important;
-  letter-spacing: 0.06em !important;
 }
-.threat-feed-body { font-size: 11px !important; color: var(--text-secondary) !important; line-height: 1.45 !important; }
-.threat-feed-footer { font-size: 9px !important; color: var(--text-muted) !important; margin-top: 5px !important; }
-
-/* ══════════════════════════════════════════════════
-   BADGES & STATUS CHIPS
-   ══════════════════════════════════════════════════ */
-.badge { font-size: 9.5px !important; letter-spacing: 0.1em !important; border-radius: 4px !important; padding: 2px 7px !important; }
-.badge-vermilion { background: var(--red-bg) !important; color: var(--red) !important; border: 1px solid var(--red-border) !important; }
-.badge-emerald   { background: var(--green-bg) !important; color: var(--green) !important; border: 1px solid var(--green-border) !important; }
-.badge-muted     { background: var(--bg-elevated) !important; color: var(--text-secondary) !important; border: 1px solid var(--border) !important; }
-.badge-amber     { background: var(--amber-bg) !important; color: var(--amber) !important; border: 1px solid var(--amber-border) !important; }
-
-/* Live pulse dot */
-.hud-blink-dot, .live-dot-pulse { animation: tacPulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite !important; }
-@keyframes tacPulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
-  50%       { opacity: 0.5; box-shadow: 0 0 12px currentColor; }
-}
-
-/* ══════════════════════════════════════════════════
-   MODALS — Premium Glass Overlays
-   ══════════════════════════════════════════════════ */
-.kage-modal-overlay {
-  background: rgba(2, 4, 6, 0.9) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-}
-.kage-modal {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 10px !important;
-  box-shadow: var(--shadow-modal) !important;
-}
-
-/* ══════════════════════════════════════════════════
-   TOAST NOTIFICATIONS
-   ══════════════════════════════════════════════════ */
-.toast {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-left: 3px solid var(--red) !important;
-  border-radius: 7px !important;
+.threat-feed-body {
+  font-family: var(--font-sans) !important;
   font-size: 11px !important;
-  box-shadow: var(--shadow-panel) !important;
-  bottom: 20px !important;
-  right: 20px !important;
+  color: var(--steel-grey) !important;
+  line-height: 1.4 !important;
 }
 
-/* ══════════════════════════════════════════════════
-   KAGE PRIMARY ACTION BUTTONS
-   ══════════════════════════════════════════════════ */
+/* ── 08. MEMBER RECON TABLE / CARDS ── */
+.recon-table th, table[class="recon-table"] th {
+  background: var(--graphite) !important;
+  color: var(--steel-grey) !important;
+  border-bottom: 1px solid var(--dark-border) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 9px !important;
+  letter-spacing: 0.16em !important;
+  padding: 10px 12px !important;
+}
+.recon-table td, table[class="recon-table"] td {
+  border-bottom: 1px solid var(--hairline) !important;
+  font-size: 11px !important;
+  padding: 10px 12px !important;
+  color: var(--warm-white) !important;
+}
+.recon-table tr:hover td {
+  background: var(--surface-hover) !important;
+}
+
+/* ── 09. PRIMARY & SECONDARY BUTTONS ── */
 .kage-action-btn {
-  background: var(--red) !important;
-  border: 1px solid var(--red) !important;
-  border-radius: 5px !important;
+  background: var(--signal-red) !important;
+  border: 1px solid var(--signal-red) !important;
+  border-radius: 4px !important;
+  font-family: var(--font-mono) !important;
   font-size: 11px !important;
   letter-spacing: 0.1em !important;
   font-weight: 600 !important;
   padding: 8px 16px !important;
-  box-shadow: 0 0 16px var(--red-glow) !important;
-  transition: all var(--ease-fast) !important;
+  color: #ffffff !important;
+  transition: all var(--ease-editorial) !important;
 }
 .kage-action-btn:hover {
-  background: #ff4552 !important;
-  box-shadow: 0 0 24px var(--red-glow), 0 4px 12px rgba(0,0,0,0.3) !important;
+  background: #ff3b40 !important;
+  border-color: #ff3b40 !important;
   transform: translateY(-1px) !important;
 }
 
 .kage-sub-btn {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 5px !important;
-  color: var(--text-secondary) !important;
+  background: var(--graphite) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 4px !important;
+  color: var(--steel-grey) !important;
+  font-family: var(--font-mono) !important;
   font-size: 11px !important;
-  letter-spacing: 0.06em !important;
-  transition: all var(--ease-fast) !important;
+  letter-spacing: 0.04em !important;
+  transition: all var(--ease-editorial) !important;
 }
-.kage-sub-btn:hover { border-color: var(--border-bright) !important; color: var(--text-primary) !important; background: var(--bg-hover) !important; }
+.kage-sub-btn:hover {
+  border-color: var(--hairline-hover) !important;
+  color: var(--warm-white) !important;
+  background: var(--surface-hover) !important;
+}
 
-/* Outline button variant */
-.kage-btn-outline {
-  background: transparent !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text-secondary) !important;
-  border-radius: 5px !important;
-  font-size: 10px !important;
+/* Badge semantic colors */
+.badge {
+  font-family: var(--font-mono) !important;
+  font-size: 9px !important;
   letter-spacing: 0.1em !important;
-  transition: all var(--ease-fast) !important;
+  border-radius: 3px !important;
+  padding: 2px 7px !important;
 }
-.kage-btn-outline:hover { border-color: var(--border-bright) !important; color: var(--text-primary) !important; }
-.kage-btn-outline.active { background: var(--red-bg) !important; border-color: var(--red-border) !important; color: var(--text-primary) !important; box-shadow: var(--shadow-red) !important; }
+.badge-vermilion {
+  background: var(--signal-red-bg) !important;
+  color: var(--signal-red) !important;
+  border: 1px solid var(--signal-red-bdr) !important;
+}
+.badge-emerald {
+  background: var(--op-green-bg) !important;
+  color: var(--op-green) !important;
+  border: 1px solid var(--op-green-bdr) !important;
+}
+.badge-muted {
+  background: var(--graphite) !important;
+  color: var(--steel-grey) !important;
+  border: 1px solid var(--hairline) !important;
+}
+.badge-amber {
+  background: var(--orange-bg) !important;
+  color: var(--burnt-orange) !important;
+  border: 1px solid var(--orange-bdr) !important;
+}
 
-/* Table styles */
-.kage-table th { background: var(--bg-elevated) !important; color: var(--text-secondary) !important; border-bottom: 1px solid var(--border) !important; font-size: 9px !important; letter-spacing: 0.18em !important; padding: 10px 12px !important; }
-.kage-table td { border-bottom: 1px solid var(--border-soft) !important; color: var(--text-secondary) !important; font-size: 11px !important; padding: 10px 12px !important; }
-.kage-table tr:hover td { background: var(--bg-hover) !important; color: var(--text-primary) !important; }
+/* ── 10. MODALS & TOAST NOTIFICATIONS ── */
+.kage-modal-overlay {
+  background: rgba(8, 9, 11, 0.92) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+.kage-modal {
+  background: var(--deep-carbon) !important;
+  border: 1px solid var(--dark-border) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-obsidian) !important;
+}
+.toast {
+  background: var(--deep-carbon) !important;
+  border: 1px solid var(--dark-border) !important;
+  border-left: 3px solid var(--signal-red) !important;
+  border-radius: 5px !important;
+  color: var(--warm-white) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  box-shadow: var(--shadow-obsidian) !important;
+}
 
-/* ══════════════════════════════════════════════════
-   MICRO-INTERACTIONS & ANIMATIONS
-   ══════════════════════════════════════════════════ */
+/* Micro-animations */
 @keyframes slideInMsg {
-  from { opacity: 0; transform: translateY(-5px); }
+  from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes pulseNuclear {
-  0%, 100% { box-shadow: 0 0 24px var(--red-glow); }
-  50%       { box-shadow: 0 0 40px rgba(255, 48, 61, 0.5); }
-}
-@keyframes glowIn {
-  from { box-shadow: none; }
-  to   { box-shadow: var(--shadow-cyan); }
-}
 
-/* Threat pulse animation for critical items */
-.threat-card { animation: slideInMsg 0.2s cubic-bezier(0.16, 1, 0.3, 1), threatGlow 2s ease-in-out !important; }
-@keyframes threatGlow {
-  0%   { box-shadow: var(--shadow-red); }
-  50%  { box-shadow: 0 0 32px rgba(255, 48, 61, 0.35); }
-  100% { box-shadow: var(--shadow-red); }
-}
-
-/* Loading spinner */
-.loading-spin {
-  display: inline-block;
-  width: 14px; height: 14px;
-  border: 1.5px solid var(--border);
-  border-top-color: var(--red);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  vertical-align: middle;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -3760,103 +3883,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     transition-duration: 0.01ms !important;
   }
 }
-
-/* ══════════════════════════════════════════════════
-   WATCHDOG INPUT SECTION
-   ══════════════════════════════════════════════════ */
-#quick-watchdog-input {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 5px !important;
-  color: var(--text-primary) !important;
-  font-family: var(--text-mono) !important;
-  font-size: 11px !important;
-  padding: 6px 10px !important;
-  transition: border-color var(--ease-fast) !important;
-}
-#quick-watchdog-input:focus { border-color: var(--red-border) !important; outline: none !important; }
-#quick-watchdog-input::placeholder { color: var(--text-muted) !important; }
-#quick-watchdog-list { gap: 4px !important; }
-
-/* Watchdog trigger chips */
-#quick-watchdog-list .badge-vermilion {
-  cursor: pointer;
-  transition: all var(--ease-fast) !important;
-}
-#quick-watchdog-list .badge-vermilion:hover { box-shadow: var(--shadow-red) !important; }
-
-/* ══════════════════════════════════════════════════
-   ICON SIZING CONSISTENCY
-   ══════════════════════════════════════════════════ */
-.hud-action-btn [data-lucide] { width: 13px !important; height: 13px !important; }
-.kage-dropdown-item [data-lucide] { width: 13px !important; height: 13px !important; }
-.kage-btn-pill [data-lucide] { width: 12px !important; height: 12px !important; }
-
-/* ══════════════════════════════════════════════════
-   DESKTOP LARGE-SCREEN REFINEMENTS (> 1440px)
-   ══════════════════════════════════════════════════ */
-@media (min-width: 1440px) {
-  .hud-body { grid-template-columns: 300px minmax(0, 1fr) 380px !important; }
-  .copilot-terminal-card { height: 380px !important; }
-  .neural-threats-list { max-height: 320px !important; }
-}
-
-/* ══════════════════════════════════════════════════
-   MEMBER RECON TABLE — Refined Columns
-   ══════════════════════════════════════════════════ */
-.recon-table th, table[class="recon-table"] th {
-  background: var(--bg-elevated) !important;
-  color: var(--text-secondary) !important;
-  border-bottom: 1px solid var(--border) !important;
-  font-size: 9px !important;
-  letter-spacing: 0.18em !important;
-  padding: 10px 12px !important;
-}
-.recon-table td, table[class="recon-table"] td {
-  border-bottom: 1px solid var(--border-soft) !important;
-  font-size: 11px !important;
-  padding: 10px 12px !important;
-}
-.recon-table tr:hover td { background: var(--bg-hover) !important; }
-
-/* ══════════════════════════════════════════════════
-   VERTICAL SCROLL REFINEMENT FOR HUD COLUMNS
-   ══════════════════════════════════════════════════ */
-.hud-col-left::-webkit-scrollbar,
-.hud-col-right::-webkit-scrollbar,
-.copilot-log-window::-webkit-scrollbar,
-.wiretap-stream-wrap::-webkit-scrollbar,
-.neural-threats-list::-webkit-scrollbar { width: 3px !important; }
-
-/* ══════════════════════════════════════════════════
-   GHOST VAULT EDIT BOXES
-   ══════════════════════════════════════════════════ */
-.wiretap-ghost-edit-box {
-  background: var(--bg-surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 5px !important;
-  font-size: 11px !important;
-}
-
-/* ══════════════════════════════════════════════════
-   PROGRESS BAR
-   ══════════════════════════════════════════════════ */
-.progress-bar-wrap { background: rgba(32, 40, 47, 0.5) !important; border-radius: 3px !important; }
-.progress-bar-fill { background: var(--red) !important; border-radius: 3px !important; }
-
-/* ══════════════════════════════════════════════════
-   TELEGRAM LINK ALERT
-   ══════════════════════════════════════════════════ */
-#hud-tg-link-alert {
-  background: var(--red-bg) !important;
-  border: 1px solid var(--red-border) !important;
-  border-radius: 6px !important;
-}
-
-/* ══════════════════════════════════════════════════
-   SELECTION REFINEMENTS
-   ══════════════════════════════════════════════════ */
-::selection { background: var(--red); color: #fff; }
 
 </style>
 </head>
@@ -3940,7 +3966,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       <path d="M5 13h34M9 18.4h26M22 8.5v27" stroke="#dfe7e0" stroke-width="1.5"/>
       <path d="M14 35.5h16" stroke="#dfe7e0" stroke-width="1.2" stroke-opacity=".6"/>
     </svg>
-    <span class="brand-tx"><b>KAGE</b><i>HIDDEN REALMS OF KYOTO</i></span>
+    <span class="brand-tx"><b style="letter-spacing: 0.14em; font-family: var(--font-sans);">KAGE</b><i style="letter-spacing: 0.22em; font-family: var(--font-mono); font-size: 8.5px; opacity: 0.75;">OBSIDIAN INTELLIGENCE</i></span>
   </a>
   <nav class="nav-links" id="main-nav-links">
     <a class="nav-link on" href="#gate">The Sanmon</a>
@@ -4071,24 +4097,19 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   <!-- TOP TICKER / STATUS BAR -->
   <div class="hud-top-bar">
     <div class="hud-ticker-left">
-      <span class="hud-sys-tag">KAGE // 影の司令室 — WAR ROOM HUD</span>
+      <span class="hud-sys-tag">KAGE // 影 — INTELLIGENCE WITHOUT NOISE</span>
       <span class="hud-divider">/</span>
       <span class="hud-status-live"><span class="hud-blink-dot"></span> MTPROTO STREAM ACTIVE</span>
       <span class="hud-divider">/</span>
       <span id="hud-defcon-display" class="badge badge-muted">DEFCON 5 // 平穏</span>
       <span class="hud-divider">/</span>
-      <button type="button" onclick="openVCModal()" id="hud-vc-pill" class="badge badge-muted" style="cursor: pointer; border: 1px solid var(--line-soft); background: rgba(5,7,10,0.6); padding: 3px 8px; font-family: 'JetBrains Mono', monospace; display: inline-flex; align-items: center; gap: 6px;" title="Open Voice Chamber Apex">
-        <span id="hud-vc-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--muted);"></span>
+      <button type="button" onclick="openVCModal()" id="hud-vc-pill" class="badge badge-muted" style="cursor: pointer; border: 1px solid var(--hairline); background: var(--graphite); padding: 3px 8px; font-family: var(--font-mono); display: inline-flex; align-items: center; gap: 6px;" title="Open Voice Chamber Apex">
+        <span id="hud-vc-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--muted-grey);"></span>
         <span id="hud-vc-label">VC: RADAR</span>
-      </button>
-      <span class="hud-divider">/</span>
-      <button type="button" onclick="showDeviceDiagnostics()" class="kage-device-pill badge badge-muted" title="Auto-Detected Device Form Factor (Tap for Diagnostics)">
-        <span class="device-dot"></span>
-        <span class="device-label">AUTO</span>
       </button>
     </div>
     <div class="hud-ticker-center">
-      <span id="hud-target-group-name" class="font-mono" style="font-size: 11px; color: var(--bone);">Surveillance Active</span>
+      <span id="hud-target-group-name" class="font-mono hud-target-title">Surveillance Active</span>
     </div>
     <div class="hud-ticker-right">
       <span class="font-mono text-muted" style="font-size: 11px;">WIRETAP BUFFER: <span id="wiretap-count" style="color: var(--bone);">0</span> MSGS</span>
@@ -4310,69 +4331,73 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
     <!-- CENTER COLUMN: POWER INTELLIGENCE SUITE (flex-1) -->
     <main class="hud-col hud-col-center mobile-active">
-      <!-- CENTER NAVIGATION TABS: KYOTO ZEN CHAPTERS -->
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line-soft); background: rgba(5,7,10,0.85); flex-wrap: wrap; gap: 8px; padding-right: 12px;">
+      <!-- CENTER NAVIGATION TABS: EDITORIAL CHAPTERS -->
+      <div class="hud-tabs-bar" style="border-bottom: 1px solid var(--hairline); background: var(--deep-carbon); width: 100%; flex-shrink: 0;">
         <div class="kage-hud-tabs">
           <button type="button" onclick="switchCenterTab('wiretap')" id="tab-btn-wiretap" class="kage-hud-tab active">
             <span class="kage-tab-num">01</span>
             <div class="kage-tab-meta">
-              <span class="kage-tab-title">Live Wiretap</span>
-              <span class="kage-tab-jp">盗聴 // 影の耳</span>
+              <span class="kage-tab-title">The Signal Wire</span>
+              <span class="kage-tab-jp">LIVE WIRETAP</span>
             </div>
           </button>
           <button type="button" onclick="switchCenterTab('intel')" id="tab-btn-intel" class="kage-hud-tab">
             <span class="kage-tab-num">02</span>
             <div class="kage-tab-meta">
-              <span class="kage-tab-title">AI Intel</span>
-              <span class="kage-tab-jp">知謀 // 観照</span>
+              <span class="kage-tab-title">Neural Intel</span>
+              <span class="kage-tab-jp">AI SYNTHESIS</span>
             </div>
           </button>
           <button type="button" onclick="switchCenterTab('ghost')" id="tab-btn-ghost" class="kage-hud-tab">
             <span class="kage-tab-num">03</span>
             <div class="kage-tab-meta">
               <span class="kage-tab-title">Ghost Vault</span>
-              <span class="kage-tab-jp">幽霊 // 痕跡</span>
+              <span class="kage-tab-jp">ANTI-DELETE</span>
             </div>
           </button>
           <button type="button" onclick="switchCenterTab('recon')" id="tab-btn-recon" class="kage-hud-tab">
             <span class="kage-tab-num">04</span>
             <div class="kage-tab-meta">
               <span class="kage-tab-title">Member Recon</span>
-              <span class="kage-tab-jp">偵察 // 衆生</span>
+              <span class="kage-tab-jp">100K REPUTATION</span>
             </div>
           </button>
           <button type="button" onclick="switchCenterTab('alpha')" id="tab-btn-alpha" class="kage-hud-tab">
             <span class="kage-tab-num">05</span>
             <div class="kage-tab-meta">
               <span class="kage-tab-title">Alpha Radar</span>
-              <span class="kage-tab-jp">探知 // 金策</span>
+              <span class="kage-tab-jp">CRYPTO &amp; IOCS</span>
             </div>
           </button>
-        </div>
-
-        <!-- Wiretap specific quick controls (visible when on wiretap tab) -->
-        <div id="wiretap-controls-sub" style="display: flex; align-items: center; gap: 8px;">
-          <div class="hud-filter-toggle">
-            <button type="button" onclick="setWiretapScope('current')" id="wiretap-scope-current" class="flt-btn active" style="font-size: 10px;">🎯 TARGET ONLY</button>
-            <button type="button" onclick="setWiretapScope('all')" id="wiretap-scope-all" class="flt-btn" style="font-size: 10px;">ALL GROUPS</button>
-          </div>
-          <div class="hud-filter-toggle">
-            <button type="button" onclick="filterWiretap('all')" id="wiretap-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
-            <button type="button" onclick="filterWiretap('threats')" id="wiretap-flt-threats" class="flt-btn danger" style="font-size: 10px;">⚠️ THREATS</button>
-          </div>
-          <div class="hud-filter-toggle">
-            <button type="button" onclick="toggleScreenWakeLock()" id="wiretap-wakelock-btn" class="flt-btn active" style="font-size: 10px;" title="Prevent screen from sleeping / keep display awake constantly">👁️ AWAKE: ON</button>
-          </div>
-          <div class="hud-filter-toggle">
-            <button type="button" onclick="toggleWiretapDensity()" id="wiretap-density-btn" class="flt-btn active" style="font-size: 10px;" title="Toggle Compact Density (Maximum messages visible on screen) vs Comfort (Expanded buttons)">≡ COMPACT</button>
-          </div>
         </div>
       </div>
 
       <!-- TAB 1: WIRETAP MESSAGE STREAM CONTAINER -->
       <div id="tab-content-wiretap" class="wiretap-stream-wrap density-compact">
-        <div class="sec-head" style="margin-bottom: 14px; padding: 12px 14px 0 14px;">
-          <span class="k"><b>01</b> — REAL-TIME WIRETAP STREAM</span>
+        <div class="wiretap-sub-header" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px 8px 16px; border-bottom: 1px solid var(--hairline); flex-wrap: wrap; gap: 8px;">
+          <div class="sec-head" style="margin: 0; padding: 0;">
+            <span class="k"><b>01</b> — REAL-TIME WIRETAP STREAM</span>
+            <span class="rule"></span>
+            <span class="k jp">盗聴 // 影の耳</span>
+          </div>
+          <!-- Wiretap specific quick controls -->
+          <div id="wiretap-controls-sub" style="display: flex; align-items: center; gap: 8px;">
+            <div class="hud-filter-toggle">
+              <button type="button" onclick="setWiretapScope('current')" id="wiretap-scope-current" class="flt-btn active" style="font-size: 10px;">🎯 TARGET ONLY</button>
+              <button type="button" onclick="setWiretapScope('all')" id="wiretap-scope-all" class="flt-btn" style="font-size: 10px;">ALL GROUPS</button>
+            </div>
+            <div class="hud-filter-toggle">
+              <button type="button" onclick="filterWiretap('all')" id="wiretap-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
+              <button type="button" onclick="filterWiretap('threats')" id="wiretap-flt-threats" class="flt-btn danger" style="font-size: 10px;">⚠️ THREATS</button>
+            </div>
+            <div class="hud-filter-toggle">
+              <button type="button" onclick="toggleScreenWakeLock()" id="wiretap-wakelock-btn" class="flt-btn active" style="font-size: 10px;" title="Prevent screen from sleeping / keep display awake constantly">👁️ AWAKE: ON</button>
+            </div>
+            <div class="hud-filter-toggle">
+              <button type="button" onclick="toggleWiretapDensity()" id="wiretap-density-btn" class="flt-btn active" style="font-size: 10px;" title="Toggle Compact Density (Maximum messages visible on screen) vs Comfort (Expanded buttons)">≡ COMPACT</button>
+            </div>
+          </div>
+        </div>
           <span class="rule"></span>
           <span class="k jp">盗聴 // 影の耳</span>
         </div>
@@ -4482,24 +4507,24 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
         </div>
 
         <!-- 100K DEEP SCAN REAL-TIME TELEMETRY PANEL -->
-        <div id="deep-scan-progress-panel" style="display: none; background: rgba(5,7,10,0.95); border: 1px solid #10b981; border-radius: 6px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.6);">
+        <div id="deep-scan-progress-panel" class="deep-scan-box" style="display: none; background: var(--deep-carbon); border: 1px solid var(--hairline); border-left: 3px solid var(--signal-red); border-radius: 4px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.7);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <span class="loading-spin" style="width: 14px; height: 14px; border: 2px solid #10b981; border-top-color: transparent;"></span>
-              <span style="font-size: 12px; font-weight: 700; color: #10b981; letter-spacing: 0.12em;">100,000 MESSAGE DEEP REPUTATION SCAN IN PROGRESS</span>
+              <span class="loading-spin" style="width: 13px; height: 13px; border: 2px solid var(--signal-red); border-top-color: transparent;"></span>
+              <span style="font-size: 11px; font-weight: 600; color: var(--warm-white); letter-spacing: 0.14em; font-family: var(--font-mono);">DEEP REPUTATION SCAN IN PROGRESS</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <span id="deep-scan-speed-label" style="font-size: 11px; color: #38bdf8; font-weight: 600;">0 msgs/sec</span>
-              <span id="deep-scan-eta-label" style="font-size: 11px; color: var(--bone-dim);">ETA: calculating...</span>
-              <button type="button" onclick="cancel100kScan()" class="btn-xs-outline" style="border-color: var(--vermilion); color: var(--vermilion); font-size: 9px; padding: 2px 8px;">ABORT</button>
+            <div style="display: flex; align-items: center; gap: 12px; font-family: var(--font-mono);">
+              <span id="deep-scan-speed-label" style="font-size: 11px; color: var(--intel-cyan); font-weight: 500;">Connecting...</span>
+              <span id="deep-scan-eta-label" style="font-size: 11px; color: var(--steel-grey);">ETA: calculating...</span>
+              <button type="button" onclick="cancel100kScan()" class="btn-xs-outline" style="border-color: var(--signal-red); color: var(--signal-red); font-size: 9px; padding: 2px 8px;">ABORT</button>
             </div>
           </div>
-          <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; position: relative;">
-            <div id="deep-scan-progress-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #10b981, #38bdf8); transition: width 0.3s ease; box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);"></div>
+          <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; position: relative;">
+            <div id="deep-scan-progress-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--signal-red), var(--burnt-orange)); transition: width 0.3s ease;"></div>
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 11px; color: var(--muted);">
-            <span id="deep-scan-counts-label" style="color: var(--bone); font-weight: 600;">Scanned 0 / 100,000 messages (0%)</span>
-            <span id="deep-scan-members-label" style="color: #34d399;">0 unique members profiled</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 10.5px; font-family: var(--font-mono); color: var(--steel-grey);">
+            <span id="deep-scan-counts-label" style="color: var(--warm-white);">Starting deep scan...</span>
+            <span id="deep-scan-members-label" style="color: var(--op-green);">0 unique members profiled</span>
           </div>
         </div>
 
@@ -10881,9 +10906,13 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   function startDeepScanPolling(gid) {
     if (!gid) return;
     if (deepScanPollInterval) clearInterval(deepScanPollInterval);
+    const cleanGid = String(gid).replace(/^-100/, '').replace(/^-/, '');
     deepScanPollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/messages/deep_scan/status?group_id=${gid}`);
+        let res = await fetch(`/api/messages/deep_scan/status?group_id=${gid}`);
+        if (!res.ok && cleanGid !== String(gid)) {
+          res = await fetch(`/api/messages/deep_scan/status?group_id=${cleanGid}`);
+        }
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === 'RUNNING') {
@@ -10932,9 +10961,9 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     const fill = document.getElementById('deep-scan-progress-fill');
     if (fill) fill.style.width = '0%';
     const countLbl = document.getElementById('deep-scan-counts-label');
-    if (countLbl) countLbl.innerText = `Starting deep scan for ${limit.toLocaleString()} messages...`;
+    if (countLbl) countLbl.innerText = `Ingesting MTProto stream for ${limit.toLocaleString()} messages...`;
     const memLbl = document.getElementById('deep-scan-members-label');
-    if (memLbl) memLbl.innerText = `0 unique members profiled`;
+    if (memLbl) memLbl.innerText = `Profiling group participants...`;
     const spdLbl = document.getElementById('deep-scan-speed-label');
     if (spdLbl) spdLbl.innerText = `Connecting...`;
     const etaLbl = document.getElementById('deep-scan-eta-label');
@@ -10989,7 +11018,11 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
     const countLbl = document.getElementById('deep-scan-counts-label');
     if (countLbl) {
-      countLbl.innerText = `Scanned ${scanned.toLocaleString()} / ${total.toLocaleString()} messages (${pct}%)`;
+      if (scanned === 0) {
+        countLbl.innerText = `Ingesting MTProto stream for ${total.toLocaleString()} messages...`;
+      } else {
+        countLbl.innerText = `Scanned ${scanned.toLocaleString()} / ${total.toLocaleString()} messages (${pct}%)`;
+      }
     }
 
     const memLbl = document.getElementById('deep-scan-members-label');
@@ -10999,12 +11032,15 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     }
 
     const spdLbl = document.getElementById('deep-scan-speed-label');
-    if (spdLbl) spdLbl.innerText = `${data.speed || 0} msgs/sec`;
+    if (spdLbl) {
+      const spd = data.speed || 0;
+      spdLbl.innerText = spd > 0 ? `${spd} msgs/sec` : `Streaming...`;
+    }
 
     const etaLbl = document.getElementById('deep-scan-eta-label');
     if (etaLbl) {
       const eta = data.eta_seconds || 0;
-      etaLbl.innerText = eta > 60 ? `ETA: ~${Math.ceil(eta / 60)} min` : `ETA: ~${eta}s`;
+      etaLbl.innerText = eta > 60 ? `ETA: ~${Math.ceil(eta / 60)} min` : (eta > 0 ? `ETA: ~${eta}s` : `Calculating...`);
     }
   }
 
