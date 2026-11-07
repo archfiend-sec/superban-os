@@ -9566,22 +9566,38 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   let programmaticScrollTimer = null;
 
   function scrollWiretapToBottom(force = false) {
+    const stream = document.getElementById('wiretap-stream');
     const wrap = document.getElementById('tab-content-wiretap');
-    if (!wrap) return;
+    if (!stream && !wrap) return;
 
     if (force) {
       userScrolledUpWiretap = false;
+      isUserInteractingWithWiretap = false;
+      const btn = document.getElementById('btn-wiretap-scroll');
+      if (btn && wiretapAutoScroll) {
+        btn.innerText = 'SCROLL: AUTO';
+        btn.classList.add('active');
+      }
     }
 
     if (force || (wiretapAutoScroll && !userScrolledUpWiretap)) {
       isProgrammaticScroll = true;
       if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
 
-      wrap.scrollTop = wrap.scrollHeight + 5000;
+      const doScroll = () => {
+        if (stream) {
+          stream.scrollTop = stream.scrollHeight;
+        }
+        if (wrap && wrap.scrollHeight > wrap.clientHeight) {
+          wrap.scrollTop = wrap.scrollHeight;
+        }
+      };
+
+      doScroll();
       requestAnimationFrame(() => {
-        wrap.scrollTop = wrap.scrollHeight + 5000;
+        doScroll();
         programmaticScrollTimer = setTimeout(() => {
-          wrap.scrollTop = wrap.scrollHeight + 5000;
+          doScroll();
           isProgrammaticScroll = false;
         }, 120);
       });
@@ -9594,74 +9610,64 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     }
   }
 
-  function initWiretapScrollListeners() {
-    const wrap = document.getElementById('tab-content-wiretap');
-    if (!wrap || wrap._hasScrollListeners) return;
-    wrap._hasScrollListeners = true;
+  function checkWiretapScrollPosition(el) {
+    if (!el || isProgrammaticScroll) return;
+    if (el.scrollHeight <= el.clientHeight + 5) return; // Skip non-overflowing container
 
-    // Track user touch interactions
-    wrap.addEventListener('touchstart', () => {
-      isUserInteractingWithWiretap = true;
-      if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
-    }, { passive: true });
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const btn = document.getElementById('btn-wiretap-scroll');
 
-    wrap.addEventListener('touchend', () => {
-      if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
-      wiretapTouchTimer = setTimeout(() => {
-        isUserInteractingWithWiretap = false;
-        const distFromBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight;
-        if (distFromBottom <= 120 && wiretapAutoScroll) {
-          userScrolledUpWiretap = false;
-          const btn = document.getElementById('btn-wiretap-scroll');
-          if (btn) {
-            btn.innerText = 'SCROLL: AUTO';
-            btn.classList.add('active');
-          }
-          scrollWiretapToBottom(true);
-        }
-      }, 500);
-    }, { passive: true });
-
-    // Track user mouse wheel interactions
-    wrap.addEventListener('wheel', () => {
-      isUserInteractingWithWiretap = true;
-      if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
-      wiretapTouchTimer = setTimeout(() => {
-        isUserInteractingWithWiretap = false;
-        const distFromBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight;
-        if (distFromBottom <= 120 && wiretapAutoScroll) {
-          userScrolledUpWiretap = false;
-          const btn = document.getElementById('btn-wiretap-scroll');
-          if (btn) {
-            btn.innerText = 'SCROLL: AUTO';
-            btn.classList.add('active');
-          }
-        }
-      }, 600);
-    }, { passive: true });
-
-    wrap.addEventListener('scroll', () => {
-      if (isProgrammaticScroll) return; // Prevent programmatic scrolling from falsely pausing autoscroll!
-
-      const distFromBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight;
-      const btn = document.getElementById('btn-wiretap-scroll');
-
-      // If user reaches within 120px of bottom, auto-lock back to latest messages
-      if (distFromBottom <= 120) {
-        userScrolledUpWiretap = false;
-        if (wiretapAutoScroll && btn) {
-          btn.innerText = 'SCROLL: AUTO';
-          btn.classList.add('active');
-        }
-      } else if (isUserInteractingWithWiretap && distFromBottom > 160) {
-        // ONLY pause when the user is actively touching or scrolling away from bottom
-        userScrolledUpWiretap = true;
-        if (btn && wiretapAutoScroll) {
-          btn.innerText = 'SCROLL: PAUSED (RESUME ↓)';
-          btn.classList.remove('active');
-        }
+    // If user reaches within 120px of bottom, auto-lock back to latest messages
+    if (distFromBottom <= 120) {
+      userScrolledUpWiretap = false;
+      if (wiretapAutoScroll && btn) {
+        btn.innerText = 'SCROLL: AUTO';
+        btn.classList.add('active');
       }
-    }, { passive: true });
+    } else if (distFromBottom > 160) {
+      // User has scrolled up to inspect earlier history
+      userScrolledUpWiretap = true;
+      if (btn && wiretapAutoScroll) {
+        btn.innerText = 'SCROLL: PAUSED (RESUME ↓)';
+        btn.classList.remove('active');
+      }
+    }
+  }
+
+  function initWiretapScrollListeners() {
+    const targets = [
+      document.getElementById('wiretap-stream'),
+      document.getElementById('tab-content-wiretap')
+    ].filter(Boolean);
+
+    targets.forEach(el => {
+      if (el._hasScrollListeners) return;
+      el._hasScrollListeners = true;
+
+      const onInteractionStart = () => {
+        isUserInteractingWithWiretap = true;
+        if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
+      };
+
+      const onInteractionEnd = () => {
+        if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
+        wiretapTouchTimer = setTimeout(() => {
+          isUserInteractingWithWiretap = false;
+          checkWiretapScrollPosition(el);
+        }, 500);
+      };
+
+      el.addEventListener('touchstart', onInteractionStart, { passive: true });
+      el.addEventListener('touchend', onInteractionEnd, { passive: true });
+      el.addEventListener('wheel', onInteractionStart, { passive: true });
+      el.addEventListener('mousedown', onInteractionStart, { passive: true });
+      el.addEventListener('mouseup', onInteractionEnd, { passive: true });
+
+      el.addEventListener('scroll', () => {
+        if (isProgrammaticScroll) return; // Prevent programmatic scrolling from falsely pausing autoscroll
+        checkWiretapScrollPosition(el);
+      }, { passive: true });
+    });
   }
 
   function setWiretapScope(scope) {
@@ -11544,6 +11550,13 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       `;
       wiretapSeenIds.clear();
       wiretapMessageCount = 0;
+      userScrolledUpWiretap = false;
+      isUserInteractingWithWiretap = false;
+      const btn = document.getElementById('btn-wiretap-scroll');
+      if (btn && wiretapAutoScroll) {
+        btn.innerText = 'SCROLL: AUTO';
+        btn.classList.add('active');
+      }
       const countEl = document.getElementById('wiretap-count');
       if (countEl) countEl.innerText = '0';
       safeCreateIcons();
