@@ -1174,6 +1174,15 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   padding: 8px 4px 16px 0;
   scroll-behavior: auto !important;
 }
+#tab-content-intel,
+#tab-content-ghost,
+#tab-content-recon,
+#tab-content-alpha {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+}
 .wiretap-init-state {
   display: flex;
   flex-direction: column;
@@ -2166,8 +2175,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   color: var(--vermilion);
 }
 
-/* Default state: mobile group pill hidden on desktop */
-.nav-mob-group-pill {
+/* Default state: mobile group pill and mobile column switcher hidden on desktop */
+.nav-mob-group-pill,
+#hud-mobile-col-switcher,
+.hud-mobile-nav {
   display: none !important;
 }
 
@@ -3214,22 +3225,37 @@ body {
 
 /* 3-Column Asymmetric Cockpit Grid */
 .hud-body {
+  display: grid !important;
   grid-template-columns: 295px minmax(0, 1fr) 365px !important;
-  height: calc(100% - 35px) !important;
+  height: calc(100% - 38px) !important;
+  max-height: calc(100% - 38px) !important;
+  overflow: hidden !important;
 }
 .hud-col {
   padding: 14px 16px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
 }
 .hud-col-left {
   background: var(--deep-carbon) !important;
   border-right: 1px solid var(--dark-border) !important;
+  overflow-y: auto !important;
 }
 .hud-col-center {
   background: var(--obsidian) !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 .hud-col-right {
   background: var(--deep-carbon) !important;
   border-left: 1px solid var(--dark-border) !important;
+  overflow-y: auto !important;
 }
 
 /* Editorial Section Panel Titles */
@@ -3521,10 +3547,40 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   color: var(--signal-red) !important;
 }
 
-/* Wiretap Stream Cards */
+/* Wiretap Stream Layout & Cards */
 .wiretap-stream-wrap {
-  gap: 5px !important;
-  padding: 12px 10px 18px 10px !important;
+  flex: 1 1 0% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+.wiretap-sub-header {
+  flex: 0 0 auto !important;
+  background: var(--deep-carbon) !important;
+  border-bottom: 1px solid var(--hairline) !important;
+}
+#wiretap-stream {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding: 12px 16px 24px 16px !important;
+  scroll-behavior: auto !important;
+}
+#tab-content-intel,
+#tab-content-ghost,
+#tab-content-recon,
+#tab-content-alpha {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow-y: auto !important;
 }
 .wiretap-card {
   background: var(--deep-carbon) !important;
@@ -4397,9 +4453,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
               <button type="button" onclick="toggleWiretapDensity()" id="wiretap-density-btn" class="flt-btn active" style="font-size: 10px;" title="Toggle Compact Density (Maximum messages visible on screen) vs Comfort (Expanded buttons)">≡ COMPACT</button>
             </div>
           </div>
-        </div>
-          <span class="rule"></span>
-          <span class="k jp">盗聴 // 影の耳</span>
         </div>
         <div id="wiretap-stream" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
           <div class="wiretap-init-state">
