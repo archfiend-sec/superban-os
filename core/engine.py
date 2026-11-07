@@ -353,6 +353,8 @@ class SuperBanEngine:
         member_aggregates: Dict[int, Dict[str, Any]] = {}
 
         try:
+            await self.ensure_connected()
+            last_emit_t = 0.0
             async for msg in self.client.iter_messages(group_entity, limit=target_limit):
                 if norm_gid in self._cancel_deep_scans:
                     scan_info["status"] = "CANCELLED"
@@ -360,7 +362,7 @@ class SuperBanEngine:
                     break
 
                 scan_info["scanned"] += 1
-                sender = msg.sender
+                sender = getattr(msg, 'sender', None)
                 sender_id = getattr(msg, 'sender_id', 0) or getattr(sender, 'id', 0)
 
                 if sender_id:
@@ -418,33 +420,44 @@ class SuperBanEngine:
                     if getattr(msg, 'reply_to', None):
                         m["replies_received"] += 1
 
-                # Periodic progress emission and database sync every 500 messages
-                if scan_info["scanned"] % 500 == 0:
-                    elapsed = max(0.1, time.time() - start_t)
-                    speed = scan_info["scanned"] / elapsed
-                    eta = max(0, int((target_limit - scan_info["scanned"]) / speed))
+                # Fast early feedback + dynamic throttling every 250 msgs or >= 0.8s
+                scanned_now = scan_info["scanned"]
+                now_t = time.time()
+                is_milestone = (
+                    scanned_now in (1, 10, 25, 50, 100, 250)
+                    or (scanned_now % 250 == 0)
+                    or (now_t - last_emit_t >= 0.8)
+                )
+
+                if is_milestone:
+                    last_emit_t = now_t
+                    elapsed = max(0.1, now_t - start_t)
+                    speed = scanned_now / elapsed
+                    eta = max(0, int((target_limit - scanned_now) / speed)) if speed > 0 else 0
+                    pct = round((scanned_now / target_limit) * 100, 1)
                     scan_info["speed"] = round(speed, 1)
                     scan_info["eta_seconds"] = eta
                     scan_info["unique_members"] = len(member_aggregates)
+                    scan_info["percent"] = pct
 
                     # Periodically flush member reputation to DB
-                    if self.db and hasattr(self.db, "batch_upsert_member_reputation"):
+                    if scanned_now % 500 == 0 and self.db and hasattr(self.db, "batch_upsert_member_reputation"):
                         member_payload = self._build_member_reputation_payload(norm_gid, member_aggregates)
                         asyncio.create_task(self.db.batch_upsert_member_reputation(norm_gid, member_payload))
 
                     await self.emit_telemetry("deep_scan_progress", {
                         "group_id": gid,
                         "group_title": group_title,
-                        "scanned": scan_info["scanned"],
+                        "scanned": scanned_now,
                         "total": target_limit,
-                        "percent": round((scan_info["scanned"] / target_limit) * 100, 1),
+                        "percent": pct,
                         "unique_members": len(member_aggregates),
                         "speed": scan_info["speed"],
                         "eta_seconds": eta,
                         "status": "RUNNING"
                     })
                     # Micro-yield to preserve event loop responsiveness
-                    await asyncio.sleep(0.005)
+                    await asyncio.sleep(0.002)
 
         except FloodWaitError as fwe:
             logger.warning(f"FloodWait during deep scan: Sleeping {fwe.seconds}s...")
@@ -459,9 +472,15 @@ class SuperBanEngine:
             logger.error(f"Error in deep scan for group {gid}: {e}")
             scan_info["error"] = str(e)
             scan_info["status"] = "ERROR"
+            await self.emit_telemetry("deep_scan_error", {
+                "group_id": gid,
+                "error": str(e),
+                "scanned": scan_info["scanned"],
+                "status": "ERROR"
+            })
 
         # Final pass: Compute final scores and persist to SQLite
-        if scan_info["status"] != "CANCELLED":
+        if scan_info["status"] not in ("CANCELLED", "ERROR"):
             scan_info["status"] = "COMPLETED"
 
         scan_info["unique_members"] = len(member_aggregates)

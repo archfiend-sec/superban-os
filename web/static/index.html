@@ -7199,6 +7199,21 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     scanSelectedGroup();
     loadThreatsHistory();
     refreshVCStatus();
+    if (typeof activeCenterTab !== 'undefined' && activeCenterTab === 'recon') {
+      loadGroupReputationGrid();
+      fetch(`/api/messages/deep_scan/status?group_id=${val}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.status === 'RUNNING') {
+            handleDeepScanProgress(data);
+            startDeepScanPolling(val);
+          } else {
+            const panel = document.getElementById('deep-scan-progress-panel');
+            if (panel) panel.style.display = 'none';
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   function getActiveGroupId() {
@@ -7973,7 +7988,33 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.telemetry) {
+        if (msg.type === 'deep_scan_progress' || msg.type === 'scan_progress' || msg.type === 'deep_scan_started') {
+          if (typeof handleDeepScanProgress === 'function') handleDeepScanProgress(msg.data || msg);
+        } else if (msg.type === 'deep_scan_complete' || msg.type === 'scan_complete') {
+          if (typeof handleDeepScanComplete === 'function') handleDeepScanComplete(msg.data || msg);
+        } else if (msg.type === 'deep_scan_error') {
+          if (typeof handleDeepScanError === 'function') handleDeepScanError(msg.data || msg);
+        } else if (msg.type === 'live_chat_message') {
+          appendWiretapMessage(msg.data || msg);
+        } else if (msg.type === 'live_chat_action') {
+          appendWiretapAction(msg.data || msg);
+        } else if (msg.type === 'ai_threat_neutralized') {
+          appendThreatFeed(msg.data || msg);
+        } else if (msg.type === 'defcon_changed') {
+          updateDefconUI(msg.data.level);
+        } else if (msg.type === 'ghost_messages_deleted') {
+          handleGhostMessagesDeleted(msg.data || msg);
+        } else if (msg.type === 'ghost_message_edited') {
+          handleGhostMessageEdited(msg.data || msg);
+        } else if (msg.type === 'surveillance_target_hit') {
+          handleSurveillanceHit(msg.data || msg);
+        } else if (msg.type === 'entity_discovered') {
+          handleEntityDiscovered(msg.data || msg);
+        } else if (msg.type === 'siphon_triggered') {
+          handleSiphonTriggered(msg.data || msg);
+        } else if (msg.type === 'message_reactions_updated') {
+          handleMessageReactionsUpdated(msg.data || msg);
+        } else if (msg.telemetry) {
           const t = msg.telemetry;
           const proc = document.getElementById('gate-stat-processed');
           if (proc) proc.innerText = t.processed;
@@ -8000,30 +8041,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
             else if (t.state === 'COMPLETED') badge.className = 'badge badge-emerald';
             else badge.className = 'badge badge-muted';
           }
-        } else if (msg.type === 'live_chat_message') {
-          appendWiretapMessage(msg.data || msg);
-        } else if (msg.type === 'live_chat_action') {
-          appendWiretapAction(msg.data || msg);
-        } else if (msg.type === 'ai_threat_neutralized') {
-          appendThreatFeed(msg.data || msg);
-        } else if (msg.type === 'defcon_changed') {
-          updateDefconUI(msg.data.level);
-        } else if (msg.type === 'ghost_messages_deleted') {
-          handleGhostMessagesDeleted(msg.data || msg);
-        } else if (msg.type === 'ghost_message_edited') {
-          handleGhostMessageEdited(msg.data || msg);
-        } else if (msg.type === 'surveillance_target_hit') {
-          handleSurveillanceHit(msg.data || msg);
-        } else if (msg.type === 'entity_discovered') {
-          handleEntityDiscovered(msg.data || msg);
-        } else if (msg.type === 'siphon_triggered') {
-          handleSiphonTriggered(msg.data || msg);
-        } else if (msg.type === 'message_reactions_updated') {
-          handleMessageReactionsUpdated(msg.data || msg);
-        } else if (msg.type === 'deep_scan_progress' || msg.type === 'scan_progress') {
-          if (typeof handleDeepScanProgress === 'function') handleDeepScanProgress(msg.data || msg);
-        } else if (msg.type === 'deep_scan_complete' || msg.type === 'scan_complete') {
-          if (typeof handleDeepScanComplete === 'function') handleDeepScanComplete(msg.data || msg);
         }
       } catch (e) {}
     };
@@ -10599,6 +10616,21 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     }
     if (tab === 'alpha') refreshAlphaRadar();
     if (tab === 'ghost') refreshCenterGhostVault();
+    if (tab === 'recon') {
+      loadGroupReputationGrid();
+      const gid = getActiveGroupId();
+      if (gid) {
+        fetch(`/api/messages/deep_scan/status?group_id=${gid}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data && data.status === 'RUNNING') {
+              handleDeepScanProgress(data);
+              startDeepScanPolling(gid);
+            }
+          })
+          .catch(() => {});
+      }
+    }
     if (tab === 'intel') {
       const results = document.getElementById('intel-briefing-results');
       if (results && results.innerText.includes('Select a target group')) {
@@ -10844,6 +10876,50 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     }
   }
 
+  let deepScanPollInterval = null;
+
+  function startDeepScanPolling(gid) {
+    if (!gid) return;
+    if (deepScanPollInterval) clearInterval(deepScanPollInterval);
+    deepScanPollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/messages/deep_scan/status?group_id=${gid}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'RUNNING') {
+          handleDeepScanProgress(data);
+        } else if (data.status === 'COMPLETED') {
+          clearInterval(deepScanPollInterval);
+          deepScanPollInterval = null;
+          handleDeepScanComplete({
+            unique_members: data.unique_members || 0,
+            total_scanned: data.scanned || 0
+          });
+        } else if (data.status === 'CANCELLED' || data.status === 'ERROR') {
+          clearInterval(deepScanPollInterval);
+          deepScanPollInterval = null;
+          const panel = document.getElementById('deep-scan-progress-panel');
+          if (panel) panel.style.display = 'none';
+          if (data.status === 'ERROR') {
+            showToast("Deep scan error: " + (data.error || "Unknown error"), "error");
+          }
+        }
+      } catch (e) {
+        console.debug("Deep scan poll status error:", e);
+      }
+    }, 1000);
+  }
+
+  function handleDeepScanError(data) {
+    if (deepScanPollInterval) {
+      clearInterval(deepScanPollInterval);
+      deepScanPollInterval = null;
+    }
+    const panel = document.getElementById('deep-scan-progress-panel');
+    if (panel) panel.style.display = 'none';
+    showToast("⚠️ Deep scan error: " + (data.error || "Failed to complete scan"), "error");
+  }
+
   async function start100kScan(limit = 100000) {
     const gid = getActiveGroupId();
     if (!gid) {
@@ -10857,6 +10933,12 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     if (fill) fill.style.width = '0%';
     const countLbl = document.getElementById('deep-scan-counts-label');
     if (countLbl) countLbl.innerText = `Starting deep scan for ${limit.toLocaleString()} messages...`;
+    const memLbl = document.getElementById('deep-scan-members-label');
+    if (memLbl) memLbl.innerText = `0 unique members profiled`;
+    const spdLbl = document.getElementById('deep-scan-speed-label');
+    if (spdLbl) spdLbl.innerText = `Connecting...`;
+    const etaLbl = document.getElementById('deep-scan-eta-label');
+    if (etaLbl) etaLbl.innerText = `ETA: calculating...`;
 
     try {
       const res = await fetch('/api/messages/deep_scan', {
@@ -10867,6 +10949,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to start scan");
       showToast(`⚡ Deep scan initiated for ${limit.toLocaleString()} messages!`, "success");
+      startDeepScanPolling(gid);
     } catch (e) {
       showToast("Deep scan error: " + e.message, "error");
       if (panel) panel.style.display = 'none';
@@ -10876,6 +10959,10 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   async function cancel100kScan() {
     const gid = getActiveGroupId();
     if (!gid) return;
+    if (deepScanPollInterval) {
+      clearInterval(deepScanPollInterval);
+      deepScanPollInterval = null;
+    }
     try {
       await fetch('/api/messages/deep_scan/cancel', {
         method: 'POST',
@@ -10894,18 +10981,21 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     const panel = document.getElementById('deep-scan-progress-panel');
     if (panel) panel.style.display = 'block';
 
-    const pct = data.percent || 0;
+    const scanned = data.scanned || 0;
+    const total = data.total || data.target_limit || 100000;
+    const pct = data.percent !== undefined ? data.percent : (total > 0 ? Math.round((scanned / total) * 1000) / 10 : 0);
     const fill = document.getElementById('deep-scan-progress-fill');
-    if (fill) fill.style.width = pct + '%';
+    if (fill) fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
 
     const countLbl = document.getElementById('deep-scan-counts-label');
     if (countLbl) {
-      countLbl.innerText = `Scanned ${data.scanned.toLocaleString()} / ${data.total.toLocaleString()} messages (${pct}%)`;
+      countLbl.innerText = `Scanned ${scanned.toLocaleString()} / ${total.toLocaleString()} messages (${pct}%)`;
     }
 
     const memLbl = document.getElementById('deep-scan-members-label');
     if (memLbl) {
-      memLbl.innerText = `${data.unique_members.toLocaleString()} unique members profiled`;
+      const uMem = data.unique_members || 0;
+      memLbl.innerText = `${uMem.toLocaleString()} unique members profiled`;
     }
 
     const spdLbl = document.getElementById('deep-scan-speed-label');
@@ -10919,7 +11009,13 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   }
 
   async function handleDeepScanComplete(data) {
-    showToast(`🏆 100K Deep Scan Complete! Profiled ${data.unique_members.toLocaleString()} members across ${data.total_scanned.toLocaleString()} messages.`, "success");
+    if (deepScanPollInterval) {
+      clearInterval(deepScanPollInterval);
+      deepScanPollInterval = null;
+    }
+    const scanned = data.total_scanned || data.scanned || 0;
+    const members = data.unique_members || 0;
+    showToast(`🏆 100K Deep Scan Complete! Profiled ${members.toLocaleString()} members across ${scanned.toLocaleString()} messages.`, "success");
     const panel = document.getElementById('deep-scan-progress-panel');
     if (panel) {
       setTimeout(() => { panel.style.display = 'none'; }, 3000);
