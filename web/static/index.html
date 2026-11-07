@@ -795,7 +795,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 .hud-body {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: 310px minmax(0, 1fr) 390px;
+  grid-template-columns: 295px minmax(0, 1fr);
   overflow: hidden;
   height: calc(100% - 40px);
 }
@@ -3223,10 +3223,10 @@ body {
   background: var(--surface-hover) !important;
 }
 
-/* 3-Column Asymmetric Cockpit Grid */
+/* 2-Column Cockpit Grid (Maximized Live Intelligence Stage) */
 .hud-body {
   display: grid !important;
-  grid-template-columns: 295px minmax(0, 1fr) 365px !important;
+  grid-template-columns: 295px minmax(0, 1fr) !important;
   height: calc(100% - 38px) !important;
   max-height: calc(100% - 38px) !important;
   overflow: hidden !important;
@@ -3253,9 +3253,7 @@ body {
   flex-direction: column !important;
 }
 .hud-col-right {
-  background: var(--deep-carbon) !important;
-  border-left: 1px solid var(--dark-border) !important;
-  overflow-y: auto !important;
+  display: none !important;
 }
 
 /* Editorial Section Panel Titles */
@@ -4189,10 +4187,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       <i data-lucide="shield" style="width: 12px; height: 12px;"></i>
       <span>Targets &amp; DEFCON</span>
     </button>
-    <button type="button" class="hud-mobile-tab" onclick="switchMobileHUDCol('right')" id="hud-mob-tab-right">
-      <i data-lucide="cpu" style="width: 12px; height: 12px;"></i>
-      <span>Copilot &amp; Intel</span>
-    </button>
   </div>
 
   <!-- 3-COLUMN COCKPIT -->
@@ -4627,61 +4621,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
         </div>
       </div>
     </main>
-
-    <!-- RIGHT COLUMN: AI COPILOT & NEURAL FORENSICS (380px) -->
-    <aside class="hud-col hud-col-right">
-      <!-- AI COPILOT INTERACTIVE TERMINAL -->
-      <div class="hud-panel-title">
-        <span><b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">04</b> // NEURAL AI COPILOT</span>
-        <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">知能</span>
-        <span class="badge badge-muted" style="font-size: 8px; border-color: rgba(52,211,153,0.3); color: #34d399;">ONLINE</span>
-      </div>
-
-      <div class="copilot-terminal-card">
-        <div class="copilot-log-window" id="copilot-log">
-          <div class="copilot-msg bot">
-            <div class="copilot-msg-meta"><span class="badge-tag">AI CORE</span> <span class="time">READY</span></div>
-            <div class="copilot-msg-text">KAGE Sentinel AI Copilot active. Enter tactical directives below or use rapid chips.</div>
-          </div>
-        </div>
-
-        <!-- Sovereign Non-Admin Directives -->
-        <div class="copilot-quick-chips">
-          <button type="button" onclick="sendCopilotPreset('briefing')">⚡ briefing</button>
-          <button type="button" onclick="sendCopilotPreset('scan members')">🔍 scan members</button>
-          <button type="button" onclick="sendCopilotPreset('ghosts')">👻 ghosts</button>
-          <button type="button" onclick="sendCopilotPreset('alpha')">📈 alpha</button>
-          <button type="button" onclick="sendCopilotPreset('siphon ping')">📲 siphon ping</button>
-        </div>
-
-        <!-- Input Bar -->
-        <form onsubmit="handleCopilotSubmit(event)" class="copilot-input-form">
-          <div class="copilot-input-wrap">
-            <span class="copilot-prompt-sym">&gt;</span>
-            <input type="text" id="copilot-input" class="copilot-text-input" placeholder="Directive (e.g. briefing, scan members)..." autocomplete="off" />
-            <button type="submit" class="copilot-send-btn" title="Send Directive">
-              <i data-lucide="corner-down-left" style="width: 13px; height: 13px;"></i>
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- NEURAL THREAT INTERCEPT FEED -->
-      <div class="hud-panel-title" style="margin-top: 14px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">05</b>
-          <span>// INTERCEPTED THREAT LOG</span>
-        </div>
-        <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">脅威</span>
-        <button type="button" onclick="loadThreatsHistory()" class="btn-icon-xs" title="Reload Threat Logs"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i></button>
-      </div>
-
-      <div id="neural-threats-feed" class="neural-threats-list">
-        <div class="threat-empty-state">
-          <span>No zero-day threats intercepted in current buffer. Sentinel actively scanning.</span>
-        </div>
-      </div>
-    </aside>
   </div>
 </div>
 
