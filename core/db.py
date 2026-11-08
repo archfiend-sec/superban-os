@@ -693,7 +693,7 @@ class DatabaseManager:
             except Exception:
                 pass
 
-    async def mark_messages_deleted(self, group_id: int, message_ids: List[int]) -> List[Dict[str, Any]]:
+    async def mark_messages_deleted(self, group_id: Optional[int], message_ids: List[int]) -> List[Dict[str, Any]]:
         """Intercept deleted messages and mark them in the Ghost Vault."""
         if not message_ids:
             return []
@@ -701,72 +701,122 @@ class DatabaseManager:
         async with self.lock:
             try:
                 placeholders = ','.join('?' * len(message_ids))
-                self.cursor.execute(
-                    f'''SELECT message_id, user_id, full_name, username, text, media_type,
-                               media_path, file_name, file_size, file_hash, date_sent
-                    FROM intercepted_messages WHERE group_id = ? AND message_id IN ({placeholders})''',
-                    [group_id] + list(message_ids)
-                )
+                if group_id:
+                    variants = self.get_group_id_variants(group_id)
+                    gid_placeholders = ','.join('?' for _ in variants)
+                    self.cursor.execute(
+                        f'''SELECT id, message_id, user_id, full_name, username, text, media_type,
+                                   media_path, file_name, file_size, file_hash, date_sent, group_id, group_title
+                        FROM intercepted_messages WHERE group_id IN ({gid_placeholders}) AND message_id IN ({placeholders})''',
+                        list(variants) + list(message_ids)
+                    )
+                else:
+                    self.cursor.execute(
+                        f'''SELECT id, message_id, user_id, full_name, username, text, media_type,
+                                   media_path, file_name, file_size, file_hash, date_sent, group_id, group_title
+                        FROM intercepted_messages WHERE message_id IN ({placeholders})''',
+                        list(message_ids)
+                    )
                 rows = self.cursor.fetchall()
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                matched_ids = []
                 for r in rows:
+                    matched_ids.append(r[0])
                     intercepted.append({
-                        "message_id": r[0],
-                        "user_id": r[1],
-                        "full_name": r[2],
-                        "username": r[3],
-                        "text": r[4],
-                        "media_type": r[5],
-                        "media_path": r[6] or "",
-                        "file_name": r[7] or "",
-                        "file_size": r[8] or 0,
-                        "file_hash": r[9] or "",
-                        "date_sent": str(r[10]),
-                        "date_deleted": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        "id": r[0],
+                        "message_id": r[1],
+                        "group_id": r[12] or group_id,
+                        "group_title": r[13] or "",
+                        "user_id": r[2],
+                        "full_name": r[3],
+                        "sender_name": r[3],
+                        "username": r[4],
+                        "sender_username": r[4],
+                        "text": r[5] or "",
+                        "message_text": r[5] or "",
+                        "original_text": r[5] or "",
+                        "media_type": r[6] or "",
+                        "media_path": r[7] or "",
+                        "file_name": r[8] or "",
+                        "file_size": r[9] or 0,
+                        "file_hash": r[10] or "",
+                        "date_sent": str(r[11]) if r[11] else "",
+                        "timestamp": str(r[11]) if r[11] else "",
+                        "date_deleted": now_str,
+                        "deleted_at": now_str,
+                        "is_deleted": True,
+                        "is_edited": False
                     })
                 
-                self.cursor.execute(
-                    f'''UPDATE intercepted_messages 
-                    SET is_deleted = 1, date_deleted = ?
-                    WHERE group_id = ? AND message_id IN ({placeholders})''',
-                    [datetime.now(), group_id] + list(message_ids)
-                )
-                self.conn.commit()
-            except Exception:
-                pass
+                if matched_ids:
+                    id_placeholders = ','.join('?' * len(matched_ids))
+                    self.cursor.execute(
+                        f'''UPDATE intercepted_messages 
+                        SET is_deleted = 1, date_deleted = ?
+                        WHERE id IN ({id_placeholders})''',
+                        [datetime.now()] + matched_ids
+                    )
+                    self.conn.commit()
+            except Exception as e:
+                logger.debug(f"mark_messages_deleted error: {e}")
         return intercepted
 
-    async def mark_message_edited(self, group_id: int, message_id: int, new_text: str) -> Optional[Dict[str, Any]]:
+    async def mark_message_edited(self, group_id: Optional[int], message_id: int, new_text: str) -> Optional[Dict[str, Any]]:
         """Track edited messages preserving the original unedited text."""
         result = None
         async with self.lock:
             try:
-                self.cursor.execute(
-                    '''SELECT text, user_id, full_name, username, date_sent 
-                    FROM intercepted_messages WHERE group_id = ? AND message_id = ?''',
-                    (group_id, message_id)
-                )
+                if group_id:
+                    variants = self.get_group_id_variants(group_id)
+                    gid_placeholders = ','.join('?' for _ in variants)
+                    self.cursor.execute(
+                        f'''SELECT id, text, user_id, full_name, username, date_sent, group_id, group_title 
+                        FROM intercepted_messages WHERE group_id IN ({gid_placeholders}) AND message_id = ?''',
+                        list(variants) + [message_id]
+                    )
+                else:
+                    self.cursor.execute(
+                        '''SELECT id, text, user_id, full_name, username, date_sent, group_id, group_title 
+                        FROM intercepted_messages WHERE message_id = ?''',
+                        (message_id,)
+                    )
                 row = self.cursor.fetchone()
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 if row:
-                    orig_text = row[0]
+                    db_id = row[0]
+                    orig_text = row[1] or ""
+                    eff_gid = row[6] or group_id
+                    gtitle = row[7] or ""
                     self.cursor.execute(
                         '''UPDATE intercepted_messages
                         SET is_edited = 1, original_text = COALESCE(original_text, ?), text = ?, date_edited = ?
-                        WHERE group_id = ? AND message_id = ?''',
-                        (orig_text, new_text, datetime.now(), group_id, message_id)
+                        WHERE id = ?''',
+                        (orig_text, new_text or "", datetime.now(), db_id)
                     )
                     self.conn.commit()
                     result = {
+                        "id": db_id,
+                        "group_id": eff_gid,
+                        "group_title": gtitle,
                         "message_id": message_id,
-                        "user_id": row[1],
-                        "full_name": row[2],
-                        "username": row[3],
+                        "user_id": row[2],
+                        "full_name": row[3],
+                        "sender_name": row[3],
+                        "username": row[4],
+                        "sender_username": row[4],
                         "original_text": orig_text,
-                        "new_text": new_text,
-                        "date_sent": str(row[4]),
-                        "date_edited": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        "new_text": new_text or "",
+                        "text": new_text or "",
+                        "message_text": new_text or "",
+                        "date_sent": str(row[5]) if row[5] else "",
+                        "timestamp": str(row[5]) if row[5] else "",
+                        "date_edited": now_str,
+                        "edited_at": now_str,
+                        "is_edited": True,
+                        "is_deleted": False
                     }
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"mark_message_edited error: {e}")
         return result
 
     async def get_ghost_messages(self, group_id: Optional[int] = None, filter_mode: str = 'all', limit: int = 50) -> List[Dict[str, Any]]:
@@ -798,54 +848,112 @@ class DatabaseManager:
             return [{
                 "id": r[0],
                 "group_id": r[1],
-                "group_title": r[2],
+                "group_title": r[2] or "",
                 "message_id": r[3],
                 "user_id": r[4],
-                "full_name": r[5],
-                "username": r[6],
-                "text": r[7],
-                "media_type": r[8],
+                "full_name": r[5] or "Anonymous",
+                "sender_name": r[5] or "Anonymous",
+                "username": r[6] or "",
+                "sender_username": r[6] or "",
+                "text": r[7] or "",
+                "message_text": r[7] or "",
+                "new_text": r[7] or "",
+                "media_type": r[8] or "",
                 "media_path": r[9] or "",
                 "file_name": r[10] or "",
                 "file_size": r[11] or 0,
                 "file_hash": r[12] or "",
                 "is_deleted": bool(r[13]),
                 "is_edited": bool(r[14]),
-                "original_text": r[15],
+                "original_text": r[15] or "",
                 "date_sent": str(r[16]) if r[16] else "",
+                "timestamp": str(r[16]) if r[16] else "",
                 "date_deleted": str(r[17]) if r[17] else "",
-                "date_edited": str(r[18]) if r[18] else ""
+                "deleted_at": str(r[17]) if r[17] else "",
+                "date_edited": str(r[18]) if r[18] else "",
+                "edited_at": str(r[18]) if r[18] else ""
             } for r in rows]
 
     async def get_ghost_message_by_id(self, ghost_id: int) -> Optional[Dict[str, Any]]:
-        """Retrieve a specific intercepted message by its database primary key ID."""
+        """Retrieve a specific intercepted message by its database primary key ID or message_id."""
         async with self.lock:
-            sql = "SELECT id, group_id, group_title, message_id, user_id, full_name, username, text, media_type, media_path, file_name, file_size, file_hash, is_deleted, is_edited, original_text, date_sent, date_deleted, date_edited FROM intercepted_messages WHERE id = ?"
-            self.cursor.execute(sql, (ghost_id,))
+            sql = "SELECT id, group_id, group_title, message_id, user_id, full_name, username, text, media_type, media_path, file_name, file_size, file_hash, is_deleted, is_edited, original_text, date_sent, date_deleted, date_edited FROM intercepted_messages WHERE id = ? OR message_id = ? ORDER BY id DESC LIMIT 1"
+            self.cursor.execute(sql, (ghost_id, ghost_id))
             r = self.cursor.fetchone()
             if not r:
                 return None
             return {
                 "id": r[0],
                 "group_id": r[1],
-                "group_title": r[2],
+                "group_title": r[2] or "",
                 "message_id": r[3],
                 "user_id": r[4],
-                "full_name": r[5],
-                "username": r[6],
-                "text": r[7],
-                "media_type": r[8],
+                "full_name": r[5] or "Anonymous",
+                "sender_name": r[5] or "Anonymous",
+                "username": r[6] or "",
+                "sender_username": r[6] or "",
+                "text": r[7] or "",
+                "message_text": r[7] or "",
+                "new_text": r[7] or "",
+                "media_type": r[8] or "",
                 "media_path": r[9] or "",
                 "file_name": r[10] or "",
                 "file_size": r[11] or 0,
                 "file_hash": r[12] or "",
                 "is_deleted": bool(r[13]),
                 "is_edited": bool(r[14]),
-                "original_text": r[15],
+                "original_text": r[15] or "",
                 "date_sent": str(r[16]) if r[16] else "",
+                "timestamp": str(r[16]) if r[16] else "",
                 "date_deleted": str(r[17]) if r[17] else "",
-                "date_edited": str(r[18]) if r[18] else ""
+                "deleted_at": str(r[17]) if r[17] else "",
+                "date_edited": str(r[18]) if r[18] else "",
+                "edited_at": str(r[18]) if r[18] else ""
             }
+
+    async def get_ghost_overlay_for_messages(self, group_id: Optional[int], message_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        """Look up ghost vault status (is_deleted, is_edited, original_text) for a batch of message IDs."""
+        if not message_ids:
+            return {}
+        result = {}
+        async with self.lock:
+            try:
+                placeholders = ','.join('?' * len(message_ids))
+                if group_id:
+                    variants = self.get_group_id_variants(group_id)
+                    gid_placeholders = ','.join('?' for _ in variants)
+                    self.cursor.execute(
+                        f'''SELECT id, message_id, is_deleted, is_edited, original_text, text, date_deleted, date_edited
+                        FROM intercepted_messages 
+                        WHERE group_id IN ({gid_placeholders}) AND message_id IN ({placeholders}) AND (is_deleted = 1 OR is_edited = 1)''',
+                        list(variants) + list(message_ids)
+                    )
+                else:
+                    self.cursor.execute(
+                        f'''SELECT id, message_id, is_deleted, is_edited, original_text, text, date_deleted, date_edited
+                        FROM intercepted_messages 
+                        WHERE message_id IN ({placeholders}) AND (is_deleted = 1 OR is_edited = 1)''',
+                        list(message_ids)
+                    )
+                rows = self.cursor.fetchall()
+                for r in rows:
+                    result[r[1]] = {
+                        "id": r[0],
+                        "message_id": r[1],
+                        "is_deleted": bool(r[2]),
+                        "is_edited": bool(r[3]),
+                        "original_text": r[4] or "",
+                        "new_text": r[5] or "",
+                        "text": r[5] or "",
+                        "message_text": r[5] or "",
+                        "date_deleted": str(r[6]) if r[6] else "",
+                        "deleted_at": str(r[6]) if r[6] else "",
+                        "date_edited": str(r[7]) if r[7] else "",
+                        "edited_at": str(r[7]) if r[7] else ""
+                    }
+            except Exception as e:
+                logger.debug(f"get_ghost_overlay_for_messages error: {e}")
+        return result
 
     # ═══════════════════════════════════════════════════════
     #   SHADOW NETWORK & SYNDICATE SHILL RING ANALYSIS

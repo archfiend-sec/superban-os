@@ -1413,6 +1413,25 @@ class SuperBanEngine:
                     item["trust_level"] = "NEUTRAL CITIZEN"
                     item["trust_color"] = "#38bdf8"
                     item["message_count"] = 0
+
+            # Overlay Ghost Vault status (deleted / edited original text)
+            msg_ids = [m["message_id"] for m in res if m.get("message_id")]
+            if self.db and hasattr(self.db, "get_ghost_overlay_for_messages") and msg_ids:
+                try:
+                    ghost_map = await self.db.get_ghost_overlay_for_messages(gid, msg_ids)
+                    for item in res:
+                        mid = item.get("message_id")
+                        if mid in ghost_map:
+                            gm = ghost_map[mid]
+                            if gm.get("is_deleted"):
+                                item["is_deleted"] = True
+                                item["ghost_id"] = gm.get("id")
+                            if gm.get("is_edited"):
+                                item["is_edited"] = True
+                                item["original_text"] = gm.get("original_text")
+                                item["ghost_id"] = gm.get("id")
+                except Exception as ge:
+                    logger.debug(f"Ghost overlay lookup bypass: {ge}")
         except Exception as e:
             logger.error(f"Error fetching recent messages: {e}")
         return res

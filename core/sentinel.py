@@ -438,15 +438,25 @@ class SentinelShield:
 
         @self.client.on(events.MessageDeleted)
         async def on_message_deleted(event):
-            group_id = event.chat_id
+            group_id = getattr(event, 'chat_id', None)
+            if not group_id:
+                peer = getattr(event, 'peer_id', None) or getattr(getattr(event, 'message', None), 'peer_id', None)
+                if peer:
+                    if hasattr(peer, 'channel_id'):
+                        group_id = -1000000000000 - peer.channel_id if peer.channel_id > 0 else peer.channel_id
+                    elif hasattr(peer, 'chat_id'):
+                        group_id = -peer.chat_id if peer.chat_id > 0 else peer.chat_id
+                    elif hasattr(peer, 'user_id'):
+                        group_id = peer.user_id
             deleted_ids = getattr(event, 'deleted_ids', [])
             if self.db and deleted_ids:
                 try:
                     records = await self.db.mark_messages_deleted(group_id, deleted_ids)
                     if records:
-                        logger.info(f"👻 Ghost Vault intercepted {len(records)} deleted messages in group {group_id}!")
+                        eff_gid = group_id or (records[0].get("group_id") if records else 0)
+                        logger.info(f"👻 Ghost Vault intercepted {len(records)} deleted messages in group {eff_gid}!")
                         await self.emit_sentinel_event("ghost_messages_deleted", {
-                            "group_id": group_id,
+                            "group_id": eff_gid,
                             "count": len(records),
                             "records": records,
                             "timestamp": time.strftime("%H:%M:%S", time.localtime())
@@ -458,14 +468,30 @@ class SentinelShield:
 
         @self.client.on(events.MessageEdited)
         async def on_message_edited(event):
-            group_id = event.chat_id
-            if self.db and event.id and event.raw_text:
+            group_id = getattr(event, 'chat_id', None)
+            if not group_id:
+                peer = getattr(event, 'peer_id', None) or getattr(getattr(event, 'message', None), 'peer_id', None)
+                if peer:
+                    if hasattr(peer, 'channel_id'):
+                        group_id = -1000000000000 - peer.channel_id if peer.channel_id > 0 else peer.channel_id
+                    elif hasattr(peer, 'chat_id'):
+                        group_id = -peer.chat_id if peer.chat_id > 0 else peer.chat_id
+                    elif hasattr(peer, 'user_id'):
+                        group_id = peer.user_id
+
+            msg_raw = getattr(event, 'raw_text', None)
+            if msg_raw is None:
+                msg_raw = getattr(event, 'text', '') or getattr(getattr(event, 'message', None), 'message', '') or ''
+            raw_text = msg_raw if isinstance(msg_raw, str) else str(msg_raw or '')
+
+            if self.db and getattr(event, 'id', None):
                 try:
-                    record = await self.db.mark_message_edited(group_id, event.id, event.raw_text)
+                    record = await self.db.mark_message_edited(group_id, event.id, raw_text)
                     if record:
-                        logger.info(f"👻 Ghost Vault intercepted edited message #{event.id} in group {group_id}!")
+                        eff_gid = group_id or record.get("group_id", 0)
+                        logger.info(f"👻 Ghost Vault intercepted edited message #{event.id} in group {eff_gid}!")
                         await self.emit_sentinel_event("ghost_message_edited", {
-                            "group_id": group_id,
+                            "group_id": eff_gid,
                             "record": record,
                             "timestamp": time.strftime("%H:%M:%S", time.localtime())
                         })

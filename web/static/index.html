@@ -1766,31 +1766,41 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   box-shadow: 0 0 20px rgba(224, 35, 28, 0.3) !important;
 }
 .wiretap-card.ghost-edited-card {
-  border-color: #f59e0b !important;
-  background: rgba(30, 20, 8, 0.75) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  background: rgba(26, 18, 10, 0.85) !important;
 }
 .wiretap-ghost-edit-box {
-  margin-top: 6px;
-  padding: 6px 10px;
-  background: rgba(5, 7, 10, 0.85);
-  border: 1px solid var(--line-soft);
-  border-radius: 2px;
-  font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
-  line-height: 1.5;
+  margin-top: 6px !important;
+  margin-bottom: 6px !important;
+  padding: 8px 12px !important;
+  background: rgba(13, 15, 18, 0.95) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  border-left: 3px solid #f59e0b !important;
+  border-radius: 4px !important;
+  font-size: 11.5px !important;
+  font-family: var(--font-mono) !important;
+  line-height: 1.5 !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  box-sizing: border-box !important;
 }
 .diff-del {
-  color: #ef4444;
-  text-decoration: line-through;
-  background: rgba(239, 68, 68, 0.12);
-  padding: 1px 4px;
-  border-radius: 2px;
+  color: #f87171 !important;
+  text-decoration: line-through !important;
+  background: rgba(239, 68, 68, 0.14) !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  display: inline-block !important;
+  margin-bottom: 2px !important;
+  word-break: break-word !important;
 }
 .diff-add {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.12);
-  padding: 1px 4px;
-  border-radius: 2px;
+  color: #34d399 !important;
+  background: rgba(16, 185, 129, 0.14) !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  display: inline-block !important;
+  word-break: break-word !important;
 }
 .hud-pulse-radar {
   width: 8px;
@@ -9816,8 +9826,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
   function scrollWiretapToBottom(force = false) {
     const stream = document.getElementById('wiretap-stream');
-    const wrap = document.getElementById('tab-content-wiretap');
-    if (!stream && !wrap) return;
+    if (!stream) return;
 
     if (force) {
       userScrolledUpWiretap = false;
@@ -9834,12 +9843,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
 
       const doScroll = () => {
-        if (stream) {
-          stream.scrollTop = stream.scrollHeight;
-        }
-        if (wrap && wrap.scrollHeight > wrap.clientHeight) {
-          wrap.scrollTop = wrap.scrollHeight;
-        }
+        stream.scrollTop = stream.scrollHeight;
       };
 
       doScroll();
@@ -9848,7 +9852,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
         programmaticScrollTimer = setTimeout(() => {
           doScroll();
           isProgrammaticScroll = false;
-        }, 120);
+        }, 140);
       });
     }
   }
@@ -9861,20 +9865,20 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
   function checkWiretapScrollPosition(el) {
     if (!el || isProgrammaticScroll) return;
-    if (el.scrollHeight <= el.clientHeight + 5) return; // Skip non-overflowing container
+    if (el.scrollHeight <= el.clientHeight + 10) return;
 
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     const btn = document.getElementById('btn-wiretap-scroll');
 
-    // If user reaches within 120px of bottom, auto-lock back to latest messages
-    if (distFromBottom <= 120) {
+    // If user is near bottom (within 80px), automatically resume autoscroll
+    if (distFromBottom <= 80) {
       userScrolledUpWiretap = false;
       if (wiretapAutoScroll && btn) {
         btn.innerText = 'SCROLL: AUTO';
         btn.classList.add('active');
       }
-    } else if (distFromBottom > 160) {
-      // User has scrolled up to inspect earlier history
+    } else if (isUserInteractingWithWiretap && distFromBottom > 120) {
+      // ONLY pause if user is actively touching/wheeling upwards!
       userScrolledUpWiretap = true;
       if (btn && wiretapAutoScroll) {
         btn.innerText = 'SCROLL: PAUSED (RESUME ↓)';
@@ -9884,39 +9888,38 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   }
 
   function initWiretapScrollListeners() {
-    const targets = [
-      document.getElementById('wiretap-stream'),
-      document.getElementById('tab-content-wiretap')
-    ].filter(Boolean);
+    const stream = document.getElementById('wiretap-stream');
+    if (!stream || stream._hasScrollListeners) return;
+    stream._hasScrollListeners = true;
 
-    targets.forEach(el => {
-      if (el._hasScrollListeners) return;
-      el._hasScrollListeners = true;
+    const onInteractionStart = () => {
+      isUserInteractingWithWiretap = true;
+      if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
+    };
 
-      const onInteractionStart = () => {
-        isUserInteractingWithWiretap = true;
-        if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
-      };
+    const onInteractionEnd = () => {
+      if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
+      wiretapTouchTimer = setTimeout(() => {
+        isUserInteractingWithWiretap = false;
+        checkWiretapScrollPosition(stream);
+      }, 600);
+    };
 
-      const onInteractionEnd = () => {
-        if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
-        wiretapTouchTimer = setTimeout(() => {
-          isUserInteractingWithWiretap = false;
-          checkWiretapScrollPosition(el);
-        }, 500);
-      };
+    stream.addEventListener('touchstart', onInteractionStart, { passive: true });
+    stream.addEventListener('touchmove', onInteractionStart, { passive: true });
+    stream.addEventListener('touchend', onInteractionEnd, { passive: true });
+    stream.addEventListener('touchcancel', onInteractionEnd, { passive: true });
+    stream.addEventListener('wheel', () => {
+      onInteractionStart();
+      onInteractionEnd();
+    }, { passive: true });
+    stream.addEventListener('mousedown', onInteractionStart, { passive: true });
+    stream.addEventListener('mouseup', onInteractionEnd, { passive: true });
 
-      el.addEventListener('touchstart', onInteractionStart, { passive: true });
-      el.addEventListener('touchend', onInteractionEnd, { passive: true });
-      el.addEventListener('wheel', onInteractionStart, { passive: true });
-      el.addEventListener('mousedown', onInteractionStart, { passive: true });
-      el.addEventListener('mouseup', onInteractionEnd, { passive: true });
-
-      el.addEventListener('scroll', () => {
-        if (isProgrammaticScroll) return; // Prevent programmatic scrolling from falsely pausing autoscroll
-        checkWiretapScrollPosition(el);
-      }, { passive: true });
-    });
+    stream.addEventListener('scroll', () => {
+      if (isProgrammaticScroll) return;
+      checkWiretapScrollPosition(stream);
+    }, { passive: true });
   }
 
   function setWiretapScope(scope) {
@@ -10474,8 +10477,10 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   function createWiretapMessageCard(data) {
     const activeGid = getActiveGroupId();
 
+    const isDeleted = !!data.is_deleted;
+    const isEdited = !!data.is_edited && !isDeleted;
     const card = document.createElement('div');
-    card.className = `wiretap-card ${data.is_threat ? 'threat-card' : ''}`;
+    card.className = `wiretap-card ${data.is_threat ? 'threat-card' : ''} ${isDeleted ? 'ghost-deleted-card' : ''} ${isEdited ? 'ghost-edited-card' : ''}`;
     if (data.message_id) card.id = `wiretap-card-${data.message_id}`;
     card.setAttribute('onclick', 'handleWiretapCardClick(this, event)');
 
@@ -10564,6 +10569,43 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     const textToShow = rawTxt ? formatMessageTextWithTags(rawTxt) : (!hasRichMedia || !isFallbackText ? formatMessageTextWithTags(data.text || '') : '');
     const cleanCopyText = decodeHtmlEntities(rawTxt || data.text || '');
 
+    let ghostContentHtml = '';
+    if (isDeleted) {
+      const delTxt = data.original_text || data.text || rawTxt || '(Empty text)';
+      ghostContentHtml = `
+        <div class="wiretap-text">
+          <div style="font-size: 10px; color: #ef4444; font-weight: 700; margin-bottom: 4px;">👻 [MESSAGE DELETED IN TELEGRAM — CAPTURED & PRESERVED LOCALLY]:</div>
+          <div style="text-decoration: line-through; opacity: 0.85;">${escapeHtml(delTxt)}</div>
+        </div>
+      `;
+    } else if (isEdited) {
+      const oldTxt = data.original_text || '';
+      const newTxt = data.new_text || data.text || rawTxt || '';
+      ghostContentHtml = `
+        <div class="wiretap-text">
+          <div class="wiretap-ghost-edit-box">
+            <div style="font-size: 9px; color: #f59e0b; font-weight: 700; text-transform: uppercase;">✏️ Live Edit Captured by KAGE Wiretap:</div>
+            <div style="margin-top: 3px;"><span class="diff-del"><s>Old: ${escapeHtml(oldTxt)}</s></span></div>
+            <div style="margin-top: 2px;"><span class="diff-add">New: ${escapeHtml(newTxt)}</span></div>
+          </div>
+        </div>
+      `;
+    } else if (textToShow) {
+      ghostContentHtml = `<div class="wiretap-text">${textToShow}</div>`;
+    }
+
+    const ghostActionBtn = isDeleted ? `
+      <button type="button" onclick="forwardGhostToSaved(${data.ghost_id || data.id || data.message_id})" class="act-pill ghost-save-deleted-btn" style="border-color: #10b981; color: #10b981; font-weight: 700;" title="Save preserved deleted message to Telegram Saved Messages">
+        <i data-lucide="bookmark-check" style="width: 10px; height: 10px;"></i>
+        <span class="desktop-label">Save Deleted to Phone</span><span class="mobile-label">Save</span>
+      </button>
+    ` : (isEdited ? `
+      <button type="button" onclick="forwardGhostToSaved(${data.ghost_id || data.id || data.message_id})" class="act-pill ghost-save-revision-btn" style="border-color: #10b981; color: #10b981; font-weight: 700;" title="Save edited revisions to Telegram Saved Messages">
+        <i data-lucide="bookmark-check" style="width: 10px; height: 10px;"></i>
+        <span class="desktop-label">Save Revision to Phone</span><span class="mobile-label">Revision</span>
+      </button>
+    ` : '');
+
     card.innerHTML = `
       <div class="wiretap-header">
         <div class="wiretap-user-meta">
@@ -10582,7 +10624,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       </div>
       ${replyHtml}
       ${mediaHtml}
-      ${textToShow ? `<div class="wiretap-text">${textToShow}</div>` : ''}
+      ${ghostContentHtml}
       ${alphaHtml}
       ${reactionsRowHtml}
       ${data.is_threat ? `
@@ -10594,6 +10636,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       <div class="wiretap-card-toolbar">
         ${reactionHtml}
         <div class="wiretap-actions">
+          ${ghostActionBtn}
           ${counterWarnBtn}
           <button type="button" onclick="reportToTelegram(${effectiveGid}, ${data.message_id}, 'spam')" class="act-pill act-pill-report" style="border-color: rgba(239,68,68,0.4); color: #ef4444;" title="Plan H: 1-Click MTProto report to Telegram Trust & Safety">
             <i data-lucide="alert-octagon" style="width: 10px; height: 10px;"></i>
@@ -12344,28 +12387,31 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       if (m.is_deleted) {
         statusBadge = `<span class="badge badge-vermilion" style="font-size: 9px; font-weight: bold; background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #f87171;">🚨 DELETED MESSAGE (PRESERVED)</span>`;
         cardBorder = 'border: 1px solid rgba(239,68,68,0.35); background: rgba(239,68,68,0.04);';
+        const delText = m.original_text || m.text || m.message_text || '(Empty text)';
         contentHtml = `
           <div style="font-size: 11px; color: #f87171; margin-top: 4px; font-weight: bold;">Original Deleted Text Preserved Locally:</div>
           <div style="font-size: 12px; color: #fee2e2; line-height: 1.5; margin-top: 4px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 3px; border-left: 3px solid #ef4444; word-break: break-word;">
-            ${escapeHtml(m.message_text || m.original_text || '(Empty text)')}
+            ${escapeHtml(delText)}
           </div>
-          <div style="font-size: 9px; color: var(--muted); margin-top: 4px;">Deleted timestamp: ${escapeHtml(m.deleted_at || 'Instant')}</div>
+          <div style="font-size: 9px; color: var(--muted); margin-top: 4px;">Deleted timestamp: ${escapeHtml(m.deleted_at || m.date_deleted || 'Instant')}</div>
         `;
       } else if (m.is_edited) {
         statusBadge = `<span class="badge" style="font-size: 9px; font-weight: bold; background: rgba(245,158,11,0.2); border: 1px solid #f59e0b; color: #fbbf24;">✏️ EDITED REVISION</span>`;
         cardBorder = 'border: 1px solid rgba(245,158,11,0.35); background: rgba(245,158,11,0.04);';
+        const oldText = m.original_text || '(No prior revision cached)';
+        const curText = m.new_text || m.text || m.message_text || '(Empty text)';
         contentHtml = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;">
             <div style="background: rgba(0,0,0,0.4); padding: 8px; border-radius: 3px; border-left: 2px solid #ef4444;">
               <span style="font-size: 9px; color: #f87171; text-transform: uppercase; font-weight: bold;">Original (Unedited):</span>
-              <div style="font-size: 11px; color: #fee2e2; margin-top: 3px; line-height: 1.4; word-break: break-word;">${escapeHtml(m.original_text || '')}</div>
+              <div style="font-size: 11px; color: #fee2e2; margin-top: 3px; line-height: 1.4; word-break: break-word;">${escapeHtml(oldText)}</div>
             </div>
             <div style="background: rgba(0,0,0,0.4); padding: 8px; border-radius: 3px; border-left: 2px solid #10b981;">
               <span style="font-size: 9px; color: #34d399; text-transform: uppercase; font-weight: bold;">Current Revision:</span>
-              <div style="font-size: 11px; color: #d1fae5; margin-top: 3px; line-height: 1.4; word-break: break-word;">${escapeHtml(m.message_text || '')}</div>
+              <div style="font-size: 11px; color: #d1fae5; margin-top: 3px; line-height: 1.4; word-break: break-word;">${escapeHtml(curText)}</div>
             </div>
           </div>
-          <div style="font-size: 9px; color: var(--muted); margin-top: 4px;">Edited timestamp: ${escapeHtml(m.edited_at || 'Instant')}</div>
+          <div style="font-size: 9px; color: var(--muted); margin-top: 4px;">Edited timestamp: ${escapeHtml(m.edited_at || m.date_edited || 'Instant')}</div>
         `;
       }
 
@@ -12387,7 +12433,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
             <button type="button" onclick="forwardGhostToSaved(${m.id})" class="btn-xs-outline" style="color: #10b981; border-color: rgba(16,185,129,0.4); font-weight: 700;">
               📥 Dispatch Dossier to Saved Chat
             </button>
-            <button type="button" onclick="navigator.clipboard.writeText('${escapeQuote(m.message_text || m.text || m.original_text || '')}'); showToast('Copied text!', 'info');" class="btn-xs-outline">
+            <button type="button" onclick="navigator.clipboard.writeText('${escapeQuote(m.new_text || m.text || m.message_text || m.original_text || '')}'); showToast('Copied text!', 'info');" class="btn-xs-outline">
               📋 Copy
             </button>
             <button type="button" onclick="openOSINTModal(${m.sender_id || m.user_id})" class="btn-xs-outline" style="color: #38bdf8; border-color: rgba(56,189,248,0.4);">
@@ -12401,7 +12447,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   }
 
   function handleGhostMessagesDeleted(data) {
-    showToast(`🚨 Ghost Vault: Message deleted in group ${data.group_id} (Captured & Preserved)`, "error");
+    showToast(`🚨 Ghost Vault: Message deleted in group ${data.group_id || ''} (Captured & Preserved)`, "error");
     playZenSound('alarm');
     refreshGhostVault();
 
@@ -12409,25 +12455,42 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     (data.records || []).forEach(r => {
       const card = document.getElementById(`wiretap-card-${r.message_id}`);
       if (card) {
+        card.classList.remove('ghost-edited-card');
         card.classList.add('ghost-deleted-card');
-        const textEl = card.querySelector('.wiretap-text');
-        if (textEl) {
-          textEl.innerHTML = `
-            <div style="font-size: 10px; color: #ef4444; font-weight: 700; margin-bottom: 4px;">👻 [MESSAGE DELETED IN TELEGRAM — CAPTURED & PRESERVED LOCALLY]:</div>
-            <div style="text-decoration: line-through; opacity: 0.85;">${textEl.innerHTML}</div>
-          `;
+        let textEl = card.querySelector('.wiretap-text');
+        const deletedText = r.original_text || r.text || r.message_text || (textEl ? textEl.innerText : '(Empty text)');
+        if (!textEl) {
+          textEl = document.createElement('div');
+          textEl.className = 'wiretap-text';
+          const headerEl = card.querySelector('.wiretap-header');
+          if (headerEl && headerEl.nextSibling) {
+            card.insertBefore(textEl, headerEl.nextSibling);
+          } else {
+            card.appendChild(textEl);
+          }
         }
+        textEl.innerHTML = `
+          <div style="font-size: 10px; color: #ef4444; font-weight: 700; margin-bottom: 4px;">👻 [MESSAGE DELETED IN TELEGRAM — CAPTURED & PRESERVED LOCALLY]:</div>
+          <div style="text-decoration: line-through; opacity: 0.85;">${escapeHtml(deletedText)}</div>
+        `;
         const actEl = card.querySelector('.wiretap-actions');
         if (actEl) {
-          const btn = document.createElement('button');
-          btn.className = 'act-pill';
-          btn.style.borderColor = '#10b981';
-          btn.style.color = '#10b981';
-          btn.style.fontWeight = '700';
-          btn.innerHTML = `<i data-lucide="bookmark-check" style="width: 10px; height: 10px;"></i><span>Save Deleted to Phone</span>`;
-          btn.onclick = () => forwardGhostToSaved(r.id);
-          actEl.prepend(btn);
-          safeCreateIcons();
+          // Remove duplicate or prior revision button
+          const existingRev = actEl.querySelector('.ghost-save-revision-btn');
+          if (existingRev) existingRev.remove();
+          if (!actEl.querySelector('.ghost-save-deleted-btn')) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'act-pill ghost-save-deleted-btn';
+            btn.style.borderColor = '#10b981';
+            btn.style.color = '#10b981';
+            btn.style.fontWeight = '700';
+            btn.title = 'Save preserved deleted message to Telegram Saved Messages';
+            btn.innerHTML = `<i data-lucide="bookmark-check" style="width: 10px; height: 10px;"></i><span class="desktop-label">Save Deleted to Phone</span><span class="mobile-label">Save</span>`;
+            btn.onclick = () => forwardGhostToSaved(r.id || r.message_id);
+            actEl.prepend(btn);
+            safeCreateIcons();
+          }
         }
       }
     });
@@ -12443,27 +12506,42 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       const card = document.getElementById(`wiretap-card-${r.message_id}`);
       if (card) {
         card.classList.add('ghost-edited-card');
-        const textEl = card.querySelector('.wiretap-text');
-        if (textEl) {
-          textEl.innerHTML = `
-            <div class="wiretap-ghost-edit-box">
-              <div style="font-size: 9px; color: #f59e0b; font-weight: 700; text-transform: uppercase;">✏️ Live Edit Captured by KAGE Wiretap:</div>
-              <div style="margin-top: 3px;"><span class="diff-del"><s>Old: ${escapeHtml(r.original_text || '')}</s></span></div>
-              <div style="margin-top: 2px;"><span class="diff-add">New: ${escapeHtml(r.text || '')}</span></div>
-            </div>
-          `;
+        let textEl = card.querySelector('.wiretap-text');
+        if (!textEl) {
+          textEl = document.createElement('div');
+          textEl.className = 'wiretap-text';
+          const headerEl = card.querySelector('.wiretap-header');
+          if (headerEl && headerEl.nextSibling) {
+            card.insertBefore(textEl, headerEl.nextSibling);
+          } else {
+            card.appendChild(textEl);
+          }
         }
+        const oldText = r.original_text || '';
+        const newText = r.new_text || r.text || r.message_text || '';
+        textEl.innerHTML = `
+          <div class="wiretap-ghost-edit-box">
+            <div style="font-size: 9px; color: #f59e0b; font-weight: 700; text-transform: uppercase;">✏️ Live Edit Captured by KAGE Wiretap:</div>
+            <div style="margin-top: 3px;"><span class="diff-del"><s>Old: ${escapeHtml(oldText)}</s></span></div>
+            <div style="margin-top: 2px;"><span class="diff-add">New: ${escapeHtml(newText)}</span></div>
+          </div>
+        `;
         const actEl = card.querySelector('.wiretap-actions');
         if (actEl) {
-          const btn = document.createElement('button');
-          btn.className = 'act-pill';
-          btn.style.borderColor = '#10b981';
-          btn.style.color = '#10b981';
-          btn.style.fontWeight = '700';
-          btn.innerHTML = `<i data-lucide="bookmark-check" style="width: 10px; height: 10px;"></i><span>Save Revision to Phone</span>`;
-          btn.onclick = () => forwardGhostToSaved(r.id);
-          actEl.prepend(btn);
-          safeCreateIcons();
+          // Strictly prevent duplicate buttons side-by-side!
+          if (!actEl.querySelector('.ghost-save-revision-btn')) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'act-pill ghost-save-revision-btn';
+            btn.style.borderColor = '#10b981';
+            btn.style.color = '#10b981';
+            btn.style.fontWeight = '700';
+            btn.title = 'Save edited revisions to Telegram Saved Messages';
+            btn.innerHTML = `<i data-lucide="bookmark-check" style="width: 10px; height: 10px;"></i><span class="desktop-label">Save Revision to Phone</span><span class="mobile-label">Revision</span>`;
+            btn.onclick = () => forwardGhostToSaved(r.id || r.message_id);
+            actEl.prepend(btn);
+            safeCreateIcons();
+          }
         }
       }
     }
