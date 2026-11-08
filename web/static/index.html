@@ -4056,12 +4056,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       <span id="nav-mob-status-badge" class="badge badge-emerald" style="font-size: 9px; padding: 2px 6px;">● ONLINE</span>
     </div>
 
-    <!-- Form Factor Device Telemetry Badge -->
-    <button type="button" onclick="showDeviceDiagnostics()" class="kage-device-pill badge badge-muted" title="Auto-Detected Device Form Factor (Tap for Diagnostics)">
-      <span class="device-dot"></span>
-      <span class="device-label">AUTO</span>
-    </button>
-
     <!-- Voice Chamber Apex -->
     <button type="button" onclick="openVCModal()" class="kage-btn-pill" title="Group Voice Chat Apex Controls">
       <i data-lucide="mic" style="width: 12px; height: 12px; color: var(--vermilion);"></i>
@@ -4153,10 +4147,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     <div class="hud-ticker-left">
       <span class="hud-sys-tag">KAGE // 影 — INTELLIGENCE WITHOUT NOISE</span>
       <span class="hud-divider">/</span>
-      <span class="hud-status-live"><span class="hud-blink-dot"></span> MTPROTO STREAM ACTIVE</span>
-      <span class="hud-divider">/</span>
-      <span id="hud-defcon-display" class="badge badge-muted">DEFCON 5 // 平穏</span>
-      <span class="hud-divider">/</span>
       <button type="button" onclick="openVCModal()" id="hud-vc-pill" class="badge badge-muted" style="cursor: pointer; border: 1px solid var(--hairline); background: var(--graphite); padding: 3px 8px; font-family: var(--font-mono); display: inline-flex; align-items: center; gap: 6px;" title="Open Voice Chamber Apex">
         <span id="hud-vc-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--muted-grey);"></span>
         <span id="hud-vc-label">VC: RADAR</span>
@@ -4167,8 +4157,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     </div>
     <div class="hud-ticker-right">
       <span class="font-mono text-muted" style="font-size: 11px;">WIRETAP BUFFER: <span id="wiretap-count" style="color: var(--bone);">0</span> MSGS</span>
-      <span class="hud-divider">/</span>
-      <button type="button" onclick="toggleTacticalSFX()" id="hud-sfx-toggle" class="btn-xs-outline active" title="Toggle Synthesized Tactical Audio Feedback">🔊 SFX: ON</button>
       <span class="hud-divider">/</span>
       <button type="button" onclick="toggleScreenWakeLock()" id="hud-wakelock-toggle" class="btn-xs-outline active" title="Prevent screen from sleeping / keep display awake constantly">👁️ AWAKE: ON</button>
       <span class="hud-divider">/</span>
@@ -4184,18 +4172,18 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       <span>Wiretap Feed</span>
     </button>
     <button type="button" class="hud-mobile-tab" onclick="switchMobileHUDCol('left')" id="hud-mob-tab-left">
-      <i data-lucide="shield" style="width: 12px; height: 12px;"></i>
-      <span>Targets &amp; DEFCON</span>
+      <i data-lucide="crosshair" style="width: 12px; height: 12px;"></i>
+      <span>Target Recon</span>
     </button>
   </div>
 
   <!-- 3-COLUMN COCKPIT -->
   <div class="hud-body">
-    <!-- LEFT COLUMN: TARGET RECON & DEFCON MATRIX (310px) -->
+    <!-- LEFT COLUMN: TARGET RECONNAISSANCE (310px) -->
     <aside class="hud-col hud-col-left">
       <div class="hud-panel-title">
-        <span><b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">01</b> // TARGET RECON &amp; DEFCON</span>
-        <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">防衛態勢</span>
+        <span><b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">01</b> // TARGET RECONNAISSANCE</span>
+        <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">偵察</span>
         <button type="button" onclick="fetchDialogs()" class="btn-icon-xs" title="Refresh Dialogs"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i></button>
       </div>
 
@@ -4214,21 +4202,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
           <div style="font-size: 11px; font-weight: 600; color: #ff5a3c; margin-bottom: 4px;">⚠️ Telegram Not Linked on Server</div>
           <div style="font-size: 10px; color: var(--bone-dim); line-height: 1.4; margin-bottom: 8px;">Link via 5-digit code or paste your String Session to load all groups and wiretaps.</div>
           <button type="button" onclick="openAuthModal()" class="kage-action-btn" style="width: 100%; padding: 6px 10px; font-size: 10px;">⚡ LINK TELEGRAM ACCOUNT</button>
-        </div>
-      </div>
-
-      <!-- DEFCON State Controller -->
-      <div class="hud-box" style="margin-bottom: 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <span class="hud-label" style="margin: 0;">DEFCON DEFENSE POSTURE</span>
-          <span id="hud-defcon-tag" class="badge badge-muted" style="font-size: 9px;">DEFCON 5</span>
-        </div>
-        <div class="hud-defcon-grid">
-          <button type="button" onclick="setDefconLevel(5)" id="hud-defcon-5" class="hud-defcon-btn active" title="DEFCON 5: Peace"><b>5</b><span>PEACE</span></button>
-          <button type="button" onclick="setDefconLevel(4)" id="hud-defcon-4" class="hud-defcon-btn" title="DEFCON 4: Guarded"><b>4</b><span>GUARD</span></button>
-          <button type="button" onclick="setDefconLevel(3)" id="hud-defcon-3" class="hud-defcon-btn" title="DEFCON 3: Elevated"><b>3</b><span>ELEV</span></button>
-          <button type="button" onclick="setDefconLevel(2)" id="hud-defcon-2" class="hud-defcon-btn" title="DEFCON 2: Raid Imminent"><b>2</b><span>RAID</span></button>
-          <button type="button" onclick="setDefconLevel(1)" id="hud-defcon-1" class="hud-defcon-btn defcon-nuclear" title="DEFCON 1: Nuclear Lockdown"><b>1</b><span>NUKE</span></button>
         </div>
       </div>
 
@@ -4695,33 +4668,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
         <div>
           <span class="eyebrow"><span class="dot"></span> TACTICAL DIRECTIVE MATRIX</span>
           <h3 class="display" style="font-size: 22px; color: var(--bone); margin-top: 6px;">Sanmon Command Deck</h3>
-        </div>
-        <!-- DEFCON DEFENSE STATE MACHINE -->
-        <div class="defcon-bar-container">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
-            <span class="kage-label" style="margin: 0; color: var(--bone);"><span class="dot"></span> DEFCON DEFENSE POSTURE</span>
-            <span id="current-defcon-label" class="badge badge-emerald">DEFCON 5 // PEACE</span>
-          </div>
-          <div style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">
-            Real-time automated raid deterrence &amp; defensive escalation protocol.
-          </div>
-          <div class="defcon-grid">
-            <button type="button" onclick="setDefconLevel(5)" id="defcon-btn-5" class="defcon-btn active" title="Level 5: Peace - Normal monitoring, zero restrictions">
-              <b>5</b><span>PEACE</span>
-            </button>
-            <button type="button" onclick="setDefconLevel(4)" id="defcon-btn-4" class="defcon-btn" title="Level 4: Guarded - Auto-purge join/leave clutter, link audit">
-              <b>4</b><span>GUARDED</span>
-            </button>
-            <button type="button" onclick="setDefconLevel(3)" id="defcon-btn-3" class="defcon-btn" title="Level 3: Elevated - Auto-delete media & links from new joiners">
-              <b>3</b><span>ELEVATED</span>
-            </button>
-            <button type="button" onclick="setDefconLevel(2)" id="defcon-btn-2" class="defcon-btn" title="Level 2: Raid Imminent - Auto-kick link spammers, 3s raid bouncer">
-              <b>2</b><span>RAID IMM</span>
-            </button>
-            <button type="button" onclick="setDefconLevel(1)" id="defcon-btn-1" class="defcon-btn defcon-nuclear" title="Level 1: Nuclear Lockdown - Mute all standard participants & auto-ban raiders">
-              <b>1</b><span>NUCLEAR</span>
-            </button>
-          </div>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
           <span id="active-op-badge" class="badge badge-muted">STANDBY</span>
