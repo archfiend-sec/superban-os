@@ -81,8 +81,8 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
     return info
 
 
-async def extract_reply_info(msg, msg_cache: Optional[Dict[int, Any]] = None) -> Optional[Dict[str, Any]]:
-    """Extract tagged / replied-to message context and sender details."""
+async def extract_reply_info(msg, msg_cache: Optional[Dict[int, Any]] = None, timeout: float = 0.35) -> Optional[Dict[str, Any]]:
+    """Extract tagged / replied-to message context and sender details with strict non-blocking timeouts."""
     if not msg:
         return None
 
@@ -109,10 +109,10 @@ async def extract_reply_info(msg, msg_cache: Optional[Dict[int, Any]] = None) ->
     if msg_cache and reply_to_id in msg_cache:
         orig_msg = msg_cache[reply_to_id]
 
-    # 3. If not cached, fetch via get_reply_message() with a strict timeout
+    # 3. If not cached, fetch via get_reply_message() with a strict fast timeout
     if not orig_msg and hasattr(msg, 'get_reply_message'):
         try:
-            orig_msg = await asyncio.wait_for(msg.get_reply_message(), timeout=1.5)
+            orig_msg = await asyncio.wait_for(msg.get_reply_message(), timeout=timeout)
             if msg_cache is not None and orig_msg:
                 msg_cache[reply_to_id] = orig_msg
         except Exception:
@@ -120,7 +120,18 @@ async def extract_reply_info(msg, msg_cache: Optional[Dict[int, Any]] = None) ->
 
     if orig_msg:
         try:
-            r_sender = await orig_msg.get_sender()
+            r_sender = None
+            if hasattr(orig_msg, 'get_sender') and callable(orig_msg.get_sender):
+                try:
+                    rs_res = orig_msg.get_sender()
+                    if asyncio.iscoroutine(rs_res):
+                        r_sender = await asyncio.wait_for(rs_res, timeout=0.25)
+                    else:
+                        r_sender = rs_res
+                except Exception:
+                    r_sender = None
+            elif hasattr(orig_msg, 'sender'):
+                r_sender = getattr(orig_msg, 'sender', None)
             r_first = getattr(r_sender, 'first_name', '') or ''
             r_last = getattr(r_sender, 'last_name', '') or ''
             reply_info["reply_to_sender"] = f"{r_first} {r_last}".strip() or getattr(r_sender, 'title', '') or getattr(r_sender, 'username', '') or "User"

@@ -6818,10 +6818,14 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
   }
 
-  function safeCreateIcons() {
+  function safeCreateIcons(root) {
     try {
       if (window.lucide && typeof window.lucide.createIcons === 'function') {
-        window.lucide.createIcons();
+        if (root && (root.nodeType === 1 || root.nodeType === 11)) {
+          window.lucide.createIcons({ root: root });
+        } else {
+          window.lucide.createIcons();
+        }
       }
     } catch (e) {}
   }
@@ -7948,6 +7952,11 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       console.warn("WebSocket init error:", e);
       return;
     }
+    ws.onopen = () => {
+      if (typeof syncWiretapCatchup === 'function') {
+        syncWiretapCatchup();
+      }
+    };
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
@@ -9657,6 +9666,55 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     }
   });
 
+  let isCatchupSyncing = false;
+  async function syncWiretapCatchup() {
+    if (isCatchupSyncing) return;
+    const gid = getActiveGroupId();
+    if (!gid) return;
+
+    const stream = document.getElementById('wiretap-stream');
+    if (!stream) return;
+
+    isCatchupSyncing = true;
+    try {
+      const res = await fetch(`/api/messages?group_id=${gid}&limit=35`);
+      if (res.ok) {
+        const msgs = await res.json();
+        if (Array.isArray(msgs) && msgs.length > 0) {
+          const selectedGroup = dialogsList.find(d => isSameGroup(d.id, gid));
+          const targetName = selectedGroup ? selectedGroup.title : `Entity #${gid}`;
+          let addedCount = 0;
+          msgs.forEach(m => {
+            if (m.message_id && !wiretapSeenIds.has(m.message_id)) {
+              m.group_id = gid;
+              m.group_title = targetName;
+              appendWiretapMessage(m, false, true);
+              addedCount++;
+            }
+          });
+          if (addedCount > 0 && !userScrolledUpWiretap) {
+            scrollWiretapToBottom(false);
+          }
+        }
+      }
+    } catch (_) {}
+    finally {
+      isCatchupSyncing = false;
+    }
+  }
+
+  // Auto-sync catchup on tab focus & background interval
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && currentViewMode === 'warroom') {
+      syncWiretapCatchup();
+    }
+  });
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && currentViewMode === 'warroom') {
+      syncWiretapCatchup();
+    }
+  }, 20000);
+
   async function refreshWiretap() {
     const gid = getActiveGroupId();
     if (!gid) return;
@@ -9668,26 +9726,29 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     const stream = document.getElementById('wiretap-stream');
     if (!stream) return;
 
-    // Immediately clear previously rendered messages so groups NEVER mix
-    stream.innerHTML = '';
-    wiretapSeenIds.clear();
-    wiretapMessageCount = 0;
-    const countEl = document.getElementById('wiretap-count');
-    if (countEl) countEl.innerText = '0';
-
     const selectedGroup = dialogsList.find(d => isSameGroup(d.id, gid));
     const targetName = selectedGroup ? selectedGroup.title : `Entity #${gid}`;
 
-    // Show instant active connecting state
-    const initState = document.createElement('div');
-    initState.className = 'wiretap-init-state';
-    initState.innerHTML = `
-      <i data-lucide="radio" style="width: 28px; height: 28px; color: var(--muted); opacity: 0.6;"></i>
-      <p>Synchronizing wiretap with <b>${escapeHtml(targetName)}</b>...</p>
-      <span style="font-size: 10px; color: var(--muted);">Target isolation active. Incoming messages from other groups are blocked.</span>
-    `;
-    stream.appendChild(initState);
-    safeCreateIcons();
+    const currentLoadedGid = stream.getAttribute('data-loaded-gid');
+    const isNewGroup = !currentLoadedGid || !isSameGroup(currentLoadedGid, gid);
+
+    if (isNewGroup) {
+      stream.innerHTML = '';
+      wiretapSeenIds.clear();
+      wiretapMessageCount = 0;
+      const countEl = document.getElementById('wiretap-count');
+      if (countEl) countEl.innerText = '0';
+
+      const initState = document.createElement('div');
+      initState.className = 'wiretap-init-state';
+      initState.innerHTML = `
+        <i data-lucide="radio" style="width: 28px; height: 28px; color: var(--muted); opacity: 0.6;"></i>
+        <p>Synchronizing wiretap with <b>${escapeHtml(targetName)}</b>...</p>
+        <span style="font-size: 10px; color: var(--muted);">Target isolation active. Incoming messages from other groups are blocked.</span>
+      `;
+      stream.appendChild(initState);
+      safeCreateIcons(initState);
+    }
 
     const fetchId = ++activeWiretapFetchId;
 
@@ -9702,16 +9763,36 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
         if (fetchId !== activeWiretapFetchId) return;
 
         if (Array.isArray(msgs) && msgs.length > 0) {
-          // Remove init state
-          stream.innerHTML = '';
+          const initState = stream.querySelector('.wiretap-init-state');
+          if (initState) initState.remove();
+
+          stream.setAttribute('data-loaded-gid', String(gid));
+
+          // Use DocumentFragment for fast 60fps rendering without DOM thrashing
+          const fragment = document.createDocumentFragment();
+          let addedCount = 0;
+
           msgs.forEach(m => {
             m.group_id = gid;
             m.group_title = targetName;
-            appendWiretapMessage(m, false);
+            if (m.message_id && wiretapSeenIds.has(m.message_id)) return;
+            const card = createWiretapMessageCard(m);
+            if (card) {
+              fragment.appendChild(card);
+              wiretapSeenIds.add(m.message_id);
+              addedCount++;
+            }
           });
-          initWiretapScrollListeners();
-          scrollWiretapToBottom(true);
-        } else {
+
+          if (addedCount > 0) {
+            safeCreateIcons(fragment);
+            stream.appendChild(fragment);
+            wiretapMessageCount += addedCount;
+            const countEl = document.getElementById('wiretap-count');
+            if (countEl) countEl.innerText = wiretapMessageCount;
+            scrollWiretapToBottom(true);
+          }
+        } else if (!stream.querySelector('.wiretap-card')) {
           // Empty chat history in this group
           stream.innerHTML = `
             <div class="wiretap-init-state">
@@ -9720,12 +9801,12 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
               <span style="font-size: 10px; color: var(--muted);">No recent messages in history. New messages sent in this group will appear here live.</span>
             </div>
           `;
-          safeCreateIcons();
+          safeCreateIcons(stream);
         }
       }
     } catch (e) {
       console.error("Failed to load initial messages:", e);
-      if (fetchId === activeWiretapFetchId) {
+      if (fetchId === activeWiretapFetchId && !stream.querySelector('.wiretap-card')) {
         stream.innerHTML = `
           <div class="wiretap-init-state">
             <i data-lucide="alert-triangle" style="width: 28px; height: 28px; color: var(--vermilion);"></i>
@@ -9733,7 +9814,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
             <span style="font-size: 10px; color: var(--muted);">Listening live for new incoming messages...</span>
           </div>
         `;
-        safeCreateIcons();
+        safeCreateIcons(stream);
       }
     }
   }
@@ -10026,26 +10107,8 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     }
   }
 
-  function appendWiretapMessage(data, playSoundFx = true) {
+  function createWiretapMessageCard(data) {
     const activeGid = getActiveGroupId();
-
-    // STRICT GROUP ISOLATION: Discard messages belonging to any other group in TARGET ONLY mode!
-    if (wiretapScope === 'current') {
-      if (activeGid && data.group_id && !isSameGroup(data.group_id, activeGid)) {
-        return;
-      }
-    }
-
-    if (data.message_id && wiretapSeenIds.has(data.message_id)) return;
-    if (data.message_id) wiretapSeenIds.add(data.message_id);
-
-    const stream = document.getElementById('wiretap-stream');
-    if (!stream) return;
-
-    const initState = stream.querySelector('.wiretap-init-state');
-    if (initState) initState.remove();
-
-    if (wiretapFilter === 'threats' && !data.is_threat) return;
 
     const card = document.createElement('div');
     card.className = `wiretap-card ${data.is_threat ? 'threat-card' : ''}`;
@@ -10054,7 +10117,6 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
     const senderInitial = (data.full_name || 'U').charAt(0).toUpperCase();
     const usernameDisplay = data.username ? `@${data.username}` : `ID: ${data.user_id}`;
-    const escapedText = escapeHtml(data.text || '');
 
     const groupBadge = (wiretapScope === 'all' || data.group_title) ? `
       <span class="badge badge-muted wiretap-group-badge" style="font-size: 8.5px; padding: 1px 5px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(data.group_title || '')}">
@@ -10193,6 +10255,33 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       </div>
     `;
 
+    return card;
+  }
+
+  function appendWiretapMessage(data, playSoundFx = true, skipScroll = false) {
+    const activeGid = getActiveGroupId();
+
+    // STRICT GROUP ISOLATION: Discard messages belonging to any other group in TARGET ONLY mode!
+    if (wiretapScope === 'current') {
+      if (activeGid && data.group_id && !isSameGroup(data.group_id, activeGid)) {
+        return;
+      }
+    }
+
+    if (data.message_id && wiretapSeenIds.has(data.message_id)) return;
+    if (data.message_id) wiretapSeenIds.add(data.message_id);
+
+    const stream = document.getElementById('wiretap-stream');
+    if (!stream) return;
+
+    const initState = stream.querySelector('.wiretap-init-state');
+    if (initState) initState.remove();
+
+    if (wiretapFilter === 'threats' && !data.is_threat) return;
+
+    const card = createWiretapMessageCard(data);
+    if (!card) return;
+
     stream.appendChild(card);
     wiretapMessageCount++;
     const countEl = document.getElementById('wiretap-count');
@@ -10201,18 +10290,26 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     const scannedEl = document.getElementById('hud-stat-scanned');
     if (scannedEl) scannedEl.innerText = parseInt(scannedEl.innerText || '0') + 1;
 
+    // Detect CA for audio alert
+    const rawText = data.text || '';
+    const hasCA = (rawText.match(/\b0x[a-fA-F0-9]{40}\b/) || (rawText.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/) && !['http', 'https', 't.me', 'joinchat'].some(x => rawText.toLowerCase().includes(x))));
+
     if (data.is_threat) {
       const threatsEl = document.getElementById('hud-stat-threats');
       if (threatsEl) threatsEl.innerText = parseInt(threatsEl.innerText || '0') + 1;
       if (playSoundFx) playZenSound('alarm');
-    } else if (detectedCA) {
+    } else if (hasCA) {
       if (playSoundFx) playZenSound('alpha');
     } else if (playSoundFx) {
       playZenSound('blip');
     }
 
-    scrollWiretapToBottom(false);
-    safeCreateIcons();
+    // Scoped icon creation to avoid scanning entire DOM tree
+    safeCreateIcons(card);
+
+    if (!skipScroll) {
+      scrollWiretapToBottom(false);
+    }
   }
 
   function appendWiretapAction(data) {

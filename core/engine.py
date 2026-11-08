@@ -926,7 +926,18 @@ class SuperBanEngine:
             for msg in reversed(messages):
                 if not msg:
                     continue
-                sender = await msg.get_sender()
+                sender = None
+                if hasattr(msg, 'get_sender') and callable(msg.get_sender):
+                    try:
+                        s_res = msg.get_sender()
+                        if asyncio.iscoroutine(s_res):
+                            sender = await asyncio.wait_for(s_res, timeout=0.25)
+                        else:
+                            sender = s_res
+                    except Exception:
+                        sender = None
+                elif hasattr(msg, 'sender'):
+                    sender = getattr(msg, 'sender', None)
                 first_name = getattr(sender, 'first_name', '') or ''
                 last_name = getattr(sender, 'last_name', '') or ''
                 full_name = f"{first_name} {last_name}".strip() or getattr(sender, 'title', '') or "Anonymous"
@@ -941,7 +952,7 @@ class SuperBanEngine:
                     msg_raw = getattr(msg, 'text', None)
                 raw_text = msg_raw if isinstance(msg_raw, str) else ""
                 display_text = raw_text or media_info.get("fallback_text", "")
-                reply_info = await extract_reply_info(msg, msg_cache=msg_map)
+                reply_info = await extract_reply_info(msg, msg_cache=msg_map, timeout=0.2)
                 reactions_info = extract_reactions_info(msg)
 
                 res.append({

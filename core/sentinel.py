@@ -179,58 +179,65 @@ class SentinelShield:
             username = getattr(sender, 'username', '') or ''
             
             group_title = ""
-            try:
-                chat = await event.get_chat()
-                group_title = getattr(chat, 'title', '') or ''
-            except Exception:
-                pass
+            chat = getattr(event, 'chat', None)
+            if chat and getattr(chat, 'title', None):
+                group_title = chat.title
+            else:
+                try:
+                    chat = await asyncio.wait_for(event.get_chat(), timeout=0.3)
+                    group_title = getattr(chat, 'title', '') or ''
+                except Exception:
+                    pass
 
             # Sovereign Intelligence: Intercept message into Ghost Vault & Update Cross-Group OSINT
             extracted_entities = self._extract_entities(text, group_id, group_title, event.id, sender.id, full_name)
-            
-            # Plan B: Ghost Media Vault preservation (intercept media <= 15MB before deletion)
-            media_path = ""
-            file_name = ""
-            file_size = 0
-            file_hash = ""
-            if event.media:
-                try:
-                    f_size = getattr(getattr(event, 'file', None), 'size', 0)
-                    if f_size and f_size <= 15 * 1024 * 1024:
-                        vault_dir = Path(__file__).resolve().parent.parent / "media_vault"
-                        vault_dir.mkdir(parents=True, exist_ok=True)
-                        ext = getattr(getattr(event, 'file', None), 'ext', '') or '.bin'
-                        clean_ext = ext if ext.startswith('.') else f".{ext}"
-                        file_name = f"ghost_{abs(group_id)}_{event.id}{clean_ext}"
-                        target_file = vault_dir / file_name
-                        downloaded = await event.download_media(file=str(target_file))
-                        if downloaded and Path(downloaded).exists():
-                            media_path = str(downloaded)
-                            file_size = Path(downloaded).stat().st_size
-                            hasher = hashlib.sha256()
-                            with open(downloaded, "rb") as mf:
-                                while chunk := mf.read(65536):
-                                    hasher.update(chunk)
-                            file_hash = hasher.hexdigest()
-                except Exception as me:
-                    logger.debug(f"Ghost media vault download note: {me}")
 
-            # Extract rich media metadata (stickers, gifs, photos, videos, voice)
+            # Extract rich media metadata instantaneously without blocking live wiretap delivery
             media_info = extract_media_info(getattr(event, 'message', None) or event, group_id=group_id)
             display_text = text or media_info.get("fallback_text", "")
-            if media_info["file_name"] and not file_name:
-                file_name = media_info["file_name"]
+            file_name = media_info.get("file_name", "")
 
-            # Extract tagged / replied-to message context
-            reply_info = await extract_reply_info(getattr(event, 'message', None) or event)
+            # Plan B: Ghost Media Vault preservation runs in background task so live delivery never stalls
+            async def _bg_save_media_vault(ev, gid, gtitle, snd, fname, dtext, minfo):
+                m_path = ""
+                f_size = 0
+                f_hash = ""
+                if ev.media:
+                    try:
+                        f_sz = getattr(getattr(ev, 'file', None), 'size', 0)
+                        if f_sz and f_sz <= 15 * 1024 * 1024:
+                            vdir = Path(__file__).resolve().parent.parent / "media_vault"
+                            vdir.mkdir(parents=True, exist_ok=True)
+                            ext = getattr(getattr(ev, 'file', None), 'ext', '') or '.bin'
+                            clean_ext = ext if ext.startswith('.') else f".{ext}"
+                            fn = f"ghost_{abs(gid)}_{ev.id}{clean_ext}"
+                            tf = vdir / fn
+                            dl = await ev.download_media(file=str(tf))
+                            if dl and Path(dl).exists():
+                                m_path = str(dl)
+                                f_size = Path(dl).stat().st_size
+                                hasher = hashlib.sha256()
+                                with open(dl, "rb") as mf:
+                                    while chunk := mf.read(65536):
+                                        hasher.update(chunk)
+                                f_hash = hasher.hexdigest()
+                    except Exception as me:
+                        logger.debug(f"Ghost media vault background note: {me}")
+                if self.db:
+                    await self.db.save_intercepted_message(
+                        gid, gtitle, ev.id, snd.id, full_name, username, dtext,
+                        minfo.get("media_type") or ("media" if ev.media else "text"),
+                        m_path, fname or file_name, f_size, f_hash
+                    )
+
+            if self.db:
+                asyncio.create_task(_bg_save_media_vault(event, group_id, group_title, sender, file_name, display_text, media_info))
+
+            # Extract tagged / replied-to message context and reactions
+            reply_info = await extract_reply_info(getattr(event, 'message', None) or event, timeout=0.25)
             reactions_info = extract_reactions_info(getattr(event, 'message', None) or event)
 
             if self.db:
-                asyncio.create_task(self.db.save_intercepted_message(
-                    group_id, group_title, event.id, sender.id, full_name, username, display_text,
-                    media_info.get("media_type") or ("media" if event.media else "text"),
-                    media_path, file_name, file_size, file_hash
-                ))
                 asyncio.create_task(self.db.update_user_cross_profile(
                     sender.id, full_name, username, group_id, group_title,
                     bool(getattr(sender, 'premium', False)), bool(getattr(sender, 'verified', False))
@@ -257,7 +264,11 @@ class SentinelShield:
             member_rep = None
             if self.db and hasattr(self.db, "get_group_member_reputation"):
                 try:
-                    member_rep = await self.db.get_group_member_reputation(group_id, sender.id)
+                    rep_call = self.db.get_group_member_reputation(group_id, sender.id)
+                    if asyncio.iscoroutine(rep_call):
+                        member_rep = await asyncio.wait_for(rep_call, timeout=0.15)
+                    else:
+                        member_rep = rep_call
                 except Exception:
                     pass
 
