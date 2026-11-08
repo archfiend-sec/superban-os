@@ -1,9 +1,12 @@
 import asyncio
 import sqlite3
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Set, Optional, Tuple
+
+logger = logging.getLogger("DatabaseManager")
 
 DB_FILE = Path(__file__).resolve().parent.parent / "ultimate_manager.db"
 
@@ -356,6 +359,43 @@ class DatabaseManager:
             self.conn.commit()
         except Exception:
             pass
+
+    @staticmethod
+    def normalize_gid(gid: Any) -> int:
+        """Canonicalize any Telegram group ID to positive integer without -100 or minus prefix."""
+        if gid is None:
+            return 0
+        s = str(gid).replace("-100", "").replace("-", "").strip()
+        try:
+            return int(s) if s else 0
+        except (ValueError, TypeError):
+            return 0
+
+    @staticmethod
+    def get_group_id_variants(gid: Any) -> List[int]:
+        """Return all common representations of a group ID to ensure 100% database match hit rate:
+           e.g. for gid=-1001890044567 -> [-1001890044567, 1890044567, 1001890044567, -1890044567]
+        """
+        if gid is None:
+            return [0]
+        norm = DatabaseManager.normalize_gid(gid)
+        if not norm:
+            return [0]
+        raw = 0
+        try:
+            raw = int(gid)
+        except Exception:
+            pass
+        cands = [norm, -1000000000000 - norm if norm < 1000000000000 else int(f"-100{norm}"), int(f"100{norm}"), -norm]
+        if raw:
+            cands.insert(0, raw)
+        seen = set()
+        res = []
+        for x in cands:
+            if x not in seen:
+                seen.add(x)
+                res.append(x)
+        return res
 
     async def log_action(self, user_id: int, username: str, first_name: str, group_id: int, 
                          group_name: str, action: str, success: bool, reason: str = "", duration: int = 0):
@@ -737,8 +777,10 @@ class DatabaseManager:
             
             conds = []
             if group_id:
-                conds.append("group_id = ?")
-                params.append(group_id)
+                variants = self.get_group_id_variants(group_id)
+                gid_placeholders = ",".join("?" for _ in variants)
+                conds.append(f"group_id IN ({gid_placeholders})")
+                params.extend(variants)
             
             if filter_mode == 'deleted':
                 conds.append("is_deleted = 1")
@@ -1682,13 +1724,14 @@ class DatabaseManager:
 
         if not members:
             return
+        norm_gid = self.normalize_gid(group_id)
         async with self.lock:
             try:
                 records = []
                 now_str = datetime.now().isoformat()
                 for m in members:
                     records.append((
-                        group_id,
+                        norm_gid,
                         m["user_id"],
                         m.get("username", "") or "",
                         m.get("full_name", "") or "User",
@@ -1752,14 +1795,19 @@ class DatabaseManager:
         """Retrieve accurate 100k-history reputation record for a specific member."""
         async with self.lock:
             try:
+                variants = self.get_group_id_variants(group_id)
+                gid_placeholders = ",".join("?" for _ in variants)
+                params = list(variants) + [user_id]
                 self.cursor.execute(
-                    '''SELECT group_id, user_id, username, full_name, message_count, media_count,
-                              reactions_received, replies_received, first_seen, last_seen,
-                              avg_message_len, reputation_score, reputation_tier, reputation_color,
-                              risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated,
-                              hourly_activity, persona_archetype, top_associates
-                       FROM group_member_reputation WHERE group_id = ? AND user_id = ?''',
-                    (group_id, user_id)
+                    f'''SELECT group_id, user_id, username, full_name, message_count, media_count,
+                               reactions_received, replies_received, first_seen, last_seen,
+                               avg_message_len, reputation_score, reputation_tier, reputation_color,
+                               risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated,
+                               hourly_activity, persona_archetype, top_associates
+                        FROM group_member_reputation 
+                        WHERE group_id IN ({gid_placeholders}) AND user_id = ?
+                        ORDER BY message_count DESC LIMIT 1''',
+                    params
                 )
                 r = self.cursor.fetchone()
                 if not r:
@@ -1802,38 +1850,43 @@ class DatabaseManager:
                 clean_ids = [int(u) for u in user_ids if u]
                 if not clean_ids:
                     return {}
-                placeholders = ",".join("?" for _ in clean_ids)
-                params = [group_id] + clean_ids
+                variants = self.get_group_id_variants(group_id)
+                gid_placeholders = ",".join("?" for _ in variants)
+                uid_placeholders = ",".join("?" for _ in clean_ids)
+                params = list(variants) + clean_ids
                 self.cursor.execute(
                     f'''SELECT user_id, username, full_name, message_count, media_count,
                                reactions_received, replies_received, first_seen, last_seen,
                                reputation_score, reputation_tier, reputation_color,
                                is_premium, is_verified, has_photo, is_bot
                         FROM group_member_reputation
-                        WHERE group_id = ? AND user_id IN ({placeholders})''',
+                        WHERE group_id IN ({gid_placeholders}) AND user_id IN ({uid_placeholders})
+                        ORDER BY message_count DESC''',
                     params
                 )
                 rows = self.cursor.fetchall()
                 res = {}
                 for r in rows:
-                    res[r[0]] = {
-                        "user_id": r[0],
-                        "username": r[1],
-                        "full_name": r[2],
-                        "message_count": r[3],
-                        "media_count": r[4],
-                        "reactions_received": r[5],
-                        "replies_received": r[6],
-                        "first_seen": str(r[7]),
-                        "last_seen": str(r[8]),
-                        "reputation_score": r[9],
-                        "reputation_tier": r[10],
-                        "reputation_color": r[11],
-                        "is_premium": bool(r[12]),
-                        "is_verified": bool(r[13]),
-                        "has_photo": bool(r[14]),
-                        "is_bot": bool(r[15])
-                    }
+                    uid = r[0]
+                    if uid not in res:
+                        res[uid] = {
+                            "user_id": r[0],
+                            "username": r[1],
+                            "full_name": r[2],
+                            "message_count": r[3],
+                            "media_count": r[4],
+                            "reactions_received": r[5],
+                            "replies_received": r[6],
+                            "first_seen": str(r[7]),
+                            "last_seen": str(r[8]),
+                            "reputation_score": r[9],
+                            "reputation_tier": r[10],
+                            "reputation_color": r[11],
+                            "is_premium": bool(r[12]),
+                            "is_verified": bool(r[13]),
+                            "has_photo": bool(r[14]),
+                            "is_bot": bool(r[15])
+                        }
                 return res
             except Exception as e:
                 logger.error(f"Error fetching multiple member reputations: {e}")
@@ -1856,8 +1909,10 @@ class DatabaseManager:
                 elif sort_by == "reactions":
                     order_clause = "reactions_received DESC, message_count DESC"
 
-                where_clauses = ["group_id = ?"]
-                params: List[Any] = [group_id]
+                variants = self.get_group_id_variants(group_id)
+                gid_placeholders = ",".join("?" for _ in variants)
+                where_clauses = [f"group_id IN ({gid_placeholders})"]
+                params: List[Any] = list(variants)
 
                 if filter_mode == "top_chatters":
                     where_clauses.append("message_count >= 10")
@@ -1925,30 +1980,32 @@ class DatabaseManager:
         """Aggregate high-level reputation metrics across the group."""
         async with self.lock:
             try:
+                variants = self.get_group_id_variants(group_id)
+                gid_placeholders = ",".join("?" for _ in variants)
                 self.cursor.execute(
-                    '''SELECT COUNT(*), COALESCE(SUM(message_count), 0),
+                    f'''SELECT COUNT(*), COALESCE(SUM(message_count), 0),
                               COALESCE(AVG(reputation_score), 50),
                               COALESCE(SUM(reactions_received), 0)
-                       FROM group_member_reputation WHERE group_id = ?''',
-                    (group_id,)
+                       FROM group_member_reputation WHERE group_id IN ({gid_placeholders})''',
+                    variants
                 )
                 tot_members, tot_msgs, avg_score, tot_reactions = self.cursor.fetchone() or (0, 0, 50, 0)
 
                 # Tier counts
                 self.cursor.execute(
-                    '''SELECT reputation_tier, COUNT(*)
-                       FROM group_member_reputation WHERE group_id = ?
+                    f'''SELECT reputation_tier, COUNT(*)
+                       FROM group_member_reputation WHERE group_id IN ({gid_placeholders})
                        GROUP BY reputation_tier''',
-                    (group_id,)
+                    variants
                 )
                 tiers = {r[0]: r[1] for r in self.cursor.fetchall()}
 
                 # Top 5 chatters
                 self.cursor.execute(
-                    '''SELECT user_id, full_name, username, message_count, reputation_score, reputation_tier, reputation_color
-                       FROM group_member_reputation WHERE group_id = ?
+                    f'''SELECT user_id, full_name, username, message_count, reputation_score, reputation_tier, reputation_color
+                       FROM group_member_reputation WHERE group_id IN ({gid_placeholders})
                        ORDER BY message_count DESC LIMIT 5''',
-                    (group_id,)
+                    variants
                 )
                 top_chatters = [
                     {
@@ -1963,8 +2020,9 @@ class DatabaseManager:
                     for r in self.cursor.fetchall()
                 ]
 
+                norm_gid = self.normalize_gid(group_id)
                 return {
-                    "group_id": group_id,
+                    "group_id": norm_gid or group_id,
                     "total_members_profiled": tot_members,
                     "total_messages_indexed": tot_msgs,
                     "avg_reputation_score": round(float(avg_score), 1),

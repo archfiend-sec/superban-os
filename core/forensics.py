@@ -349,9 +349,9 @@ class ForensicInspector:
             is_fake=is_fake,
             scam_score=scam_score
         )
-        trust_score = rep["score"]
-        trust_level = rep["tier"]
-        trust_color = rep["color"]
+        trust_score = member_stats.get("reputation_score") if (member_stats and member_stats.get("reputation_score") is not None) else rep["score"]
+        trust_level = member_stats.get("reputation_tier") if (member_stats and member_stats.get("reputation_tier")) else rep["tier"]
+        trust_color = member_stats.get("reputation_color") if (member_stats and member_stats.get("reputation_color")) else rep["color"]
         reputation_factors = rep["factors"]
 
         vintage = "Recent (2024-2026)"

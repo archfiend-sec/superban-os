@@ -647,6 +647,214 @@ class Test100kReputationEngine(unittest.TestCase):
         asyncio.run(run_test())
         print("  ✅ PASS: 100k deep scan properly powers social graph topology, AI persona archetypes, and sleep cycles.")
 
+    def test_08_polymorphic_group_id_matching(self):
+        """Verify seamless cross-format group ID resolution (-100 prefix vs bare ID) preventing Wiretap reputation drops."""
+        async def run_test():
+            canonical_gid = 1890044567
+            telethon_chat_id = -1001890044567
+            sonu_uid = 7370260179
+
+            # 1. Batch upsert SONU under canonical group ID (as saved by deep scan)
+            sonu_record = {
+                "group_id": canonical_gid,
+                "user_id": sonu_uid,
+                "username": "sonu_official",
+                "full_name": "SONU",
+                "message_count": 3100,
+                "media_count": 240,
+                "reactions_received": 1500,
+                "replies_received": 450,
+                "avg_message_len": 42.0,
+                "reputation_score": 98,
+                "reputation_tier": "LEGENDARY COMMANDER // 伝説",
+                "reputation_color": "#38B98C",
+                "risk_flags": [],
+                "is_premium": False,
+                "is_verified": False,
+                "has_photo": True,
+                "is_bot": False,
+                "hourly_activity": [10] * 24,
+                "persona_archetype": "LEADERSHIP ANCHOR // 指導",
+                "top_associates": []
+            }
+            await self.db.batch_upsert_member_reputation(canonical_gid, [sonu_record])
+
+            # 2. Query with negative Telethon event.chat_id (-1001890044567)
+            rep = await self.db.get_group_member_reputation(telethon_chat_id, sonu_uid)
+            self.assertIsNotNone(rep, "Failed to resolve member reputation using Telethon -100... chat_id!")
+            self.assertEqual(rep["message_count"], 3100)
+            self.assertEqual(rep["reputation_score"], 98)
+            self.assertEqual(rep["reputation_tier"], "LEGENDARY COMMANDER // 伝説")
+
+            # 3. Batch lookup with negative chat_id
+            multi_rep = await self.db.get_multiple_member_reputations(telethon_chat_id, [sonu_uid])
+            self.assertIn(sonu_uid, multi_rep)
+            self.assertEqual(multi_rep[sonu_uid]["message_count"], 3100)
+            self.assertEqual(multi_rep[sonu_uid]["reputation_score"], 98)
+
+            # 4. Ranked members lookup with negative chat_id
+            ranked = await self.db.get_group_members_ranked(telethon_chat_id)
+            self.assertTrue(any(m["user_id"] == sonu_uid for m in ranked))
+
+            # 5. Reputation summary with negative chat_id
+            summary = await self.db.get_group_reputation_summary(telethon_chat_id)
+            self.assertGreaterEqual(summary["total_messages_indexed"], 3100)
+
+            # 6. Verify ForensicInspector correctly keeps SONU at 98% LEGENDARY during live message
+            mock_sender = MagicMock()
+            mock_sender.id = sonu_uid
+            mock_sender.first_name = "SONU"
+            mock_sender.last_name = ""
+            mock_sender.username = "sonu_official"
+            mock_sender.bot = False
+            mock_sender.deleted = False
+            mock_sender.verified = False
+            mock_sender.scam = False
+            mock_sender.fake = False
+            mock_sender.premium = False
+            mock_sender.photo = MagicMock()
+            mock_sender.status = None
+
+            profile = ForensicInspector.inspect_user(mock_sender, member_stats=rep)
+            self.assertEqual(profile["trust_score"], 98)
+            self.assertIn("LEGENDARY", profile["trust_level"])
+            self.assertNotEqual(profile["trust_score"], 38, "Discrepancy reproduced: SONU fell back to 38%!")
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: Polymorphic group ID matching prevents reputation drop and resolves -100 prefix discrepancies.")
+
+    def test_09_saved_chat_database_cloud_sync_and_restore(self):
+        """Verify userbot Saved Messages ('me') cloud vault synchronization, database export, and instant restoration."""
+        async def run_test():
+            mock_client = MagicMock()
+            mock_client.is_connected = MagicMock(return_value=True)
+            mock_client.get_me = AsyncMock(return_value=MagicMock(id=88889999, username="archfiend000"))
+            
+            engine = SuperBanEngine(mock_client, self.db)
+            canonical_gid = 9876543210
+            
+            # Seed members
+            member_data = [
+                {
+                    "user_id": 9001,
+                    "username": "commander_valkyrie",
+                    "full_name": "Commander Valkyrie",
+                    "message_count": 1420,
+                    "reputation_score": 96,
+                    "reputation_tier": "LEGENDARY COMMANDER",
+                    "reputation_color": "#10b981",
+                    "persona_archetype": "LEADERSHIP ANCHOR // 指導",
+                    "top_associates": []
+                },
+                {
+                    "user_id": 9002,
+                    "username": "shadow_recon",
+                    "full_name": "Shadow Recon",
+                    "message_count": 890,
+                    "reputation_score": 88,
+                    "reputation_tier": "ELITE VETERAN",
+                    "reputation_color": "#38bdf8",
+                    "persona_archetype": "TACTICAL SCOUT // 偵察",
+                    "top_associates": []
+                }
+            ]
+            await self.db.batch_upsert_member_reputation(canonical_gid, member_data)
+
+            # Mock Telethon client
+            mock_client = MagicMock()
+            engine.client = mock_client
+            engine.clients = [mock_client]
+            engine.is_connected = True
+            engine.ensure_connected = AsyncMock()
+
+            # Capture sent file payload
+            sent_payload_holder = {}
+            async def fake_send_file(chat, file=None, caption="", parse_mode="html"):
+                self.assertEqual(chat, 'me')
+                self.assertIn("#KAGE_INTEL_DB", caption)
+                self.assertIn(f"#GROUP_{canonical_gid}", caption)
+                # Read payload from temp file before it's deleted
+                with open(file, "r", encoding="utf-8") as f:
+                    sent_payload_holder["json"] = json.load(f)
+                fake_msg = MagicMock()
+                fake_msg.id = 55512
+                return fake_msg
+
+            mock_client.send_file = AsyncMock(side_effect=fake_send_file)
+
+            # 1. Sync to Saved Chat
+            sync_res = await engine.sync_deep_scan_to_saved_chat(canonical_gid, note="Automated Test Backup")
+            self.assertTrue(sync_res["success"])
+            self.assertEqual(sync_res["total_members"], 2)
+            self.assertIn("json", sent_payload_holder)
+            self.assertEqual(sent_payload_holder["json"]["schema"], "KAGE_SOVEREIGN_INTEL_DB")
+
+            # 2. Simulate restoring from Saved Messages into a fresh group ID
+            restore_gid = 1122334455
+            # Setup fake iter_messages on 'me'
+            saved_doc = MagicMock()
+            saved_doc.message = f"Executive briefing #KAGE_INTEL_DB #GROUP_{restore_gid}"
+            saved_doc.file = MagicMock()
+            saved_doc.file.name = f"KAGE_INTEL_GROUP_{restore_gid}.json"
+            saved_doc.media = MagicMock()
+
+            # Payload adapted for restore_gid
+            restore_payload = dict(sent_payload_holder["json"])
+            restore_payload["group_id"] = restore_gid
+
+            async def fake_iter_messages(chat, search="", limit=20):
+                if chat == 'me':
+                    yield saved_doc
+
+            mock_client.iter_messages = fake_iter_messages
+            mock_client.download_media = AsyncMock(return_value=json.dumps(restore_payload).encode('utf-8'))
+
+            restore_res = await engine.restore_deep_scan_from_saved_chat(restore_gid)
+            self.assertTrue(restore_res["success"])
+            self.assertEqual(restore_res["restored_members"], 2)
+
+            # Verify restored records exist in SQLite under restore_gid
+            rep9001 = await self.db.get_group_member_reputation(restore_gid, 9001)
+            self.assertIsNotNone(rep9001)
+            self.assertEqual(rep9001["message_count"], 1420)
+            self.assertEqual(rep9001["reputation_score"], 96)
+
+            # 3. Test REST Endpoints via ASGI Client
+            app = create_app(engine)
+            asgi_client = InProcessAsgiClient(app)
+            
+            # Auth cookie
+            token = "test-saved-chat-token"
+            OPERATOR_SESSIONS[token] = {
+                "role": "owner",
+                "username": "archfiend000",
+                "expires": time.time() + 86400
+            }
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "X-Owner-Token": token,
+                "Cookie": f"session_token={token}"
+            }
+
+            resp_sync = await asgi_client.request(
+                "POST", "/api/saved_chat/sync",
+                headers=headers,
+                json_data={"group_id": canonical_gid}
+            )
+            self.assertEqual(resp_sync.status, 200)
+            self.assertTrue(resp_sync.json()["success"])
+
+            resp_restore = await asgi_client.request(
+                "POST", "/api/saved_chat/restore",
+                headers=headers,
+                json_data={"group_id": restore_gid}
+            )
+            self.assertEqual(resp_restore.status, 200)
+            self.assertTrue(resp_restore.json()["success"])
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: Saved Chat ('me') decentralized cloud database backup & restore fully operational.")
+
 
 if __name__ == "__main__":
     print("=" * 75)

@@ -294,7 +294,7 @@ class SuperBanEngine:
         gid = getattr(group_entity, 'id', 0)
         if not gid and isinstance(group_entity, int):
             gid = group_entity
-        norm_gid = abs(int(gid))
+        norm_gid = self.normalize_gid(gid)
 
         # Enrich member profiles with indexed 100k reputation & message counts if available
         if inspected and self.db and hasattr(self.db, "get_multiple_member_reputations"):
@@ -632,6 +632,8 @@ class SuperBanEngine:
             "top_chatters": top_chatters
         }
         await self.emit_telemetry("deep_scan_complete", summary)
+        if scan_info["status"] == "COMPLETED" and final_members:
+            asyncio.create_task(self.sync_deep_scan_to_saved_chat(raw_gid, note="Autonomous 100k scan completion backup"))
         return summary
 
     def _build_member_reputation_payload(self, group_id: int, aggregates: Dict[int, Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -743,6 +745,265 @@ class SuperBanEngine:
             "scanned": 0,
             "target_limit": 100000
         }
+
+    # ═══════════════════════════════════════════════════════
+    #  SAVED CHAT CLOUD DATABASE ENGINE (DECENTRALIZED VAULT)
+    # ═══════════════════════════════════════════════════════
+    async def sync_deep_scan_to_saved_chat(self, group_id: int, note: Optional[str] = None) -> Dict[str, Any]:
+        """Serialize complete group intelligence, member reputations, and social graph into Telegram Saved Messages ('me') as a cloud database."""
+        await self.ensure_connected()
+        norm_gid = self.normalize_gid(group_id)
+        
+        # 1. Fetch group metadata
+        group_title = f"Group {norm_gid}"
+        try:
+            entity = await self.get_group_entity(group_id)
+            if entity:
+                group_title = getattr(entity, 'title', group_title)
+        except Exception:
+            pass
+
+        # 2. Fetch all profiled members from SQLite
+        members = []
+        if self.db and hasattr(self.db, "get_group_members_ranked"):
+            members = await self.db.get_group_members_ranked(norm_gid, limit=3000)
+            
+        if not members and self.db:
+            members = await self.db.get_group_members_ranked(group_id, limit=3000)
+
+        # 3. Fetch social graph
+        social_graph = {}
+        if self.db and hasattr(self.db, "get_social_graph"):
+            social_graph = await self.db.get_social_graph(norm_gid, limit=200)
+
+        total_members = len(members)
+        total_msgs = sum(m.get("message_count", 0) for m in members)
+        high_rep_count = sum(1 for m in members if m.get("reputation_score", 0) >= 80)
+        suspicious_count = sum(1 for m in members if m.get("reputation_score", 100) < 40 or m.get("is_bot"))
+        top_chatters = sorted(members, key=lambda x: x.get("message_count", 0), reverse=True)[:5]
+        
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+        file_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # 4. Construct JSON Database Payload
+        db_payload = {
+            "schema": "KAGE_SOVEREIGN_INTEL_DB",
+            "version": "2.0",
+            "export_timestamp": timestamp_str,
+            "group_id": norm_gid,
+            "raw_group_id": group_id,
+            "group_title": group_title,
+            "total_profiled_members": total_members,
+            "total_messages_indexed": total_msgs,
+            "note": note or "Autonomous deep scan synchronization",
+            "top_chatters": [
+                {
+                    "user_id": m.get("user_id"),
+                    "name": m.get("full_name"),
+                    "handle": m.get("username"),
+                    "messages": m.get("message_count"),
+                    "score": m.get("reputation_score"),
+                    "tier": m.get("reputation_tier"),
+                    "archetype": m.get("persona_archetype")
+                }
+                for m in top_chatters
+            ],
+            "members": members,
+            "social_graph": social_graph
+        }
+
+        # 5. Format Executive Dispatch Card for Saved Messages
+        card_lines = [
+            f"🥷 <b>KAGE OBSIDIAN INTELLIGENCE // CLOUD VAULT SYNC</b>",
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            f"🎯 <b>TARGET:</b> <code>{group_title}</code>",
+            f"🆔 <b>CANONICAL GID:</b> <code>{norm_gid}</code>",
+            f"👥 <b>INDEXED MEMBERS:</b> <b>{total_members:,}</b>",
+            f"💬 <b>MESSAGES ANALYZED:</b> <b>{total_msgs:,}</b>",
+            f"🕸️ <b>SOCIAL GRAPH EDGES:</b> <b>{len(social_graph.get('links', [])):,}</b>",
+            f"🛡️ <b>ELITE MEMBERS (≥80%):</b> <b>{high_rep_count}</b> | ⚠️ <b>FLAGGED:</b> <b>{suspicious_count}</b>",
+            f"⏰ <b>SYNCED AT:</b> <code>{timestamp_str}</code>",
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            f"🏆 <b>TOP INTELLIGENCE TARGETS:</b>"
+        ]
+        for idx, tc in enumerate(top_chatters, 1):
+            h_str = f"@{tc.get('username')}" if tc.get('username') else f"ID: {tc.get('user_id')}"
+            card_lines.append(
+                f" {idx}. <b>{tc.get('full_name')}</b> ({h_str}) — "
+                f"<code>{tc.get('message_count'):,} msgs</code> • "
+                f"<b>{tc.get('reputation_score')}% {tc.get('reputation_tier', '').split(' ')[0]}</b> • "
+                f"<i>{tc.get('persona_archetype', '').split('//')[0].strip()}</i>"
+            )
+
+        card_lines.extend([
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            f"<i>Decentralized Cloud Database Archive attached below. Restore anytime with one click.</i>",
+            f"#KAGE_INTEL_DB #GROUP_{norm_gid} #DEEP_SCAN #KAGE_VAULT"
+        ])
+        executive_text = "\n".join(card_lines)
+
+        # 6. Save JSON file to temporary disk and dispatch via MTProto send_file
+        temp_dir = "/tmp/kage_db_sync"
+        os.makedirs(temp_dir, exist_ok=True)
+        json_filename = f"KAGE_INTEL_GROUP_{norm_gid}_{file_tag}.json"
+        temp_filepath = os.path.join(temp_dir, json_filename)
+
+        with open(temp_filepath, "w", encoding="utf-8") as f:
+            json.dump(db_payload, f, indent=2, ensure_ascii=False)
+
+        file_size_kb = round(os.path.getsize(temp_filepath) / 1024, 1)
+
+        try:
+            call_res = self.client.send_file(
+                'me',
+                file=temp_filepath,
+                caption=executive_text,
+                parse_mode='html'
+            )
+            msg = await call_res if asyncio.iscoroutine(call_res) else call_res
+            msg_id = getattr(msg, 'id', 0) if msg else 0
+            logger.info(f"☁️ KAGE Intel Database synced to Telegram Saved Messages: {json_filename} ({file_size_kb} KB, msg_id={msg_id})")
+            
+            return {
+                "success": True,
+                "message_id": msg_id,
+                "filename": json_filename,
+                "file_size_kb": file_size_kb,
+                "total_members": total_members,
+                "total_messages": total_msgs,
+                "group_id": norm_gid,
+                "group_title": group_title,
+                "timestamp": timestamp_str
+            }
+        finally:
+            if os.path.exists(temp_filepath):
+                try:
+                    os.remove(temp_filepath)
+                except Exception:
+                    pass
+
+    async def restore_deep_scan_from_saved_chat(self, group_id: int) -> Dict[str, Any]:
+        """Search Telegram Saved Messages ('me') for the latest KAGE database backup of this group, and restore it into SQLite & UI."""
+        await self.ensure_connected()
+        norm_gid = self.normalize_gid(group_id)
+        search_tag = f"#GROUP_{norm_gid}"
+        
+        target_msg = None
+        async for msg in self.client.iter_messages('me', search=search_tag, limit=20):
+            caption = getattr(msg, 'message', '') or getattr(msg, 'text', '') or ''
+            if "#KAGE_INTEL_DB" in caption or (getattr(msg, 'file', None) and getattr(msg.file, 'name', '') and msg.file.name.endswith(".json")):
+                target_msg = msg
+                break
+
+        if not target_msg:
+            async for msg in self.client.iter_messages('me', search="#KAGE_INTEL_DB", limit=30):
+                caption = getattr(msg, 'message', '') or getattr(msg, 'text', '') or ''
+                if str(norm_gid) in caption:
+                    target_msg = msg
+                    break
+
+        if not target_msg:
+            return {
+                "success": False,
+                "error": f"No cloud database backup found in Saved Messages for group {norm_gid}."
+            }
+
+        if not getattr(target_msg, 'media', None) and not getattr(target_msg, 'file', None):
+            return {
+                "success": False,
+                "error": "Saved message found, but no database file attachment is present."
+            }
+
+        dl_res = self.client.download_media(target_msg, bytes)
+        file_bytes = await dl_res if asyncio.iscoroutine(dl_res) else dl_res
+        if not file_bytes:
+            return {"success": False, "error": "Failed to download database file from Telegram."}
+
+        try:
+            if isinstance(file_bytes, bytes):
+                payload = json.loads(file_bytes.decode('utf-8'))
+            elif isinstance(file_bytes, str) and os.path.exists(file_bytes):
+                with open(file_bytes, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                try:
+                    os.remove(file_bytes)
+                except Exception:
+                    pass
+            else:
+                return {"success": False, "error": "Unrecognized media download format."}
+        except Exception as e:
+            return {"success": False, "error": f"Invalid database JSON format: {e}"}
+
+        members = payload.get("members", [])
+        group_title = payload.get("group_title", f"Group {norm_gid}")
+        
+        restored_members = 0
+        if members and self.db:
+            if hasattr(self.db, "batch_upsert_member_reputation"):
+                await self.db.batch_upsert_member_reputation(norm_gid, members)
+                restored_members = len(members)
+
+            if hasattr(self.db, "batch_update_user_cross_profiles"):
+                await self.db.batch_update_user_cross_profiles(norm_gid, group_title, members)
+
+            social_data = payload.get("social_graph", {})
+            links = social_data.get("links", [])
+            if links and hasattr(self.db, "batch_record_social_interactions"):
+                edge_tuples = []
+                now_str = datetime.now().isoformat()
+                for l in links:
+                    s_id = l.get("source")
+                    t_id = l.get("target")
+                    w = l.get("weight", 1)
+                    if s_id and t_id:
+                        edge_tuples.append((
+                            norm_gid, s_id, f"User #{s_id}", t_id, f"User #{t_id}", "saved_chat_edge", 0, now_str
+                        ))
+                if edge_tuples:
+                    await self.db.batch_record_social_interactions(edge_tuples)
+
+        await self.emit_telemetry("saved_chat_db_restored", {
+            "group_id": norm_gid,
+            "group_title": group_title,
+            "restored_members": restored_members,
+            "total_messages_indexed": payload.get("total_messages_indexed", 0),
+            "timestamp": payload.get("export_timestamp")
+        })
+
+        return {
+            "success": True,
+            "restored_members": restored_members,
+            "group_id": norm_gid,
+            "group_title": group_title,
+            "total_messages": payload.get("total_messages_indexed", 0),
+            "backup_date": payload.get("export_timestamp")
+        }
+
+    async def list_saved_chat_cloud_backups(self, group_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """List all available KAGE database backups stored in Telegram Saved Messages ('me')."""
+        await self.ensure_connected()
+        norm_gid = self.normalize_gid(group_id) if group_id else None
+        search_query = f"#GROUP_{norm_gid}" if norm_gid else "#KAGE_INTEL_DB"
+        
+        results = []
+        try:
+            async for msg in self.client.iter_messages('me', search=search_query, limit=30):
+                caption = getattr(msg, 'message', '') or getattr(msg, 'text', '') or ''
+                if "#KAGE_INTEL_DB" in caption:
+                    has_file = bool(getattr(msg, 'file', None) or getattr(msg, 'media', None))
+                    fn = getattr(msg.file, 'name', '') if getattr(msg, 'file', None) else ''
+                    sz = getattr(msg.file, 'size', 0) if getattr(msg, 'file', None) else 0
+                    results.append({
+                        "message_id": msg.id,
+                        "date": msg.date.strftime("%Y-%m-%d %H:%M:%S") if msg.date else "",
+                        "has_file": has_file,
+                        "filename": fn,
+                        "file_size_kb": round(sz / 1024, 1),
+                        "snippet": caption[:160]
+                    })
+        except Exception as e:
+            logger.debug(f"Error querying Saved Messages backups: {e}")
+        return results
 
     def build_banned_rights(self, action: str, duration_seconds: int = 0, permission_subtype: str = "full") -> ChatBannedRights:
         until_date = None

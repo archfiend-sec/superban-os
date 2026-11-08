@@ -266,7 +266,7 @@ class SentinelShield:
                 try:
                     rep_call = self.db.get_group_member_reputation(group_id, sender.id)
                     if asyncio.iscoroutine(rep_call):
-                        member_rep = await asyncio.wait_for(rep_call, timeout=0.15)
+                        member_rep = await asyncio.wait_for(rep_call, timeout=0.35)
                     else:
                         member_rep = rep_call
                 except Exception:

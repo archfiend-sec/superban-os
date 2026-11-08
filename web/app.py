@@ -1032,6 +1032,35 @@ def create_app(engine: SuperBanEngine):
                 await res
         return {"status": "scan_cancelled", "group_id": req.group_id}
 
+    class SavedChatDbReq(BaseModel):
+        group_id: int
+        note: Optional[str] = None
+
+    @app.post("/api/saved_chat/sync")
+    async def sync_saved_chat_database(req: SavedChatDbReq):
+        """Serialize complete group intelligence into userbot's Saved Messages ('me') cloud vault."""
+        if not hasattr(engine, "sync_deep_scan_to_saved_chat"):
+            raise HTTPException(status_code=500, detail="Saved Chat database synchronization not available")
+        res = await engine.sync_deep_scan_to_saved_chat(req.group_id, note=req.note)
+        return res
+
+    @app.post("/api/saved_chat/restore")
+    async def restore_saved_chat_database(req: SavedChatDbReq):
+        """Restore group intelligence & member profiles directly from userbot's Saved Messages ('me')."""
+        if not hasattr(engine, "restore_deep_scan_from_saved_chat"):
+            raise HTTPException(status_code=500, detail="Saved Chat database restoration not available")
+        res = await engine.restore_deep_scan_from_saved_chat(req.group_id)
+        if not res.get("success"):
+            raise HTTPException(status_code=404, detail=res.get("error", "Restore failed"))
+        return res
+
+    @app.get("/api/saved_chat/backups")
+    async def list_saved_chat_backups(group_id: Optional[int] = None):
+        """List available cloud database backups from Saved Messages ('me')."""
+        if not hasattr(engine, "list_saved_chat_cloud_backups"):
+            return []
+        return await engine.list_saved_chat_cloud_backups(group_id)
+
     @app.get("/api/members/reputation")
     async def get_members_reputation(group_id: int, sort_by: str = "reputation",
                                      filter_mode: str = "all", limit: int = 200,
@@ -1039,7 +1068,7 @@ def create_app(engine: SuperBanEngine):
         """Fetch ranked group members scored across up to 100,000 messages."""
         if not engine.db or not hasattr(engine.db, "get_group_members_ranked"):
             return []
-        norm_gid = abs(int(group_id))
+        norm_gid = getattr(engine, "normalize_gid", lambda g: abs(int(str(g).replace("-100", "").replace("-", "") or 0)))(group_id)
         return await engine.db.get_group_members_ranked(
             norm_gid, sort_by=sort_by, filter_mode=filter_mode, limit=limit, offset=offset, query=query
         )
@@ -1049,7 +1078,7 @@ def create_app(engine: SuperBanEngine):
         """Aggregate reputation summary for the target group."""
         if not engine.db or not hasattr(engine.db, "get_group_reputation_summary"):
             return {"total_members_profiled": 0, "total_messages_indexed": 0}
-        norm_gid = abs(int(group_id))
+        norm_gid = getattr(engine, "normalize_gid", lambda g: abs(int(str(g).replace("-100", "").replace("-", "") or 0)))(group_id)
         return await engine.db.get_group_reputation_summary(norm_gid)
 
     # ═══════════════════════════════════════════════════════
@@ -2033,7 +2062,7 @@ def create_app(engine: SuperBanEngine):
 
         group_rep = None
         if engine.db and hasattr(engine.db, "get_group_member_reputation"):
-            target_gid = abs(int(group_id)) if group_id else 0
+            target_gid = getattr(engine, "normalize_gid", lambda g: abs(int(str(g).replace("-100", "").replace("-", "") or 0)))(group_id) if group_id else 0
             if target_gid:
                 group_rep = await engine.db.get_group_member_reputation(target_gid, user_id)
             if not group_rep:
