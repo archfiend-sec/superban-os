@@ -28,6 +28,22 @@ import shutil
 from pathlib import Path
 
 # Ensure virtual environment bin (with ffmpeg), imageio_ffmpeg, and system paths are prioritized in PATH
+_kage_bin_dir = "/tmp/kage_bin"
+try:
+    os.makedirs(_kage_bin_dir, exist_ok=True)
+    import imageio_ffmpeg
+    _ffmpeg_target = imageio_ffmpeg.get_ffmpeg_exe()
+    _kage_ffmpeg_symlink = os.path.join(_kage_bin_dir, "ffmpeg")
+    if not os.path.exists(_kage_ffmpeg_symlink) and _ffmpeg_target:
+        try:
+            os.symlink(_ffmpeg_target, _kage_ffmpeg_symlink)
+        except Exception:
+            pass
+    if _kage_bin_dir not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{_kage_bin_dir}:{os.environ.get('PATH', '')}"
+except Exception:
+    pass
+
 _venv_bin = str(Path(__file__).resolve().parent.parent / "venv" / "bin")
 if _venv_bin not in os.environ.get("PATH", ""):
     os.environ["PATH"] = f"{_venv_bin}:{os.environ.get('PATH', '')}"
@@ -35,14 +51,6 @@ if _venv_bin not in os.environ.get("PATH", ""):
 for _sys_p in ["/usr/local/bin", "/opt/homebrew/bin"]:
     if os.path.exists(_sys_p) and _sys_p not in os.environ.get("PATH", ""):
         os.environ["PATH"] = f"{_sys_p}:{os.environ.get('PATH', '')}"
-
-try:
-    import imageio_ffmpeg
-    _imageio_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
-    if _imageio_dir and _imageio_dir not in os.environ.get("PATH", ""):
-        os.environ["PATH"] = f"{_imageio_dir}:{os.environ.get('PATH', '')}"
-except Exception:
-    pass
 
 try:
     from pytgcalls import PyTgCalls
@@ -2506,6 +2514,73 @@ class SuperBanEngine:
             "group_title": group_title,
             "caption": caption
         }
+
+    async def save_uploaded_vc_recording(
+        self,
+        group_id: int,
+        audio_bytes: bytes,
+        filename: str = "upload.webm"
+    ) -> Dict[str, Any]:
+        """Save a client-side recorded audio chunk/file to server VC stream buffers, converting to MP3."""
+        clean_gid = str(group_id).replace("-100", "").replace("-", "")
+        live_audio = f"/tmp/vc_stream_{clean_gid}.mp3"
+        last_audio = f"/tmp/vc_last_session_{clean_gid}.mp3"
+
+        if not audio_bytes or len(audio_bytes) < 100:
+            raise ValueError("Audio recording data is empty")
+
+        temp_upload = f"/tmp/vc_upload_{clean_gid}_{int(time.time())}.tmp"
+        with open(temp_upload, "wb") as f:
+            f.write(audio_bytes)
+
+        ffmpeg_bin = self._get_ffmpeg_bin()
+        conv_cmd = [
+            ffmpeg_bin, "-y",
+            "-i", temp_upload,
+            "-codec:a", "libmp3lame",
+            "-ar", "48000",
+            "-b:a", "128k",
+            live_audio
+        ]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *conv_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+        except Exception as e:
+            logger.debug(f"Direct ffmpeg transcode note: {e}")
+            try:
+                shutil.copyfile(temp_upload, live_audio)
+            except Exception:
+                pass
+
+        try:
+            if os.path.exists(temp_upload):
+                os.remove(temp_upload)
+        except Exception:
+            pass
+
+        if os.path.exists(live_audio) and os.path.getsize(live_audio) > 512:
+            try:
+                shutil.copyfile(live_audio, last_audio)
+            except Exception:
+                pass
+            duration_sec = await self._get_audio_duration(live_audio)
+            file_size = os.path.getsize(live_audio)
+            mins = int(duration_sec // 60)
+            secs = int(duration_sec % 60)
+            return {
+                "success": True,
+                "file_path": live_audio,
+                "file_size": file_size,
+                "duration_seconds": duration_sec,
+                "duration_str": f"{mins:02d}:{secs:02d}",
+                "file_size_str": f"{file_size / (1024 * 1024):.2f} MB" if file_size >= 1048576 else f"{file_size / 1024:.1f} KB"
+            }
+        else:
+            raise RuntimeError("Failed to convert audio recording into MP3 format")
 
     async def get_group_sentiment_analysis(self, group_entity) -> Dict[str, Any]:
         """Deep linguistic sentiment and vibe diagnostics for any group without adminship."""

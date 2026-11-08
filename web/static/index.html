@@ -5943,10 +5943,10 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
           <!-- TACTICAL DVR: INSTANT REPLAY & ARCHIVE -->
           <div style="display: flex; align-items: center; gap: 6px; margin-left: 6px; flex-wrap: wrap;">
-            <div id="vc-rec-pill" class="badge badge-muted" style="font-size: 10px; display: none; align-items: center; gap: 5px; background: rgba(224,35,28,0.12); border: 1px solid rgba(224,35,28,0.3); color: var(--vermilion);">
-              <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--vermilion); box-shadow: 0 0 6px var(--vermilion);" class="hud-blink-dot"></span>
-              <span id="vc-rec-timer">REC 00:00</span>
-            </div>
+            <button id="vc-rec-pill" type="button" onclick="toggleVCRecording()" class="kage-btn-pill" style="font-size: 10px; padding: 4px 10px; display: none; align-items: center; gap: 6px; background: rgba(224,35,28,0.18); border: 1px solid rgba(224,35,28,0.5); color: #f87171; cursor: pointer; transition: all 0.2s ease;" title="Click to Start or Pause Live Audio Recording">
+              <span id="vc-rec-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px #ef4444;" class="hud-blink-dot"></span>
+              <span id="vc-rec-timer" style="font-weight: 700; font-family: var(--font-mono);">REC 00:00</span>
+            </button>
             <button id="btn-vc-replay-30s" type="button" onclick="triggerVCReplay(30)" class="kage-btn-pill" style="font-size: 10px; padding: 4px 10px; background: rgba(224,35,28,0.15); border: 1px solid rgba(224,35,28,0.4);" title="Instant Replay: rehear the last 30 seconds of speech">
               <i data-lucide="rotate-ccw" style="width: 11px; height: 11px; color: var(--vermilion);"></i>
               <span>Replay 30s</span>
@@ -8861,6 +8861,166 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   let vcIsConnected = false;
   let vcConnectedStartTime = null;
 
+  // Active Tactical Audio Recording State & Dual-Layer Engine
+  let vcIsRecording = false;
+  let vcRecordStartTime = null;
+  let vcRecordTimerInterval = null;
+  let vcMediaRecorder = null;
+  let vcRecordedAudioChunks = [];
+  let vcRecordedMimeType = '';
+  let vcMediaDestNode = null;
+
+  function updateVCRecordTimer() {
+    const recTimer = document.getElementById('vc-rec-timer');
+    if (!recTimer) return;
+    if (!vcRecordStartTime) {
+      recTimer.innerText = 'REC 00:00';
+      return;
+    }
+    const elapsed = Math.max(0, Math.floor((Date.now() - vcRecordStartTime) / 1000));
+    const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    recTimer.innerText = `REC ${m}:${s}`;
+  }
+
+  function updateVCRecordButtonUI(isRecording) {
+    const btn = document.getElementById('vc-rec-pill');
+    const dot = document.getElementById('vc-rec-dot');
+    if (!btn) return;
+    btn.style.display = 'inline-flex';
+    if (isRecording) {
+      btn.style.background = 'rgba(239, 68, 68, 0.22)';
+      btn.style.borderColor = '#ef4444';
+      btn.style.color = '#fca5a5';
+      btn.style.boxShadow = '0 0 12px rgba(239, 68, 68, 0.4)';
+      btn.title = 'Recording active. Click to pause.';
+      if (dot) {
+        dot.style.background = '#ef4444';
+        dot.style.boxShadow = '0 0 8px #ef4444';
+        dot.className = 'hud-blink-dot';
+      }
+    } else {
+      btn.style.background = 'rgba(245, 158, 11, 0.15)';
+      btn.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+      btn.style.color = '#fbbf24';
+      btn.style.boxShadow = 'none';
+      btn.title = 'Recording paused. Click to resume.';
+      if (dot) {
+        dot.style.background = '#f59e0b';
+        dot.style.boxShadow = 'none';
+        dot.className = '';
+      }
+    }
+  }
+
+  function startVCRecording() {
+    if (vcIsRecording) return;
+    if (!vcRecordStartTime) {
+      vcRecordStartTime = Date.now();
+      vcRecordedAudioChunks = [];
+    }
+    vcIsRecording = true;
+
+    if (vcRecordTimerInterval) clearInterval(vcRecordTimerInterval);
+    vcRecordTimerInterval = setInterval(updateVCRecordTimer, 1000);
+    updateVCRecordTimer();
+
+    // Hook MediaRecorder to Web Audio destination or audio element
+    try {
+      const audioEl = document.getElementById('vc-live-audio-player');
+      let stream = null;
+      if (window.vcAudioContext && window.vcAudioGainNode) {
+        if (!vcMediaDestNode) {
+          vcMediaDestNode = window.vcAudioContext.createMediaStreamDestination();
+          window.vcAudioGainNode.connect(vcMediaDestNode);
+        }
+        stream = vcMediaDestNode.stream;
+      } else if (audioEl && (audioEl.captureStream || audioEl.mozCaptureStream)) {
+        stream = (audioEl.captureStream || audioEl.mozCaptureStream).call(audioEl);
+      }
+
+      if (stream && typeof MediaRecorder !== 'undefined') {
+        if (!vcMediaRecorder || vcMediaRecorder.state === 'inactive') {
+          const types = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/ogg;codecs=opus',
+            'audio/mp4',
+            'audio/aac'
+          ];
+          let chosenMime = '';
+          for (const t of types) {
+            if (MediaRecorder.isTypeSupported(t)) {
+              chosenMime = t;
+              break;
+            }
+          }
+          vcRecordedMimeType = chosenMime;
+          vcMediaRecorder = chosenMime ? new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
+          vcMediaRecorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) {
+              vcRecordedAudioChunks.push(e.data);
+            }
+          };
+          vcMediaRecorder.start(1000); // 1-second chunks
+        } else if (vcMediaRecorder.state === 'paused') {
+          vcMediaRecorder.resume();
+        }
+      }
+    } catch (err) {
+      console.warn("Client audio recording note:", err);
+    }
+
+    updateVCRecordButtonUI(true);
+  }
+
+  function pauseVCRecording() {
+    vcIsRecording = false;
+    if (vcRecordTimerInterval) {
+      clearInterval(vcRecordTimerInterval);
+      vcRecordTimerInterval = null;
+    }
+    if (vcMediaRecorder && vcMediaRecorder.state === 'recording') {
+      try {
+        vcMediaRecorder.pause();
+      } catch (e) {}
+    }
+    updateVCRecordButtonUI(false);
+  }
+
+  function stopVCRecording() {
+    vcIsRecording = false;
+    if (vcRecordTimerInterval) {
+      clearInterval(vcRecordTimerInterval);
+      vcRecordTimerInterval = null;
+    }
+    if (vcMediaRecorder && vcMediaRecorder.state !== 'inactive') {
+      try {
+        vcMediaRecorder.stop();
+      } catch (e) {}
+    }
+    updateVCRecordButtonUI(false);
+  }
+
+  function toggleVCRecording() {
+    if (!vcIsConnected && !vcIsAudioActive) {
+      showToast("Connect to Voice Chat first to capture live audio", "info");
+      return;
+    }
+    if (vcIsRecording) {
+      pauseVCRecording();
+      const elapsed = Math.max(0, Math.floor((Date.now() - (vcRecordStartTime || Date.now())) / 1000));
+      const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const s = String(elapsed % 60).padStart(2, '0');
+      showToast(`⏸️ Recording paused at ${m}:${s}. Click 'Save MP3' or 'Send to Saved Chat' to export.`, 'info');
+      playZenSound('click');
+    } else {
+      startVCRecording();
+      showToast(`🔴 Voice Chat recording active! Capturing live audio...`, 'success');
+      playZenSound('blip');
+    }
+  }
+
   function openVCModal() {
     playZenSound('clack');
     const modal = document.getElementById('vc-modal');
@@ -8997,19 +9157,21 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
       // Update Live Recording Indicator & Elapsed Timer
       const recPill = document.getElementById('vc-rec-pill');
-      const recTimer = document.getElementById('vc-rec-timer');
-      if (vcIsConnected) {
-        if (!vcConnectedStartTime) vcConnectedStartTime = Date.now();
-        if (recPill) recPill.style.display = 'inline-flex';
-        if (recTimer) {
-          const elapsed = Math.floor((Date.now() - vcConnectedStartTime) / 1000);
-          const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
-          const s = String(elapsed % 60).padStart(2, '0');
-          recTimer.innerText = `REC ${m}:${s}`;
+      if (vcIsConnected || vcIsAudioActive) {
+        if (!vcRecordStartTime) {
+          vcRecordStartTime = Date.now();
         }
-      } else {
-        vcConnectedStartTime = null;
+        if (recPill) recPill.style.display = 'inline-flex';
+        updateVCRecordTimer();
+        if (!vcRecordTimerInterval && vcIsRecording) {
+          vcRecordTimerInterval = setInterval(updateVCRecordTimer, 1000);
+        }
+      } else if (!vcIsRecording) {
         if (recPill) recPill.style.display = 'none';
+        if (vcRecordTimerInterval) {
+          clearInterval(vcRecordTimerInterval);
+          vcRecordTimerInterval = null;
+        }
       }
 
       // Update Mobile Bottom Dock VC Indicator
@@ -9421,6 +9583,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       vcIsConnected = true;
       updateVCAudioUI(true);
       startVCSpectrumVisualizer();
+      startVCRecording();
 
       showToast("🔊 Voice Chat audio connected! Streaming live directly through speakers.");
       playZenSound('gong');
@@ -9458,6 +9621,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
     vcIsAudioActive = false;
     updateVCAudioUI(false);
+    pauseVCRecording();
   }
 
   function startVCSpectrumVisualizer() {
@@ -12187,6 +12351,25 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       showToast("Select a target group first", "error");
       return;
     }
+
+    // 1. If client MediaRecorder captured audio chunks, replay locally with 0 latency!
+    if (vcRecordedAudioChunks && vcRecordedAudioChunks.length > 0) {
+      const mime = vcRecordedMimeType || 'audio/webm';
+      const sliceChunks = vcRecordedAudioChunks.slice(-seconds);
+      if (sliceChunks.length > 0) {
+        const blob = new Blob(sliceChunks, { type: mime });
+        const url = URL.createObjectURL(blob);
+        if (vcReplayAudio) {
+          vcReplayAudio.pause();
+        }
+        vcReplayAudio = new Audio(url);
+        vcReplayAudio.play();
+        showToast(`▶️ Replaying last ${sliceChunks.length}s of voice chat directly`, "success");
+        playZenSound('bell');
+        return;
+      }
+    }
+
     showToast(`⚡ Extracting last ${seconds}s replay from stream buffer...`, "info");
     try {
       const res = await fetch(`/api/vc/replay?group_id=${gid}&seconds=${seconds}`);
@@ -12209,13 +12392,48 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     }
   }
 
-  function downloadVCRecording() {
+  async function downloadVCRecording() {
     const gid = getActiveGroupId();
     if (!gid) {
       showToast("Select a target group first", "error");
       return;
     }
-    showToast("Downloading audio stream archive...", "info");
+
+    // 1. If client MediaRecorder captured audio chunks, generate instant browser download!
+    if (vcRecordedAudioChunks && vcRecordedAudioChunks.length > 0) {
+      playZenSound('alpha');
+      showToast("Preparing instant recording download...", "info");
+      const mime = vcRecordedMimeType || 'audio/webm';
+      const blob = new Blob(vcRecordedAudioChunks, { type: mime });
+      const ext = mime.includes('mp4') ? 'mp4' : (mime.includes('ogg') ? 'ogg' : 'webm');
+      const filename = `VC_Recording_${gid}_${Date.now()}.${ext}`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 1000);
+
+      showToast(`📥 Recording downloaded (${(blob.size / 1024).toFixed(1)} KB)!`, "success");
+
+      // Background upload to server so server cache also has it
+      try {
+        fetch(`/api/vc/upload_recording?group_id=${gid}`, {
+          method: 'POST',
+          headers: { 'Content-Type': mime },
+          body: blob
+        }).catch(() => {});
+      } catch (e) {}
+      return;
+    }
+
+    // 2. Otherwise download from server archive
+    showToast("Downloading audio stream archive from server...", "info");
     window.open(`/api/vc/download_recording?group_id=${gid}`, '_blank');
   }
 
@@ -12235,6 +12453,31 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     showToast(seconds ? `Slicing last ${seconds}s and uploading to Saved Messages...` : "Preparing and uploading VC recording to your Telegram Saved Messages...", "info");
 
     try {
+      // 1. If client MediaRecorder captured audio chunks, upload and dispatch directly
+      if (vcRecordedAudioChunks && vcRecordedAudioChunks.length > 0) {
+        const mime = vcRecordedMimeType || 'audio/webm';
+        let chunksToUse = vcRecordedAudioChunks;
+        if (seconds && seconds > 0) {
+          chunksToUse = vcRecordedAudioChunks.slice(-seconds);
+        }
+        const blob = new Blob(chunksToUse, { type: mime });
+        const uploadUrl = `/api/vc/upload_and_send_saved?group_id=${gid}${seconds ? '&seconds=' + seconds : ''}`;
+
+        const res = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': mime },
+          body: blob
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || "Failed to dispatch recording");
+        }
+        playZenSound('gong');
+        showToast(`🎧 VC recording (${data.duration_str || 'audio'}, ${data.file_size_str || ''}) sent directly to your Saved Messages!`, "success");
+        return;
+      }
+
+      // 2. Otherwise fall back to server-side buffer dispatch
       const res = await fetch('/api/vc/send_to_saved', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

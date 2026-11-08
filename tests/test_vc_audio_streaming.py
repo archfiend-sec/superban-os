@@ -100,6 +100,53 @@ async def run_vc_streaming_verification():
     assert get_res.body[0] == 0xFF and (get_res.body[1] & 0xE0) == 0xE0, f"Invalid sync on first chunk: {get_res.body[:4].hex()}"
     print(f"  ✅ PASS: Successfully received {len(get_res.body)} bytes frame-aligned audio stream.")
 
+    # 4. Test Client Audio Recording Upload & Transcode
+    print("\n[TEST 4] Testing client audio recording upload & transcode endpoint...")
+    mock_engine.save_uploaded_vc_recording = AsyncMock(return_value={
+        "success": True,
+        "file_path": "/tmp/vc_stream_1234567.mp3",
+        "file_size": 16384,
+        "duration_seconds": 15,
+        "duration_str": "00:15",
+        "file_size_str": "16.0 KB"
+    })
+    mock_engine.send_vc_recording_to_saved = AsyncMock(return_value={
+        "success": True,
+        "status": "sent",
+        "chat": "Saved Messages",
+        "message_id": 88812,
+        "file_size": 16384,
+        "file_size_str": "16.0 KB",
+        "duration_seconds": 15,
+        "duration_str": "00:15",
+        "group_title": "Test Group",
+        "caption": "Forensic VC Recording"
+    })
+
+    sample_audio_bytes = b"\xFF\xFB\x90\x00" + b"\x00" * 2048 # Synthetic MP3 frame
+    upload_res = await client.request(
+        "POST",
+        f"/api/vc/upload_recording?group_id=-1001234567&token={token}",
+        body=sample_audio_bytes,
+        headers={"Content-Type": "audio/webm"}
+    )
+    assert upload_res.status == 200, f"Upload recording failed: {upload_res.status} {upload_res.text}"
+    assert upload_res.json()["success"] is True
+    print("  ✅ PASS: POST /api/vc/upload_recording successfully transcodes & caches live audio.")
+
+    # 5. Test Upload and Dispatch to Telegram Saved Messages
+    print("\n[TEST 5] Testing upload & dispatch to Saved Messages...")
+    dispatch_res = await client.request(
+        "POST",
+        f"/api/vc/upload_and_send_saved?group_id=-1001234567&token={token}",
+        body=sample_audio_bytes,
+        headers={"Content-Type": "audio/webm"}
+    )
+    assert dispatch_res.status == 200, f"Upload and send failed: {dispatch_res.status} {dispatch_res.text}"
+    assert dispatch_res.json()["status"] == "sent"
+    assert dispatch_res.json()["message_id"] == 88812
+    print("  ✅ PASS: POST /api/vc/upload_and_send_saved dispatches client audio directly to Saved Messages.")
+
     # Cleanup temporary test files
     for p in [test_mp3, test_stream_path]:
         if os.path.exists(p):

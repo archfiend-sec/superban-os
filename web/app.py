@@ -35,7 +35,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_VAULT_DIR = BASE_DIR / "media_vault"
 OPERATOR_SESSIONS: Dict[str, Dict[str, Any]] = {} # token -> {username, role, expires}
 
-# Ensure virtual environment bin (with ffmpeg) and common paths are prioritized
+# Ensure virtual environment bin (with ffmpeg), imageio_ffmpeg, and common paths are prioritized
+_kage_bin_dir = "/tmp/kage_bin"
+try:
+    os.makedirs(_kage_bin_dir, exist_ok=True)
+    import imageio_ffmpeg
+    _ffmpeg_target = imageio_ffmpeg.get_ffmpeg_exe()
+    _kage_ffmpeg_symlink = os.path.join(_kage_bin_dir, "ffmpeg")
+    if not os.path.exists(_kage_ffmpeg_symlink) and _ffmpeg_target:
+        try:
+            os.symlink(_ffmpeg_target, _kage_ffmpeg_symlink)
+        except Exception:
+            pass
+    if _kage_bin_dir not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{_kage_bin_dir}:{os.environ.get('PATH', '')}"
+except Exception:
+    pass
+
 _venv_bin = str(BASE_DIR / "venv" / "bin")
 for _p in [_venv_bin, "/usr/local/bin", "/opt/homebrew/bin"]:
     if os.path.exists(_p) and _p not in os.environ.get("PATH", ""):
@@ -2029,6 +2045,46 @@ def create_app(engine: SuperBanEngine):
             media_type="audio/mpeg",
             filename=f"VC_Recording_{clean_gid}_{int(time.time())}.mp3"
         )
+
+    @app.post("/api/vc/upload_recording")
+    async def upload_vc_recording_endpoint(
+        request: Request,
+        group_id: int
+    ):
+        """Receive client-side recorded audio file (WebM/MP4/WAV) as binary and transcode/cache as live VC MP3."""
+        try:
+            audio_bytes = await request.body()
+            return await engine.save_uploaded_vc_recording(
+                group_id=group_id,
+                audio_bytes=audio_bytes,
+                filename="client_recording.webm"
+            )
+        except Exception as e:
+            logger.error(f"Failed to process client VC audio upload: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/vc/upload_and_send_saved")
+    async def upload_and_send_saved_endpoint(
+        request: Request,
+        group_id: int,
+        seconds: Optional[int] = None
+    ):
+        """Receive client-side recorded audio, transcode, and immediately dispatch directly to Saved Messages."""
+        try:
+            audio_bytes = await request.body()
+            await engine.save_uploaded_vc_recording(
+                group_id=group_id,
+                audio_bytes=audio_bytes,
+                filename="client_recording.webm"
+            )
+            safe_seconds = max(5, min(int(seconds), 300)) if seconds is not None else None
+            return await engine.send_vc_recording_to_saved(
+                group_id=group_id,
+                seconds=safe_seconds
+            )
+        except Exception as e:
+            logger.error(f"Failed to upload and dispatch VC recording to Saved Messages: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     @app.get("/api/vc/leaderboard")
     async def get_vc_leaderboard(group_id: int, call_id: Optional[str] = None):
