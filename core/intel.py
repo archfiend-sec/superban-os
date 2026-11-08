@@ -14,8 +14,8 @@ class IntelSynthesizer:
     """Non-Admin AI & Heuristic Intelligence Synthesizer for Telegram Groups."""
 
     @staticmethod
-    def synthesize_chat_intel(messages: List[Dict[str, Any]], group_title: str = "") -> Dict[str, Any]:
-        if not messages:
+    def synthesize_chat_intel(messages: List[Dict[str, Any]], group_title: str = "", deep_scan_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        if not messages and not deep_scan_data:
             return {
                 "group_title": group_title,
                 "message_count": 0,
@@ -115,23 +115,44 @@ class IntelSynthesizer:
         # Hot topics (top non-stopwords)
         hot_topics = [w for w, c in word_freq.most_common(8)]
 
-        # Top 5 most active chatter profiles
+        # Top influencers: if 100k scan data is provided, incorporate 100k ranked leaders!
         top_influencers = []
-        for uid, count in sender_counts.most_common(5):
-            info = sender_meta.get(uid, {})
-            top_influencers.append({
-                "user_id": uid,
-                "name": info.get("name", "Unknown"),
-                "handle": info.get("handle", ""),
-                "message_count": count,
-                "share_pct": int(round((count / total_msgs) * 100)),
-                "trust_score": info.get("trust_score", 70),
-                "trust_level": info.get("trust_level", "NEUTRAL CITIZEN")
-            })
+        if deep_scan_data and deep_scan_data.get("top_chatters"):
+            total_100k_msgs = max(1, deep_scan_data.get("total_messages_indexed", total_msgs))
+            for tc in deep_scan_data["top_chatters"][:6]:
+                top_influencers.append({
+                    "user_id": tc.get("user_id"),
+                    "name": tc.get("full_name") or "User",
+                    "handle": tc.get("username", ""),
+                    "message_count": tc.get("message_count", 0),
+                    "share_pct": int(round((tc.get("message_count", 0) / total_100k_msgs) * 100)),
+                    "trust_score": tc.get("reputation_score", 70),
+                    "trust_level": tc.get("reputation_tier", "NEUTRAL CITIZEN"),
+                    "persona_archetype": tc.get("persona_archetype", "ACTIVE CITIZEN // 市民")
+                })
+        else:
+            for uid, count in sender_counts.most_common(5):
+                info = sender_meta.get(uid, {})
+                top_influencers.append({
+                    "user_id": uid,
+                    "name": info.get("name", "Unknown"),
+                    "handle": info.get("handle", ""),
+                    "message_count": count,
+                    "share_pct": int(round((count / max(1, total_msgs)) * 100)),
+                    "trust_score": info.get("trust_score", 70),
+                    "trust_level": info.get("trust_level", "NEUTRAL CITIZEN"),
+                    "persona_archetype": "ACTIVE CITIZEN // 市民"
+                })
 
         # Formulate executive summary
         summary_sentences = []
-        summary_sentences.append(f"Wiretapped {total_msgs} recent messages from {group_title or 'target group'}.")
+        if deep_scan_data and deep_scan_data.get("total_messages_indexed"):
+            summary_sentences.append(
+                f"Synthesized intelligence from comprehensive 100,000-message deep scan across {deep_scan_data.get('total_members_profiled', 0)} profiled members in {group_title or 'target group'} ({deep_scan_data.get('total_messages_indexed'):,} total indexed messages)."
+            )
+        else:
+            summary_sentences.append(f"Wiretapped {total_msgs} recent messages from {group_title or 'target group'}.")
+
         if cashtags:
             top_tags = [f"${t} ({c}x)" for t, c in cashtags.most_common(3)]
             summary_sentences.append(f"Primary asset discussion focused on: {', '.join(top_tags)}.")
@@ -140,13 +161,15 @@ class IntelSynthesizer:
         summary_sentences.append(f"Prevailing market tone is {mood} ({bull_pct}% Bull / {bear_pct}% Bear).")
         if top_influencers:
             lead_speaker = top_influencers[0]
-            summary_sentences.append(f"Conversation led predominantly by {lead_speaker['name']} driving {lead_speaker['share_pct']}% of message velocity.")
+            summary_sentences.append(f"Conversation led predominantly by {lead_speaker['name']} ({lead_speaker.get('persona_archetype', 'Pillar')}) driving {lead_speaker['message_count']} messages.")
         if threats:
             summary_sentences.append(f"⚠️ Tactical Warning: Intercepted {len(threats)} potential exploit or phishing indicators.")
 
+        display_msg_count = deep_scan_data.get("total_messages_indexed", total_msgs) if deep_scan_data else total_msgs
+
         return {
             "group_title": group_title,
-            "message_count": total_msgs,
+            "message_count": display_msg_count,
             "executive_summary": " ".join(summary_sentences),
             "sentiment": {
                 "bullish": bull_pct,
@@ -158,5 +181,6 @@ class IntelSynthesizer:
             "key_narratives": hot_topics,
             "top_influencers": top_influencers,
             "extracted_signals": list(signals)[:15],
-            "threat_alerts": threats[:5]
+            "threat_alerts": threats,
+            "is_100k_scan": bool(deep_scan_data and deep_scan_data.get("total_messages_indexed"))
         }

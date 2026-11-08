@@ -365,11 +365,21 @@ class SuperBanEngine:
         await self.emit_telemetry("deep_scan_started", scan_info)
 
         member_aggregates: Dict[int, Dict[str, Any]] = {}
+        msg_sender_map: Dict[int, Tuple[int, str, str]] = {}
+        social_edges: Dict[Tuple[int, int], Dict[str, Any]] = {}
+        username_to_user: Dict[str, Tuple[int, str]] = {}
 
         try:
             await self.ensure_connected()
             last_emit_t = 0.0
-            async for msg in self.client.iter_messages(group_entity, limit=target_limit):
+
+            # Turbocharged non-blocking stream: wait_time=0 bypasses Telethon's artificial 1.0s/chunk sleep
+            try:
+                msg_stream = self.client.iter_messages(group_entity, limit=target_limit, wait_time=0)
+            except TypeError:
+                msg_stream = self.client.iter_messages(group_entity, limit=target_limit)
+
+            async for msg in msg_stream:
                 if norm_gid in self._cancel_deep_scans or abs_gid in self._cancel_deep_scans:
                     scan_info["status"] = "CANCELLED"
                     logger.info(f"Deep scan for group {raw_gid} cancelled by user.")
@@ -381,11 +391,12 @@ class SuperBanEngine:
 
                 if sender_id:
                     m = member_aggregates.get(sender_id)
+                    fn = getattr(sender, 'first_name', '') or ''
+                    ln = getattr(sender, 'last_name', '') or ''
+                    full_name = f"{fn} {ln}".strip() or "User"
+                    username = getattr(sender, 'username', '') or ''
+
                     if not m:
-                        fn = getattr(sender, 'first_name', '') or ''
-                        ln = getattr(sender, 'last_name', '') or ''
-                        full_name = f"{fn} {ln}".strip() or "User"
-                        username = getattr(sender, 'username', '') or ''
                         is_bot = (getattr(sender, 'bot', None) is True)
                         is_verified = (getattr(sender, 'verified', None) is True)
                         is_premium = (getattr(sender, 'premium', None) is True)
@@ -411,7 +422,9 @@ class SuperBanEngine:
                             "is_deleted": is_deleted,
                             "is_scam": is_scam,
                             "is_fake": is_fake,
-                            "risk_flags": []
+                            "risk_flags": [],
+                            "hourly_activity": [0] * 24,
+                            "replied_to_counts": {}
                         }
                         member_aggregates[sender_id] = m
 
@@ -426,26 +439,100 @@ class SuperBanEngine:
                             m["first_seen"] = msg.date
                         if not m["last_seen"] or msg.date > m["last_seen"]:
                             m["last_seen"] = msg.date
+                        try:
+                            m["hourly_activity"][msg.date.hour] += 1
+                        except Exception:
+                            pass
 
                     if getattr(msg, 'reactions', None) and getattr(msg.reactions, 'results', None):
                         total_rx = sum(getattr(r, 'count', 0) for r in msg.reactions.results)
                         m["reactions_received"] += total_rx
 
-                    if getattr(msg, 'reply_to', None):
-                        m["replies_received"] += 1
+                    # Map message author for instant reply lookups
+                    msg_sender_map[msg.id] = (sender_id, full_name, username)
+                    if username:
+                        username_to_user[username.lower()] = (sender_id, full_name)
 
-                # Fast early feedback + dynamic throttling every 250 msgs or >= 0.8s
+                    # ═══════════════════════════════════════════════════════
+                    #  SOCIAL INFLUENCE GRAPH TOPOLOGY MAPPING (100K SCAN)
+                    # ═══════════════════════════════════════════════════════
+                    reply_to = getattr(msg, 'reply_to', None)
+                    if reply_to:
+                        m["replies_received"] += 1
+                        r_mid = getattr(reply_to, 'reply_to_msg_id', None)
+                        if r_mid and r_mid in msg_sender_map:
+                            t_uid, t_name, _ = msg_sender_map[r_mid]
+                            if t_uid and t_uid != sender_id:
+                                m["replied_to_counts"][t_uid] = m["replied_to_counts"].get(t_uid, 0) + 1
+                                edge_key = (sender_id, t_uid)
+                                if edge_key not in social_edges:
+                                    social_edges[edge_key] = {
+                                        "group_id": norm_gid,
+                                        "source_user_id": sender_id,
+                                        "source_name": full_name,
+                                        "target_user_id": t_uid,
+                                        "target_name": t_name,
+                                        "interaction_type": "reply",
+                                        "message_id": msg.id,
+                                        "timestamp": str(msg.date or datetime.now().isoformat()),
+                                        "weight": 0
+                                    }
+                                social_edges[edge_key]["weight"] += 2
+
+                    # Detect direct mentions for Social Graph
+                    entities = getattr(msg, 'entities', None)
+                    if entities:
+                        for ent in entities:
+                            t_uid = getattr(ent, 'user_id', None)
+                            if t_uid and t_uid != sender_id:
+                                t_name = member_aggregates.get(t_uid, {}).get("full_name") or f"User #{t_uid}"
+                                edge_key = (sender_id, t_uid)
+                                if edge_key not in social_edges:
+                                    social_edges[edge_key] = {
+                                        "group_id": norm_gid,
+                                        "source_user_id": sender_id,
+                                        "source_name": full_name,
+                                        "target_user_id": t_uid,
+                                        "target_name": t_name,
+                                        "interaction_type": "mention",
+                                        "message_id": msg.id,
+                                        "timestamp": str(msg.date or datetime.now().isoformat()),
+                                        "weight": 0
+                                    }
+                                social_edges[edge_key]["weight"] += 1
+                            elif hasattr(ent, 'offset') and hasattr(ent, 'length'):
+                                raw_txt = getattr(msg, 'message', '') or ''
+                                raw_tag = raw_txt[ent.offset:ent.offset+ent.length].lstrip('@').lower()
+                                if raw_tag in username_to_user:
+                                    t_uid, t_name = username_to_user[raw_tag]
+                                    if t_uid != sender_id:
+                                        edge_key = (sender_id, t_uid)
+                                        if edge_key not in social_edges:
+                                            social_edges[edge_key] = {
+                                                "group_id": norm_gid,
+                                                "source_user_id": sender_id,
+                                                "source_name": full_name,
+                                                "target_user_id": t_uid,
+                                                "target_name": t_name,
+                                                "interaction_type": "mention",
+                                                "message_id": msg.id,
+                                                "timestamp": str(msg.date or datetime.now().isoformat()),
+                                                "weight": 0
+                                            }
+                                        social_edges[edge_key]["weight"] += 1
+
+                # High-velocity WebSocket telemetry every 500 msgs or >= 0.4s
                 scanned_now = scan_info["scanned"]
                 now_t = time.time()
                 is_milestone = (
-                    scanned_now in (1, 10, 25, 50, 100, 250)
-                    or (scanned_now % 250 == 0)
-                    or (now_t - last_emit_t >= 0.8)
+                    scanned_now in (1, 10, 25, 50, 100, 250, 500)
+                    or (scanned_now % 500 == 0)
+                    or (now_t - last_emit_t >= 0.4)
                 )
 
                 if is_milestone:
                     last_emit_t = now_t
-                    elapsed = max(0.1, now_t - start_t)
+                    elapsed = max(0.05, now_t - start_t)
                     speed = scanned_now / elapsed
                     eta = max(0, int((target_limit - scanned_now) / speed)) if speed > 0 else 0
                     pct = round((scanned_now / target_limit) * 100, 1)
@@ -454,8 +541,8 @@ class SuperBanEngine:
                     scan_info["unique_members"] = len(member_aggregates)
                     scan_info["percent"] = pct
 
-                    # Periodically flush member reputation to DB
-                    if scanned_now % 500 == 0 and self.db and hasattr(self.db, "batch_upsert_member_reputation"):
+                    # Checkpoint flush to SQLite every 10,000 messages
+                    if scanned_now % 10000 == 0 and self.db and hasattr(self.db, "batch_upsert_member_reputation"):
                         member_payload = self._build_member_reputation_payload(norm_gid, member_aggregates)
                         asyncio.create_task(self.db.batch_upsert_member_reputation(norm_gid, member_payload))
 
@@ -471,8 +558,8 @@ class SuperBanEngine:
                         "eta_seconds": eta,
                         "status": "RUNNING"
                     })
-                    # Micro-yield to preserve event loop responsiveness
-                    await asyncio.sleep(0.002)
+                    # Yield event loop without delay
+                    await asyncio.sleep(0)
 
         except FloodWaitError as fwe:
             logger.warning(f"FloodWait during deep scan: Sleeping {fwe.seconds}s...")
@@ -496,14 +583,37 @@ class SuperBanEngine:
                 "status": "ERROR"
             })
 
-        # Final pass: Compute final scores and persist to SQLite
+        # Final pass: Compute final AI archetypes and persist to SQLite
         if scan_info["status"] not in ("CANCELLED", "ERROR"):
             scan_info["status"] = "COMPLETED"
 
         scan_info["unique_members"] = len(member_aggregates)
         final_members = self._build_member_reputation_payload(norm_gid, member_aggregates)
+
+        # 1. Persist 100k Member Reputation & AI Archetypes
         if self.db and hasattr(self.db, "batch_upsert_member_reputation"):
             await self.db.batch_upsert_member_reputation(norm_gid, final_members)
+
+        # 2. Enrich User Cross-Group OSINT Profiles with 100k Intelligence
+        if self.db and hasattr(self.db, "batch_update_user_cross_profiles"):
+            await self.db.batch_update_user_cross_profiles(norm_gid, group_title, final_members)
+
+        # 3. Persist 100k Social Influence Graph Topology
+        if self.db and hasattr(self.db, "batch_record_social_interactions") and social_edges:
+            interaction_tuples = [
+                (
+                    e["group_id"],
+                    e["source_user_id"],
+                    e["source_name"],
+                    e["target_user_id"],
+                    e["target_name"],
+                    e["interaction_type"],
+                    e["message_id"],
+                    e["timestamp"]
+                )
+                for e in social_edges.values()
+            ]
+            await self.db.batch_record_social_interactions(interaction_tuples)
 
         # Sort top chatters for summary
         top_chatters = sorted(final_members, key=lambda x: x["message_count"], reverse=True)[:10]
@@ -516,6 +626,7 @@ class SuperBanEngine:
             "total_scanned": scan_info["scanned"],
             "target_limit": target_limit,
             "unique_members": len(member_aggregates),
+            "social_edges_count": len(social_edges),
             "status": scan_info["status"],
             "elapsed_seconds": round(time.time() - start_t, 1),
             "top_chatters": top_chatters
@@ -524,7 +635,7 @@ class SuperBanEngine:
         return summary
 
     def _build_member_reputation_payload(self, group_id: int, aggregates: Dict[int, Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Compute scientific multi-factor reputation scores from 100k aggregates."""
+        """Compute scientific multi-factor reputation scores and AI behavioral archetypes from 100k aggregates."""
         result = []
         for uid, m in aggregates.items():
             f_seen = m.get("first_seen")
@@ -555,6 +666,35 @@ class SuperBanEngine:
                 is_fake=m.get("is_fake", False)
             )
 
+            hourly_dist = m.get("hourly_activity") or ([0] * 24)
+            archetype_info = ForensicInspector.infer_persona_archetype(
+                message_count=m["message_count"],
+                days_active=days_active,
+                avg_len=avg_len,
+                media_count=m.get("media_count", 0),
+                replies_received=m.get("replies_received", 0),
+                reactions_received=m.get("reactions_received", 0),
+                hourly_dist=hourly_dist,
+                is_bot=m.get("is_bot", False),
+                is_premium=m.get("is_premium", False)
+            )
+
+            # Top 3 interaction associates
+            replied_to = m.get("replied_to_counts") or {}
+            top_associates = []
+            if replied_to and aggregates:
+                sorted_r = sorted(replied_to.items(), key=lambda x: x[1], reverse=True)[:3]
+                for target_uid, cnt in sorted_r:
+                    target_info = aggregates.get(target_uid)
+                    target_name = target_info.get("full_name") if target_info else f"User #{target_uid}"
+                    target_un = target_info.get("username", "") if target_info else ""
+                    top_associates.append({
+                        "user_id": target_uid,
+                        "name": target_name,
+                        "username": target_un,
+                        "interaction_count": cnt
+                    })
+
             result.append({
                 "group_id": group_id,
                 "user_id": uid,
@@ -574,7 +714,11 @@ class SuperBanEngine:
                 "is_premium": m.get("is_premium", False),
                 "is_verified": m.get("is_verified", False),
                 "has_photo": m.get("has_photo", True),
-                "is_bot": m.get("is_bot", False)
+                "is_bot": m.get("is_bot", False),
+                "hourly_activity": hourly_dist,
+                "persona_archetype": archetype_info["archetype"],
+                "persona_tag": archetype_info["tag"],
+                "top_associates": top_associates
             })
         return result
 

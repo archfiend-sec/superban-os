@@ -193,6 +193,48 @@ class ForensicInspector:
         }
 
     @staticmethod
+    def infer_persona_archetype(
+        message_count: int = 0,
+        days_active: float = 0.0,
+        avg_len: float = 0.0,
+        media_count: int = 0,
+        replies_received: int = 0,
+        reactions_received: int = 0,
+        hourly_dist: Optional[List[int]] = None,
+        is_bot: bool = False,
+        is_premium: bool = False
+    ) -> Dict[str, Any]:
+        """Infer AI behavioral archetype and persona attributes from 100k scan."""
+        if is_bot:
+            return {"archetype": "AUTOMATED SENTINEL", "tag": "BOT", "description": "Automated system bot or utility"}
+        
+        if message_count <= 2:
+            return {"archetype": "SILENT OBSERVER", "tag": "LURKER", "description": "Minimal active participation in dialogue"}
+        
+        media_ratio = media_count / max(1, message_count)
+        reply_ratio = replies_received / max(1, message_count)
+        
+        dist = hourly_dist or ([0] * 24)
+        night_msgs = sum(dist[22:] + dist[:5]) if len(dist) == 24 else 0
+        total_dist_msgs = sum(dist) if len(dist) == 24 else max(1, message_count)
+        is_night_owl = (night_msgs / max(1, total_dist_msgs)) > 0.55
+        
+        if message_count >= 500 and days_active >= 20:
+            return {"archetype": "COMMUNITY ANCHOR // 柱石", "tag": "PILLAR", "description": "Core long-standing conversation leader"}
+        elif media_ratio >= 0.45:
+            return {"archetype": "VISUAL CURATOR // 視覚", "tag": "MEDIA", "description": "High sticker, photo, and media contributor"}
+        elif avg_len >= 80 and reply_ratio >= 0.25:
+            return {"archetype": "DEEP DISCUSSANT // 談話", "tag": "THOUGHT", "description": "Produces analytical, long-form discussion"}
+        elif is_night_owl:
+            return {"archetype": "NIGHT OPERATIVE // 夜行", "tag": "NIGHT", "description": "Consistently active during late UTC night hours"}
+        elif message_count >= 100:
+            return {"archetype": "HIGH-VELOCITY REGULAR // 激動", "tag": "REGULAR", "description": "High-frequency conversational driver"}
+        elif replies_received >= 25 or reactions_received >= 30:
+            return {"archetype": "INFLUENCE CATALYST // 感化", "tag": "INFLUENCER", "description": "High engagement & responses from peers"}
+        else:
+            return {"archetype": "ACTIVE CITIZEN // 市民", "tag": "CITIZEN", "description": "Steady participant in community discussions"}
+
+    @staticmethod
     def inspect_user(user, message_count: int = -1, member_stats: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Perform comprehensive forensic profiling of a Telegram member."""
         user_id = getattr(user, 'id', 0) if user else 0

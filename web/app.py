@@ -2105,7 +2105,11 @@ def create_app(engine: SuperBanEngine):
             "message_count": msg_cnt,
             "vc_participations": db_profile.get("vc_participations", 0),
             "first_seen": (group_rep and group_rep.get("first_seen")) or db_profile.get("first_seen", "Live MTProto Radar"),
-            "last_seen": (group_rep and group_rep.get("last_seen")) or db_profile.get("last_seen", "Active")
+            "last_seen": (group_rep and group_rep.get("last_seen")) or db_profile.get("last_seen", "Active"),
+            "persona_archetype": (group_rep and group_rep.get("persona_archetype")) or "ACTIVE CITIZEN // 市民",
+            "top_associates": (group_rep and group_rep.get("top_associates")) or [],
+            "hourly_activity": (group_rep and group_rep.get("hourly_activity")) or [],
+            "scan_100k_indexed": bool(group_rep and group_rep.get("message_count", 0) > 0)
         }
 
     @app.get("/api/osint/syndicates")
@@ -2168,8 +2172,20 @@ def create_app(engine: SuperBanEngine):
         if not entity:
             raise HTTPException(status_code=404, detail="Target group not found")
         group_title = getattr(entity, 'title', '') or ''
-        messages = await engine.get_recent_chat_messages(entity, limit=limit)
-        return IntelSynthesizer.synthesize_chat_intel(messages, group_title=group_title)
+
+        deep_scan_data = None
+        if engine.db and hasattr(engine.db, "get_group_reputation_summary"):
+            try:
+                norm_gid = getattr(engine, "normalize_gid", lambda g: abs(int(str(g).replace("-100", "").replace("-", "") or 0)))(group_id)
+                summary = await engine.db.get_group_reputation_summary(norm_gid)
+                if summary and summary.get("total_messages_indexed", 0) > 0:
+                    deep_scan_data = summary
+            except Exception as e:
+                logger.debug(f"Deep scan data synthesis note: {e}")
+
+        actual_limit = min(int(limit), 500) if limit != 100000 else 250
+        messages = await engine.get_recent_chat_messages(entity, limit=actual_limit)
+        return IntelSynthesizer.synthesize_chat_intel(messages, group_title=group_title, deep_scan_data=deep_scan_data)
 
     # =========================================================================
     #  SIGNAL & IOC ENTITY RADAR ENDPOINTS

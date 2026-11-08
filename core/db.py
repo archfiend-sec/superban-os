@@ -3,7 +3,7 @@ import sqlite3
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Set, Optional
+from typing import List, Dict, Any, Set, Optional, Tuple
 
 DB_FILE = Path(__file__).resolve().parent.parent / "ultimate_manager.db"
 
@@ -328,6 +328,18 @@ class DatabaseManager:
         ]:
             try:
                 self.cursor.execute(f"ALTER TABLE intercepted_messages ADD COLUMN {col_name} {col_type};")
+                self.conn.commit()
+            except Exception:
+                pass
+
+        # Idempotent migration for 100k AI Archetype, Circadian & Social Graph columns in group_member_reputation
+        for col_name, col_type in [
+            ("hourly_activity", "TEXT DEFAULT '[]'"),
+            ("persona_archetype", "TEXT DEFAULT 'CITIZEN'"),
+            ("top_associates", "TEXT DEFAULT '[]'")
+        ]:
+            try:
+                self.cursor.execute(f"ALTER TABLE group_member_reputation ADD COLUMN {col_name} {col_type};")
                 self.conn.commit()
             except Exception:
                 pass
@@ -881,6 +893,24 @@ class DatabaseManager:
                 full_dist = [hour_counts.get(h, 0) for h in range(24)]
                 total_msgs = sum(full_dist)
                 
+                # If live wiretap has < 3 messages, check 100k indexed reputation table for rich 100k hourly telemetry!
+                if total_msgs < 3:
+                    try:
+                        self.cursor.execute('''
+                            SELECT hourly_activity, message_count 
+                            FROM group_member_reputation 
+                            WHERE user_id = ? 
+                            ORDER BY message_count DESC LIMIT 1
+                        ''', (user_id,))
+                        rep_row = self.cursor.fetchone()
+                        if rep_row and rep_row[0]:
+                            raw_h = json.loads(rep_row[0] or '[]')
+                            if isinstance(raw_h, list) and len(raw_h) == 24 and sum(raw_h) > 0:
+                                full_dist = [int(x) for x in raw_h]
+                                total_msgs = sum(full_dist)
+                    except Exception as he:
+                        logger.debug(f"Sleep cycle 100k fallback note: {he}")
+
                 if total_msgs < 3:
                     return {
                         "user_id": user_id,
@@ -1262,6 +1292,77 @@ class DatabaseManager:
             except Exception as err:
                 logger.error(f"Error recording social interaction: {err}")
 
+    async def batch_record_social_interactions(self, interactions: List[Tuple]):
+        """Batch persist interaction edges mapped during 100k message scan."""
+        if not interactions:
+            return
+        async with self.lock:
+            try:
+                self.cursor.executemany(
+                    '''INSERT INTO interaction_network 
+                    (group_id, source_user_id, source_name, target_user_id, target_name, interaction_type, message_id, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                    interactions
+                )
+                self.conn.commit()
+            except Exception as err:
+                logger.error(f"Error batch recording social interactions: {err}")
+
+    async def batch_update_user_cross_profiles(self, group_id: int, group_title: str, member_list: List[Dict[str, Any]]):
+        """Batch update user_cross_profiles for all members indexed in 100k scan."""
+        if not member_list:
+            return
+        async with self.lock:
+            try:
+                now = datetime.now().isoformat()
+                for m in member_list:
+                    uid = m["user_id"]
+                    fn = m.get("full_name", "") or "User"
+                    un = m.get("username", "") or ""
+                    msg_cnt = m.get("message_count", 0)
+                    is_prem = int(bool(m.get("is_premium", False)))
+                    is_ver = int(bool(m.get("is_verified", False)))
+                    
+                    self.cursor.execute(
+                        '''SELECT name_history, username_history, spotted_groups, message_count FROM user_cross_profiles WHERE user_id = ?''',
+                        (uid,)
+                    )
+                    r = self.cursor.fetchone()
+                    if r:
+                        names = json.loads(r[0] or '[]')
+                        usernames = json.loads(r[1] or '[]')
+                        groups = json.loads(r[2] or '[]')
+                        total_msg = max(r[3] or 0, msg_cnt)
+                        if fn and fn not in names:
+                            names.append(fn)
+                        if un and un not in usernames:
+                            usernames.append(un)
+                        if group_id and group_id not in groups:
+                            groups.append(group_id)
+                        self.cursor.execute(
+                            '''UPDATE user_cross_profiles SET 
+                                last_seen = ?, current_name = ?, current_username = ?,
+                                name_history = ?, username_history = ?, spotted_groups = ?,
+                                message_count = ?, is_premium = ?, is_verified = ?
+                            WHERE user_id = ?''',
+                            (now, fn, un, json.dumps(names), json.dumps(usernames), json.dumps(groups), total_msg, is_prem, is_ver, uid)
+                        )
+                    else:
+                        names = [fn] if fn else []
+                        usernames = [un] if un else []
+                        groups = [group_id] if group_id else []
+                        self.cursor.execute(
+                            '''INSERT INTO user_cross_profiles
+                            (user_id, first_seen, last_seen, current_name, current_username,
+                             name_history, username_history, spotted_groups, message_count,
+                             vc_participations, is_premium, is_verified, phone)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, '')''',
+                            (uid, now, now, fn, un, json.dumps(names), json.dumps(usernames), json.dumps(groups), msg_cnt, is_prem, is_ver)
+                        )
+                self.conn.commit()
+            except Exception as e:
+                logger.error(f"Error in batch_update_user_cross_profiles: {e}")
+
     async def get_social_graph(self, group_id: Optional[int] = None, limit: int = 150) -> Dict[str, Any]:
         async with self.lock:
             query = '''
@@ -1271,8 +1372,13 @@ class DatabaseManager:
             '''
             params = []
             if group_id:
-                query += " AND group_id = ?"
-                params.append(group_id)
+                try:
+                    raw_str = str(group_id).replace("-100", "").replace("-", "").strip()
+                    norm_gid = int(raw_str) if raw_str.isdigit() else 0
+                except Exception:
+                    norm_gid = 0
+                query += " AND (group_id = ? OR group_id = ? OR group_id = ?)"
+                params.extend([int(group_id), norm_gid, int(f"-100{norm_gid}") if norm_gid else int(group_id)])
             query += " GROUP BY source_user_id, target_user_id ORDER BY weight DESC LIMIT ?"
             params.append(limit)
 
@@ -1601,15 +1707,19 @@ class DatabaseManager:
                         int(bool(m.get("is_verified", False))),
                         int(bool(m.get("has_photo", True))),
                         int(bool(m.get("is_bot", False))),
-                        now_str
+                        now_str,
+                        json.dumps(m.get("hourly_activity") or ([0] * 24)),
+                        str(m.get("persona_archetype") or "ACTIVE CITIZEN // 市民"),
+                        json.dumps(m.get("top_associates") or [])
                     ))
                 self.cursor.executemany(
                     '''INSERT INTO group_member_reputation
                     (group_id, user_id, username, full_name, message_count, media_count,
                      reactions_received, replies_received, first_seen, last_seen,
                      avg_message_len, reputation_score, reputation_tier, reputation_color,
-                     risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated,
+                     hourly_activity, persona_archetype, top_associates)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(group_id, user_id) DO UPDATE SET
                         username = excluded.username,
                         full_name = excluded.full_name,
@@ -1628,7 +1738,10 @@ class DatabaseManager:
                         is_verified = excluded.is_verified,
                         has_photo = excluded.has_photo,
                         is_bot = excluded.is_bot,
-                        last_updated = excluded.last_updated''',
+                        last_updated = excluded.last_updated,
+                        hourly_activity = excluded.hourly_activity,
+                        persona_archetype = excluded.persona_archetype,
+                        top_associates = excluded.top_associates''',
                     records
                 )
                 self.conn.commit()
@@ -1643,7 +1756,8 @@ class DatabaseManager:
                     '''SELECT group_id, user_id, username, full_name, message_count, media_count,
                               reactions_received, replies_received, first_seen, last_seen,
                               avg_message_len, reputation_score, reputation_tier, reputation_color,
-                              risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated
+                              risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated,
+                              hourly_activity, persona_archetype, top_associates
                        FROM group_member_reputation WHERE group_id = ? AND user_id = ?''',
                     (group_id, user_id)
                 )
@@ -1670,7 +1784,10 @@ class DatabaseManager:
                     "is_verified": bool(r[16]),
                     "has_photo": bool(r[17]),
                     "is_bot": bool(r[18]),
-                    "last_updated": str(r[19])
+                    "last_updated": str(r[19]),
+                    "hourly_activity": json.loads(r[20] or '[]') if len(r) > 20 and r[20] else ([0] * 24),
+                    "persona_archetype": r[21] if len(r) > 21 and r[21] else "ACTIVE CITIZEN // 市民",
+                    "top_associates": json.loads(r[22] or '[]') if len(r) > 22 and r[22] else []
                 }
             except Exception as e:
                 logger.error(f"Error fetching member reputation: {e}")
@@ -1765,7 +1882,8 @@ class DatabaseManager:
                     f'''SELECT user_id, username, full_name, message_count, media_count,
                                reactions_received, replies_received, first_seen, last_seen,
                                avg_message_len, reputation_score, reputation_tier, reputation_color,
-                               risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated
+                               risk_flags, is_premium, is_verified, has_photo, is_bot, last_updated,
+                               persona_archetype, top_associates
                         FROM group_member_reputation
                         WHERE {where_sql}
                         ORDER BY {order_clause}
@@ -1793,7 +1911,9 @@ class DatabaseManager:
                         "is_verified": bool(r[15]),
                         "has_photo": bool(r[16]),
                         "is_bot": bool(r[17]),
-                        "last_updated": str(r[18])
+                        "last_updated": str(r[18]),
+                        "persona_archetype": r[19] if len(r) > 19 and r[19] else "ACTIVE CITIZEN // 市民",
+                        "top_associates": json.loads(r[20] or '[]') if len(r) > 20 and r[20] else []
                     }
                     for r in rows
                 ]

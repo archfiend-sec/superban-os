@@ -562,6 +562,91 @@ class Test100kReputationEngine(unittest.TestCase):
         asyncio.run(run_test())
         print("  ✅ PASS: Wiretap message cards successfully enriched with 100k reputation badges & message counts.")
 
+    def test_07_social_graph_and_ai_profile_integration(self):
+        """Verify 100k message scan powers social graph topology and AI profiling."""
+        async def run_test():
+            group_id = 99887766
+
+            # 1. Test AI persona archetype inference
+            archetype = ForensicInspector.infer_persona_archetype(
+                message_count=600,
+                days_active=25,
+                avg_len=45,
+                media_count=30,
+                replies_received=40,
+                reactions_received=50
+            )
+            self.assertIn("COMMUNITY ANCHOR", archetype["archetype"])
+
+            # 2. Test batch recording social interaction edges from 100k scan
+            interactions = [
+                (group_id, 3001, "Alice Alpha", 3002, "Bob Beta", "reply", 9901, "2026-11-08 12:00:00"),
+                (group_id, 3001, "Alice Alpha", 3002, "Bob Beta", "reply", 9902, "2026-11-08 12:05:00"),
+                (group_id, 3003, "Charlie Call", 3001, "Alice Alpha", "mention", 9903, "2026-11-08 12:10:00")
+            ]
+            await self.db.batch_record_social_interactions(interactions)
+
+            # Query social graph
+            graph = await self.db.get_social_graph(group_id=group_id)
+            self.assertEqual(graph["edge_count"], 2)
+            self.assertEqual(graph["node_count"], 3)
+            # Top influencer should be Alice or Bob with degree 3
+            top_node = graph["top_influencers"][0]
+            self.assertIn(top_node["id"], [3001, 3002])
+
+            # 3. Test batch user cross profile updating from 100k scan
+            members = [
+                {
+                    "user_id": 3001,
+                    "full_name": "Alice Alpha",
+                    "username": "alice_alpha",
+                    "message_count": 850,
+                    "is_premium": True,
+                    "is_verified": False
+                }
+            ]
+            await self.db.batch_update_user_cross_profiles(group_id, "Test War Room", members)
+            cross_profile = await self.db.get_user_cross_profile(3001)
+            self.assertIsNotNone(cross_profile)
+            self.assertEqual(cross_profile["message_count"], 850)
+            self.assertEqual(cross_profile["current_name"], "Alice Alpha")
+            self.assertTrue(cross_profile["is_premium"])
+
+            # 4. Test sleep cycle calculation fallback from 100k scan hourly distribution
+            hourly_test = [0] * 24
+            for h in range(8, 22):
+                hourly_test[h] = 20  # Active between 08:00 and 22:00 UTC (Sleep between 22:00 and 07:00 UTC)
+            
+            # Save into group_member_reputation
+            await self.db.batch_upsert_member_reputation([
+                {
+                    "group_id": group_id,
+                    "user_id": 3001,
+                    "username": "alice_alpha",
+                    "full_name": "Alice Alpha",
+                    "message_count": 850,
+                    "media_count": 50,
+                    "reactions_received": 100,
+                    "replies_received": 50,
+                    "avg_message_len": 55.0,
+                    "reputation_score": 92,
+                    "reputation_tier": "LEGENDARY OPERATIVE",
+                    "reputation_color": "#10b981",
+                    "risk_flags": [],
+                    "hourly_activity": hourly_test,
+                    "persona_archetype": "COMMUNITY ANCHOR // 柱石",
+                    "top_associates": [{"user_id": 3002, "name": "Bob Beta", "interaction_count": 2}]
+                }
+            ])
+
+            sleep_profile = await self.db.get_user_sleep_cycle_profile(3001)
+            self.assertEqual(sleep_profile["total_messages"], sum(hourly_test))
+            self.assertNotEqual(sleep_profile["sleep_window_utc"], "Insufficient telemetry")
+            self.assertIn("UTC", sleep_profile["estimated_timezone"])
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: 100k deep scan properly powers social graph topology, AI persona archetypes, and sleep cycles.")
+
 
 if __name__ == "__main__":
     print("=" * 75)
