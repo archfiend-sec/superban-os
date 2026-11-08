@@ -3129,131 +3129,133 @@ body {
   backdrop-filter: none !important;
 }
 
-/* Top Ticker Bar */
-.hud-top-bar {
-  height: 38px !important;
-  flex: 0 0 38px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  background: var(--deep-carbon) !important;
-  border-bottom: 1px solid var(--dark-border) !important;
-  padding: 0 16px !important;
-  font-size: 10.5px !important;
-  font-family: var(--font-mono) !important;
-  gap: 12px !important;
-  overflow: hidden !important;
-}
-.hud-ticker-left {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  flex: 0 0 auto !important;
-  min-width: 0 !important;
-  white-space: nowrap !important;
-}
-.hud-ticker-center {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-  text-align: center !important;
-  padding: 0 14px !important;
-}
-.hud-target-title {
-  display: inline-block !important;
-  max-width: 100% !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-  color: var(--warm-white) !important;
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.04em !important;
-}
-.hud-ticker-right {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  flex: 0 0 auto !important;
-  min-width: 0 !important;
-  white-space: nowrap !important;
-}
-.hud-sys-tag {
-  font-size: 9.5px !important;
-  letter-spacing: 0.16em !important;
-  color: var(--signal-red) !important;
-  font-weight: 600 !important;
-}
-.hud-status-live {
-  color: var(--op-green) !important;
-  font-size: 9.5px !important;
-  letter-spacing: 0.08em !important;
-}
-.hud-blink-dot {
-  background: var(--op-green) !important;
-  box-shadow: 0 0 6px var(--op-green) !important;
-}
-.hud-divider {
-  color: var(--dark-border) !important;
-  opacity: 0.8 !important;
-}
-#hud-target-group-name {
-  color: var(--intel-cyan) !important;
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.02em !important;
-}
-.btn-xs-outline {
-  background: transparent !important;
-  border: 1px solid var(--hairline) !important;
-  color: var(--steel-grey) !important;
-  border-radius: 3px !important;
-  padding: 2px 7px !important;
-  font-size: 9px !important;
-  font-family: var(--font-mono) !important;
-  letter-spacing: 0.06em !important;
-  transition: all var(--ease-editorial) !important;
-}
-.btn-xs-outline:hover, .btn-xs-outline.active {
-  color: var(--warm-white) !important;
-  border-color: var(--hairline-hover) !important;
-  background: var(--surface-hover) !important;
-}
+@media (min-width: 769px) {
+  /* Top Ticker Bar */
+  .hud-top-bar {
+    height: 38px !important;
+    flex: 0 0 38px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: var(--deep-carbon) !important;
+    border-bottom: 1px solid var(--dark-border) !important;
+    padding: 0 16px !important;
+    font-size: 10.5px !important;
+    font-family: var(--font-mono) !important;
+    gap: 12px !important;
+    overflow: hidden !important;
+  }
+  .hud-ticker-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+  }
+  .hud-ticker-center {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-align: center !important;
+    padding: 0 14px !important;
+  }
+  .hud-target-title {
+    display: inline-block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    color: var(--warm-white) !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.04em !important;
+  }
+  .hud-ticker-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+  }
+  .hud-sys-tag {
+    font-size: 9.5px !important;
+    letter-spacing: 0.16em !important;
+    color: var(--signal-red) !important;
+    font-weight: 600 !important;
+  }
+  .hud-status-live {
+    color: var(--op-green) !important;
+    font-size: 9.5px !important;
+    letter-spacing: 0.08em !important;
+  }
+  .hud-blink-dot {
+    background: var(--op-green) !important;
+    box-shadow: 0 0 6px var(--op-green) !important;
+  }
+  .hud-divider {
+    color: var(--dark-border) !important;
+    opacity: 0.8 !important;
+  }
+  #hud-target-group-name {
+    color: var(--intel-cyan) !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.02em !important;
+  }
+  .btn-xs-outline {
+    background: transparent !important;
+    border: 1px solid var(--hairline) !important;
+    color: var(--steel-grey) !important;
+    border-radius: 3px !important;
+    padding: 2px 7px !important;
+    font-size: 9px !important;
+    font-family: var(--font-mono) !important;
+    letter-spacing: 0.06em !important;
+    transition: all var(--ease-editorial) !important;
+  }
+  .btn-xs-outline:hover, .btn-xs-outline.active {
+    color: var(--warm-white) !important;
+    border-color: var(--hairline-hover) !important;
+    background: var(--surface-hover) !important;
+  }
 
-/* 2-Column Cockpit Grid (Maximized Live Intelligence Stage) */
-.hud-body {
-  display: grid !important;
-  grid-template-columns: 295px minmax(0, 1fr) !important;
-  height: calc(100% - 38px) !important;
-  max-height: calc(100% - 38px) !important;
-  overflow: hidden !important;
-}
-.hud-col {
-  padding: 14px 16px !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  position: relative !important;
-}
-.hud-col-left {
-  background: var(--deep-carbon) !important;
-  border-right: 1px solid var(--dark-border) !important;
-  overflow-y: auto !important;
-}
-.hud-col-center {
-  background: var(--obsidian) !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-.hud-col-right {
-  display: none !important;
+  /* 2-Column Cockpit Grid (Maximized Live Intelligence Stage) */
+  .hud-body {
+    display: grid !important;
+    grid-template-columns: 295px minmax(0, 1fr) !important;
+    height: calc(100% - 38px) !important;
+    max-height: calc(100% - 38px) !important;
+    overflow: hidden !important;
+  }
+  .hud-col {
+    padding: 14px 16px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+  .hud-col-left {
+    background: var(--deep-carbon) !important;
+    border-right: 1px solid var(--dark-border) !important;
+    overflow-y: auto !important;
+  }
+  .hud-col-center {
+    background: var(--obsidian) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .hud-col-right {
+    display: none !important;
+  }
 }
 
 /* Editorial Section Panel Titles */
@@ -3935,6 +3937,348 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── 11. DEFINITIVE MOBILE OPTIMIZATION (PHONES & TALL VIEWPORTS) ── */
+@media (max-width: 768px), (max-aspect-ratio: 9/10) and (max-width: 920px), (pointer: coarse) and (max-width: 820px) {
+  html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  /* Reclaim vertical real estate: Hide desktop-only ticker */
+  .hud-top-bar {
+    display: none !important;
+  }
+  
+  /* War Room HUD Viewport Fill */
+  .war-room-hud {
+    height: calc(100dvh - var(--nav-h, 50px) - 56px - env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(100dvh - var(--nav-h, 50px) - 56px - env(safe-area-inset-bottom, 0px)) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    border: none !important;
+    margin-top: var(--nav-h, 50px) !important;
+  }
+
+  /* Single-column Cockpit */
+  .hud-body {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  /* Only ONE column visible at a time */
+  .hud-col {
+    display: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    border: none !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+  }
+  .hud-col.mobile-active {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    flex: 1 1 0% !important;
+  }
+
+  /* Sentinel / Left Rail Mobile Full-Width Experience */
+  .hud-col-left.mobile-active {
+    background: var(--deep-carbon) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 14px 14px calc(28px + env(safe-area-inset-bottom, 0px)) 14px !important;
+    box-sizing: border-box !important;
+  }
+  .hud-col-left .hud-panel-title {
+    font-size: 10.5px !important;
+    margin-bottom: 10px !important;
+    padding-bottom: 6px !important;
+  }
+  .hud-col-left .kage-select {
+    width: 100% !important;
+    font-size: 12px !important;
+    padding: 10px 12px !important;
+    box-sizing: border-box !important;
+  }
+  .hud-col-left .hud-action-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+  }
+  .hud-col-left .hud-action-btn {
+    min-height: 42px !important;
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    background: var(--graphite) !important;
+    border: 1px solid var(--hairline) !important;
+    border-radius: 4px !important;
+  }
+  .hud-col-left .hud-action-btn:active {
+    background: var(--surface-hover) !important;
+    border-color: var(--signal-red) !important;
+  }
+
+  /* Center Column Mobile Layout */
+  .hud-col-center.mobile-active {
+    background: var(--obsidian) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Center Tabs Bar: Sleek Horizontal Scroll Strip */
+  .hud-tabs-bar {
+    height: 38px !important;
+    flex: 0 0 38px !important;
+    border-bottom: 1px solid var(--hairline) !important;
+    background: var(--deep-carbon) !important;
+    overflow: hidden !important;
+  }
+  .kage-hud-tabs {
+    display: flex !important;
+    width: 100% !important;
+    height: 38px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    background: transparent !important;
+  }
+  .kage-hud-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+  .kage-hud-tab {
+    flex: 0 0 auto !important;
+    min-width: auto !important;
+    padding: 0 13px !important;
+    height: 38px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    white-space: nowrap !important;
+    font-size: 11px !important;
+  }
+  .kage-hud-tab.active {
+    border-bottom-color: var(--signal-red) !important;
+    background: rgba(229, 43, 47, 0.08) !important;
+    color: var(--warm-white) !important;
+  }
+  .kage-tab-num {
+    font-size: 12.5px !important;
+    font-family: var(--font-serif) !important;
+    font-style: italic !important;
+  }
+  .kage-tab-title {
+    font-size: 11px !important;
+    font-weight: 500 !important;
+  }
+  .kage-tab-jp {
+    display: none !important;
+  }
+
+  /* Wiretap Stream Layout & Header */
+  .wiretap-stream-wrap {
+    flex: 1 1 0% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .wiretap-sub-header {
+    flex: 0 0 auto !important;
+    padding: 6px 10px !important;
+    background: var(--deep-carbon) !important;
+    border-bottom: 1px solid var(--hairline) !important;
+  }
+  .wiretap-sub-header .sec-head {
+    display: none !important;
+  }
+  #wiretap-controls-sub {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 5px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding: 2px 0 !important;
+    box-sizing: border-box !important;
+  }
+  #wiretap-controls-sub::-webkit-scrollbar {
+    display: none !important;
+  }
+  .hud-filter-toggle {
+    display: inline-flex !important;
+    gap: 3px !important;
+    flex-shrink: 0 !important;
+    padding: 1px !important;
+    background: var(--graphite) !important;
+    border: 1px solid var(--hairline) !important;
+    border-radius: 4px !important;
+  }
+  .flt-btn {
+    font-size: 9.5px !important;
+    padding: 3px 7px !important;
+    height: 24px !important;
+    line-height: 18px !important;
+    flex-shrink: 0 !important;
+    border-radius: 2px !important;
+  }
+
+  /* Chat Feed on Mobile */
+  #wiretap-stream {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 8px 8px calc(24px + env(safe-area-inset-bottom, 0px)) 8px !important;
+    gap: 6px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+  .wiretap-card {
+    padding: 9px 11px !important;
+    border-radius: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    background: var(--deep-carbon) !important;
+    border: 1px solid var(--hairline) !important;
+  }
+  .wiretap-header {
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+  }
+  .wiretap-sender-name {
+    font-size: 12px !important;
+    max-width: 120px !important;
+  }
+  .wiretap-sender-handle {
+    font-size: 9.5px !important;
+    max-width: 80px !important;
+  }
+  .wiretap-time {
+    font-size: 9.5px !important;
+  }
+  .wiretap-msg-tx {
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  .wiretap-reply {
+    font-size: 10.5px !important;
+    padding: 4px 7px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .wiretap-card img, .wiretap-card video {
+    max-width: 100% !important;
+    max-height: 240px !important;
+    height: auto !important;
+    border-radius: 4px !important;
+    object-fit: contain !important;
+  }
+
+  /* Member Recon, Ghost Vault, Alpha Radar & Neural Intel */
+  #tab-content-recon,
+  #tab-content-ghost,
+  #tab-content-alpha,
+  #tab-content-intel {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 10px 10px calc(24px + env(safe-area-inset-bottom, 0px)) 10px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+  .recon-table-wrap,
+  .table-responsive {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .recon-table th, .recon-table td {
+    padding: 8px 9px !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+  }
+
+  /* Bottom Command Dock */
+  #kage-mobile-dock {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    background: rgba(9, 11, 14, 0.98) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-top: 1px solid var(--dark-border) !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6) !important;
+    z-index: 9999 !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+  }
+  .kage-dock-item {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    color: var(--steel-grey) !important;
+    font-size: 10px !important;
+    font-family: var(--font-sans) !important;
+    font-weight: 500 !important;
+    background: transparent !important;
+    border: none !important;
+    touch-action: manipulation !important;
+    padding: 4px 0 !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  .kage-dock-item i, .kage-dock-item svg {
+    width: 19px !important;
+    height: 19px !important;
+    stroke: var(--steel-grey) !important;
+    transition: transform 0.15s ease, stroke 0.15s ease !important;
+  }
+  .kage-dock-item.active {
+    color: var(--warm-white) !important;
+    font-weight: 600 !important;
+  }
+  .kage-dock-item.active i, .kage-dock-item.active svg {
+    stroke: var(--signal-red) !important;
+    transform: translateY(-1px) !important;
   }
 }
 
@@ -9628,6 +9972,15 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       if (navLinks) navLinks.style.display = 'none';
       document.body.classList.add('warroom-active');
 
+      const isMob = (window.innerWidth < 768) || (document.body && document.body.classList.contains('device-mobile'));
+      if (isMob) {
+        const leftCol = document.querySelector('.hud-col-left');
+        const centerCol = document.querySelector('.hud-col-center');
+        if (!leftCol?.classList.contains('mobile-active') && !centerCol?.classList.contains('mobile-active')) {
+          switchMobileHUDCol('center');
+        }
+      }
+
       refreshWiretap();
       loadThreatsHistory();
     } else {
@@ -14269,6 +14622,16 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       document.body.classList.toggle('is-touch', isTouch);
     }
 
+    if (device === 'mobile') {
+      const leftCol = document.querySelector('.hud-col-left');
+      const centerCol = document.querySelector('.hud-col-center');
+      if (leftCol && centerCol && !leftCol.classList.contains('mobile-active') && !centerCol.classList.contains('mobile-active')) {
+        centerCol.classList.add('mobile-active');
+        const wiretapDock = document.getElementById('mob-dock-wiretap');
+        if (wiretapDock) wiretapDock.classList.add('active');
+      }
+    }
+
     // Update all Device Pills across UI
     const pills = document.querySelectorAll('.kage-device-pill');
     pills.forEach(pill => {
@@ -14391,7 +14754,8 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     applyWiretapDensity(wiretapDensity);
     acquireScreenWakeLock();
     initWakeLockOnUserGesture();
-    if (window.innerWidth < 768) {
+    const isMobileDevice = (window.innerWidth < 768) || (document.body && document.body.classList.contains('device-mobile'));
+    if (isMobileDevice) {
       switchMobileHUDCol('center');
       const wiretapDock = document.getElementById('mob-dock-wiretap');
       if (wiretapDock) wiretapDock.classList.add('active');
