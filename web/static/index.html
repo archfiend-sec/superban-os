@@ -1203,8 +1203,6 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   transition: background 0.15s ease, border-color 0.15s ease;
   animation: slideInMsg .16s ease-out;
   contain: layout style;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 90px;
   transform: translateZ(0);
   will-change: transform, opacity;
 }
@@ -2480,13 +2478,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     flex: 1 1 0% !important;
     min-height: 0 !important;
     height: 100% !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior-y: contain !important;
-    touch-action: pan-y !important;
-    padding: 8px 10px calc(24px + env(safe-area-inset-bottom, 12px)) 10px !important;
-    scroll-behavior: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding: 0 !important;
     transform: translateZ(0);
   }
   .wiretap-stream-wrap .sec-head {
@@ -2494,9 +2489,17 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   }
 
   #wiretap-stream {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 8px !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    padding: 8px 10px calc(24px + env(safe-area-inset-bottom, 12px)) 10px !important;
   }
 
   /* Modern Native Message Card (Telegram Dark / Linear Style) */
@@ -2509,9 +2512,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22) !important;
     touch-action: pan-y !important;
     position: relative !important;
-    contain: content;
-    content-visibility: auto;
-    contain-intrinsic-size: 95px;
+    contain: layout style;
     transform: translateZ(0);
     transition: background 0.15s ease, border-color 0.15s ease !important;
   }
@@ -3705,8 +3706,6 @@ body {
   transition: background var(--ease-editorial), border-color var(--ease-editorial) !important;
   animation: slideInMsg 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
   contain: layout style !important;
-  content-visibility: auto !important;
-  contain-intrinsic-size: auto 90px !important;
   transform: translateZ(0) !important;
   will-change: transform, opacity !important;
 }
@@ -10400,6 +10399,8 @@ body {
     });
   }
 
+  let lastWiretapScrollTop = 0;
+
   function scrollWiretapToBottom(force = false) {
     const stream = document.getElementById('wiretap-stream');
     if (!stream) return;
@@ -10414,14 +10415,26 @@ body {
 
     if (force || (wiretapAutoScroll && !userScrolledUpWiretap)) {
       isProgrammaticScroll = true;
+
+      // 1. Instant synchronous scroll to maximum bottom
+      stream.scrollTop = stream.scrollHeight + 10000;
+      const lastChild = stream.lastElementChild;
+      if (lastChild && typeof lastChild.scrollIntoView === 'function') {
+        lastChild.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'instant' });
+      }
+
+      // 2. Next animation frame to ensure layout reflow adheres to bottom
       if (wiretapScrollRaf) cancelAnimationFrame(wiretapScrollRaf);
       wiretapScrollRaf = requestAnimationFrame(() => {
         wiretapScrollRaf = null;
-        stream.scrollTop = stream.scrollHeight;
+        stream.scrollTop = stream.scrollHeight + 10000;
+        if (lastChild && typeof lastChild.scrollIntoView === 'function') {
+          lastChild.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'instant' });
+        }
         if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
         programmaticScrollTimer = setTimeout(() => {
           isProgrammaticScroll = false;
-        }, 80);
+        }, 120);
       });
     }
   }
@@ -10441,16 +10454,20 @@ body {
     if (!el || isProgrammaticScroll) return;
     if (el.scrollHeight <= el.clientHeight + 10) return;
 
+    const currentScrollTop = el.scrollTop;
+    const isScrollingUpwards = currentScrollTop < (lastWiretapScrollTop - 8);
+    lastWiretapScrollTop = currentScrollTop;
+
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
 
-    // If user is near bottom (within 80px), automatically resume autoscroll
-    if (distFromBottom <= 80) {
+    // If near bottom (within 100px), always re-lock autoscroll
+    if (distFromBottom <= 100) {
       userScrolledUpWiretap = false;
       if (wiretapAutoScroll) {
         updateWiretapScrollButtons(true, 'SCROLL: AUTO');
       }
-    } else if (isUserInteractingWithWiretap && distFromBottom > 120) {
-      // ONLY pause if user is actively touching/wheeling upwards!
+    } else if (isUserInteractingWithWiretap && isScrollingUpwards && distFromBottom > 240) {
+      // ONLY pause if user is actively touching/dragging UPWARDS away from the bottom!
       userScrolledUpWiretap = true;
       if (wiretapAutoScroll) {
         updateWiretapScrollButtons(false, 'SCROLL: PAUSED (RESUME ↓)');
@@ -10653,17 +10670,22 @@ body {
     }
   }
 
-  // Auto-sync catchup on tab focus & background interval
+  // Auto-sync catchup on tab focus & background interval (Only when WebSocket stream is offline)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && currentViewMode === 'warroom') {
-      syncWiretapCatchup();
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        syncWiretapCatchup();
+      }
     }
   });
   setInterval(() => {
+    // Passive safety fallback: Only query MTProto if WebSocket stream has disconnected
     if (document.visibilityState === 'visible' && currentViewMode === 'warroom') {
-      syncWiretapCatchup();
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        syncWiretapCatchup();
+      }
     }
-  }, 20000);
+  }, 15000);
 
   async function refreshWiretap() {
     const gid = getActiveGroupId();

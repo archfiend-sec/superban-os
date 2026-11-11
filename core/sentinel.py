@@ -53,6 +53,12 @@ class SentinelShield:
             "active_shields": 0
         }
         
+        # Sub-Millisecond In-Memory Caches for Zero-Latency Event Dispatch
+        self._sender_cache: Dict[int, Dict[str, Any]] = {}
+        self._chat_title_cache: Dict[int, str] = {}
+        self._member_rep_cache: Dict[Tuple[int, int], Tuple[float, Dict[str, Any]]] = {}
+        self._recent_msg_cache: Dict[int, Dict[str, Any]] = {}
+
         self.event_callbacks: List[Callable[[Dict[str, Any]], Any]] = []
         self._handlers_registered = False
         self._init_handlers()
@@ -138,303 +144,8 @@ class SentinelShield:
 
         @self.client.on(events.NewMessage)
         async def on_new_message(event):
-            group_id = event.chat_id
-            
-            # Record activity for analytics heatmap
-            now_dt = time.localtime()
-            if self.db:
-                asyncio.create_task(self.db.record_activity(group_id, now_dt.tm_hour, now_dt.tm_wday))
-
-            sender = await event.get_sender()
-            if not sender or getattr(sender, 'bot', False):
-                return
-
-            text = event.raw_text or ""
-            is_threat = False
-            threat_type = "NORMAL"
-            trigger_reason = ""
-            confidence = 0
-
-            # Pre-evaluate threat categories
-            if ZERO_DAY_REGEX.search(text):
-                is_threat = True
-                threat_type = "ZERO_DAY_PHISH"
-                trigger_reason = "Homoglyph / Obfuscated shortlink phishing detected"
-                confidence = 98
-            elif CRYPTO_SCAM_REGEX.search(text):
-                is_threat = True
-                threat_type = "CRYPTO_DRAINER"
-                trigger_reason = "Airdrop / Wallet drainer signature matched"
-                confidence = 95
-            elif SPAM_LINK_REGEX.search(text):
-                is_threat = True
-                threat_type = "UNAUTHORIZED_INVITE"
-                trigger_reason = "Unauthorized channel invite / external link"
-                confidence = 92
-
-            # Always emit live wiretap event to connected clients
-            first_name = getattr(sender, 'first_name', '') or ''
-            last_name = getattr(sender, 'last_name', '') or ''
-            full_name = f"{first_name} {last_name}".strip() or "Anonymous"
-            username = getattr(sender, 'username', '') or ''
-            
-            group_title = ""
-            chat = getattr(event, 'chat', None)
-            if chat and getattr(chat, 'title', None):
-                group_title = chat.title
-            else:
-                try:
-                    chat = await asyncio.wait_for(event.get_chat(), timeout=0.3)
-                    group_title = getattr(chat, 'title', '') or ''
-                except Exception:
-                    pass
-
-            # Sovereign Intelligence: Intercept message into Ghost Vault & Update Cross-Group OSINT
-            extracted_entities = self._extract_entities(text, group_id, group_title, event.id, sender.id, full_name)
-
-            # Extract rich media metadata instantaneously without blocking live wiretap delivery
-            media_info = extract_media_info(getattr(event, 'message', None) or event, group_id=group_id)
-            display_text = text or media_info.get("fallback_text", "")
-            file_name = media_info.get("file_name", "")
-
-            # Plan B: Ghost Media Vault preservation runs in background task so live delivery never stalls
-            async def _bg_save_media_vault(ev, gid, gtitle, snd, fname, dtext, minfo):
-                m_path = ""
-                f_size = 0
-                f_hash = ""
-                if ev.media:
-                    try:
-                        f_sz = getattr(getattr(ev, 'file', None), 'size', 0)
-                        if f_sz and f_sz <= 15 * 1024 * 1024:
-                            vdir = Path(__file__).resolve().parent.parent / "media_vault"
-                            vdir.mkdir(parents=True, exist_ok=True)
-                            ext = getattr(getattr(ev, 'file', None), 'ext', '') or '.bin'
-                            clean_ext = ext if ext.startswith('.') else f".{ext}"
-                            fn = f"ghost_{abs(gid)}_{ev.id}{clean_ext}"
-                            tf = vdir / fn
-                            dl = await ev.download_media(file=str(tf))
-                            if dl and Path(dl).exists():
-                                m_path = str(dl)
-                                f_size = Path(dl).stat().st_size
-                                hasher = hashlib.sha256()
-                                with open(dl, "rb") as mf:
-                                    while chunk := mf.read(65536):
-                                        hasher.update(chunk)
-                                f_hash = hasher.hexdigest()
-                    except Exception as me:
-                        logger.debug(f"Ghost media vault background note: {me}")
-                if self.db:
-                    await self.db.save_intercepted_message(
-                        gid, gtitle, ev.id, snd.id, full_name, username, dtext,
-                        minfo.get("media_type") or ("media" if ev.media else "text"),
-                        m_path, fname or file_name, f_size, f_hash
-                    )
-
-            if self.db:
-                asyncio.create_task(_bg_save_media_vault(event, group_id, group_title, sender, file_name, display_text, media_info))
-
-            # Extract tagged / replied-to message context and reactions
-            reply_info = await extract_reply_info(getattr(event, 'message', None) or event, timeout=0.25)
-            reactions_info = extract_reactions_info(getattr(event, 'message', None) or event)
-
-            if self.db:
-                asyncio.create_task(self.db.update_user_cross_profile(
-                    sender.id, full_name, username, group_id, group_title,
-                    bool(getattr(sender, 'premium', False)), bool(getattr(sender, 'verified', False))
-                ))
-                asyncio.create_task(self._check_surveillance(
-                    group_id, group_title, sender.id, full_name, username, text
-                ))
-                if extracted_entities:
-                    asyncio.create_task(self.db.save_extracted_entities(extracted_entities))
-                    asyncio.create_task(self.emit_sentinel_event("entity_discovered", {
-                        "group_id": group_id,
-                        "group_title": group_title,
-                        "sender_id": sender.id,
-                        "sender_name": full_name,
-                        "entities": extracted_entities,
-                        "timestamp": time.strftime("%H:%M:%S", time.localtime())
-                    }))
-                asyncio.create_task(self._track_interaction(event, group_id, sender.id, full_name, text))
-                asyncio.create_task(self._check_siphon(
-                    group_id, group_title, sender.id, full_name, username, text, event.id, extracted_entities
-                ))
-            
-            # Evaluate user forensic reputation incorporating 100k history if available
-            member_rep = None
-            if self.db and hasattr(self.db, "get_group_member_reputation"):
-                try:
-                    rep_call = self.db.get_group_member_reputation(group_id, sender.id)
-                    if asyncio.iscoroutine(rep_call):
-                        member_rep = await asyncio.wait_for(rep_call, timeout=0.35)
-                    else:
-                        member_rep = rep_call
-                except Exception:
-                    pass
-
-            user_profile = ForensicInspector.inspect_user(sender, member_stats=member_rep)
-
-            msg_dt = getattr(event, 'date', None) or getattr(getattr(event, 'message', None), 'date', None)
-            msg_ts = msg_dt.timestamp() if msg_dt else time.time()
-            msg_date_str = msg_dt.strftime("%H:%M:%S") if msg_dt else time.strftime("%H:%M:%S", time.gmtime())
-
-            await self.emit_sentinel_event("live_chat_message", {
-                "message_id": event.id,
-                "group_id": group_id,
-                "group_title": group_title,
-                "user_id": sender.id,
-                "full_name": full_name,
-                "username": username,
-                "text": display_text,
-                "raw_text": text,
-                "date": msg_date_str,
-                "timestamp": msg_ts,
-                "is_threat": is_threat,
-                "threat_type": threat_type,
-                "confidence": confidence,
-                "reason": trigger_reason,
-                "message_count": member_rep.get("message_count", 1) if member_rep else 1,
-                "trust_score": user_profile.get("trust_score", 70),
-                "trust_level": user_profile.get("trust_level", "NEUTRAL CITIZEN"),
-                "trust_color": user_profile.get("trust_color", "#38bdf8"),
-                "vintage": user_profile.get("vintage", ""),
-                "is_premium": bool(getattr(sender, 'premium', False)),
-                "is_verified": bool(getattr(sender, 'verified', False)),
-                "has_media": media_info["has_media"],
-                "media_type": media_info["media_type"],
-                "media_emoji": media_info["media_emoji"],
-                "file_name": file_name or media_info["file_name"],
-                "media_url": media_info["media_url"],
-                "is_reply": bool(reply_info),
-                "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
-                "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
-                "reply_to_text": reply_info["reply_to_text"] if reply_info else None,
-                "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None,
-                "reactions": reactions_info.get("reactions", []),
-                "recent_reactors": reactions_info.get("recent_reactors", [])
-            })
-
-            if group_id not in self.active_groups:
-                return
-
-            opts = self.active_groups[group_id]
-            defcon = opts.get("defcon", 5)
-
-            # DEFCON 1: NUCLEAR LOCKDOWN
-            if defcon == 1:
-                try:
-                    await event.delete()
-                    return
-                except Exception:
-                    pass
-
-            # Threat Category 1: Zero-Day Phishing & Homoglyphs
-            if ZERO_DAY_REGEX.search(text):
-                is_threat = True
-                threat_type = "ZERO_DAY_PHISH"
-                trigger_reason = "Homoglyph / Obfuscated shortlink phishing detected"
-                confidence = 98
-
-            # Threat Category 2: Crypto Wallet Drainers & Presales
-            elif CRYPTO_SCAM_REGEX.search(text):
-                is_threat = True
-                threat_type = "CRYPTO_DRAINER"
-                trigger_reason = "Airdrop / Wallet drainer signature matched"
-                confidence = 95
-
-            # Threat Category 3: Unauthorized Invites (DEFCON 2+ blocks all links)
-            elif SPAM_LINK_REGEX.search(text):
-                if defcon <= 3 or opts.get("anti_spam_messages", True):
-                    is_threat = True
-                    threat_type = "UNAUTHORIZED_INVITE"
-                    trigger_reason = "Unauthorized channel invite / external link"
-                    confidence = 92
-
-            # Threat Category 4: Impersonator & Admin Spoofing
-            sender_display = f"{getattr(sender, 'first_name', '')} {getattr(sender, 'last_name', '')} {getattr(sender, 'username', '')}".lower()
-            if any(k in sender_display for k in IMPERSONATION_KEYWORDS):
-                # Verify if user is actually admin
-                is_admin = False
-                try:
-                    perms = await self.client.get_permissions(event.chat, sender)
-                    if perms and perms.is_admin:
-                        is_admin = True
-                except Exception:
-                    pass
-                if not is_admin:
-                    is_threat = True
-                    threat_type = "IMPERSONATOR"
-                    trigger_reason = f"Impersonation keyword in profile: {sender_display}"
-                    confidence = 96
-
-            if is_threat:
-                action_taken = "FLAGGED"
-                try:
-                    # Attempt admin deletion if privileged
-                    await event.delete()
-                    self.stats["spam_messages_nuked"] += 1
-                    action_taken = "DELETED"
-
-                    if opts.get("ban_message_spammers", True) or defcon <= 3:
-                        rights = ChatBannedRights(until_date=None, view_messages=True)
-                        await self.client(EditBannedRequest(channel=event.chat, participant=sender.id, banned_rights=rights))
-                        action_taken = "BANNED"
-                except Exception as del_err:
-                    # Sovereign Non-Admin Defense Fallback:
-                    # When lacking group admin rights, mark message publicly with warning emoji reaction
-                    action_taken = "FLAGGED_AUTOREACT"
-                    try:
-                        from telethon.tl.functions.messages import SendReactionRequest
-                        from telethon.tl.types import ReactionEmoji
-                        await self.client(SendReactionRequest(peer=event.chat, msg_id=event.id, reaction=[ReactionEmoji(emoticon="🤡")]))
-                        logger.info(f"🤡 Non-admin reaction dropped on threat msg #{event.id} in group {group_id}")
-                    except Exception as react_err:
-                        logger.debug(f"Threat reaction notice: {react_err}")
-
-                try:
-                    logger.warning(f"🚨 Neural Threat [{threat_type}] intercepted from {sender.id}: {trigger_reason} -> {action_taken}")
-                    await self.db.log_ai_threat(
-                        group_id, sender.id, getattr(sender, 'username', ''),
-                        threat_type, confidence, trigger_reason, action_taken
-                    )
-                    await self.emit_sentinel_event("ai_threat_neutralized", {
-                        "group_id": group_id, "user_id": sender.id,
-                        "threat_type": threat_type, "confidence": confidence,
-                        "reason": trigger_reason, "action": action_taken, "text": text[:120]
-                    })
-
-                    # High-confidence drainer alert sent directly to Saved Messages
-                    if confidence >= 95 and is_threat:
-                        try:
-                            alert_card = (
-                                f"🚨 <b>[SUPERBAN OS // THREAT RADAR]</b>\n"
-                                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                                f"👥 <b>Group:</b> {group_title} (<code>{group_id}</code>)\n"
-                                f"👤 <b>Author:</b> {full_name} (@{username} / <code>{sender.id}</code>)\n"
-                                f"⚡ <b>Detected Threat:</b> <code>{threat_type}</code> ({confidence}%)\n"
-                                f"🔍 <b>Trigger:</b> <i>{trigger_reason}</i>\n"
-                                f"🎯 <b>Action:</b> <code>{action_taken}</code>\n"
-                                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                                f"<blockquote>{text[:200]}</blockquote>"
-                            )
-                            await self.client.send_message('me', alert_card, parse_mode='html')
-                        except Exception:
-                            pass
-
-                        # Plan H: Autonomous MTProto Report directly to Telegram Trust & Safety
-                        if hasattr(self, 'engine') and self.engine:
-                            try:
-                                asyncio.create_task(self.engine.report_threat_to_telegram(
-                                    group_id, event.id, reason="spam",
-                                    details=f"Automated threat neutralization: {threat_type} (confidence: {confidence}%)"
-                                ))
-                                await self.emit_sentinel_event("threat_reported_to_telegram", {
-                                    "group_id": group_id, "message_id": event.id, "threat_type": threat_type, "confidence": confidence
-                                })
-                            except Exception as rep_err:
-                                logger.debug(f"Auto MTProto report note: {rep_err}")
-                except Exception as e:
-                    logger.debug(f"Failed to record threat: {e}")
+            # Non-blocking concurrent pipeline: Telethon update loop returns instantly
+            asyncio.create_task(self._process_incoming_message(event))
 
         @self.client.on(events.MessageDeleted)
         async def on_message_deleted(event):
@@ -815,6 +526,416 @@ class SentinelShield:
                     pass
 
         self._handlers_registered = True
+
+    async def _process_incoming_message(self, event):
+        try:
+            group_id = event.chat_id
+            
+            # Record activity for analytics heatmap in background
+            now_dt = time.localtime()
+            if self.db:
+                asyncio.create_task(self.db.record_activity(group_id, now_dt.tm_hour, now_dt.tm_wday))
+
+            sender = getattr(event, 'sender', None)
+            sender_id = getattr(event, 'sender_id', None) or (sender.id if sender else None)
+
+            # Ultra-Fast Sender Resolution with Memory Cache
+            first_name = ""
+            last_name = ""
+            username = ""
+            full_name = "Anonymous"
+            is_bot = False
+            is_premium = False
+            is_verified = False
+
+            if sender:
+                first_name = getattr(sender, 'first_name', '') or ''
+                last_name = getattr(sender, 'last_name', '') or ''
+                full_name = f"{first_name} {last_name}".strip() or getattr(sender, 'title', '') or "Anonymous"
+                username = getattr(sender, 'username', '') or ''
+                is_bot = bool(getattr(sender, 'bot', False))
+                is_premium = bool(getattr(sender, 'premium', False))
+                is_verified = bool(getattr(sender, 'verified', False))
+                if sender.id:
+                    self._sender_cache[sender.id] = {
+                        "sender": sender,
+                        "full_name": full_name,
+                        "username": username,
+                        "is_bot": is_bot,
+                        "is_premium": is_premium,
+                        "is_verified": is_verified
+                    }
+            elif sender_id and sender_id in self._sender_cache:
+                c = self._sender_cache[sender_id]
+                sender = c.get("sender")
+                full_name = c["full_name"]
+                username = c["username"]
+                is_bot = c["is_bot"]
+                is_premium = c["is_premium"]
+                is_verified = c["is_verified"]
+            else:
+                try:
+                    sender = await asyncio.wait_for(event.get_sender(), timeout=0.15)
+                except Exception:
+                    sender = None
+                first_name = getattr(sender, 'first_name', '') or ''
+                last_name = getattr(sender, 'last_name', '') or ''
+                full_name = f"{first_name} {last_name}".strip() or getattr(sender, 'title', '') or (f"User #{sender_id}" if sender_id else "Anonymous")
+                username = getattr(sender, 'username', '') or ''
+                is_bot = bool(getattr(sender, 'bot', False))
+                is_premium = bool(getattr(sender, 'premium', False))
+                is_verified = bool(getattr(sender, 'verified', False))
+                if sender_id:
+                    self._sender_cache[sender_id] = {
+                        "sender": sender,
+                        "full_name": full_name,
+                        "username": username,
+                        "is_bot": is_bot,
+                        "is_premium": is_premium,
+                        "is_verified": is_verified
+                    }
+
+            if is_bot:
+                return
+
+            text = event.raw_text or ""
+            is_threat = False
+            threat_type = "NORMAL"
+            trigger_reason = ""
+            confidence = 0
+
+            # Pre-evaluate threat categories synchronously (< 0.05ms)
+            if ZERO_DAY_REGEX.search(text):
+                is_threat = True
+                threat_type = "ZERO_DAY_PHISH"
+                trigger_reason = "Homoglyph / Obfuscated shortlink phishing detected"
+                confidence = 98
+            elif CRYPTO_SCAM_REGEX.search(text):
+                is_threat = True
+                threat_type = "CRYPTO_DRAINER"
+                trigger_reason = "Airdrop / Wallet drainer signature matched"
+                confidence = 95
+            elif SPAM_LINK_REGEX.search(text):
+                is_threat = True
+                threat_type = "UNAUTHORIZED_INVITE"
+                trigger_reason = "Unauthorized channel invite / external link"
+                confidence = 92
+
+            # Ultra-Fast Group Title Resolution with Memory Cache
+            group_title = ""
+            chat = getattr(event, 'chat', None)
+            if chat and getattr(chat, 'title', None):
+                group_title = chat.title
+                self._chat_title_cache[group_id] = group_title
+            elif group_id in self._chat_title_cache:
+                group_title = self._chat_title_cache[group_id]
+            else:
+                if self.engine and hasattr(self.engine, '_dialogs_cache') and self.engine._dialogs_cache:
+                    for d in self.engine._dialogs_cache:
+                        if d.get("id") == group_id:
+                            group_title = d.get("title", "")
+                            self._chat_title_cache[group_id] = group_title
+                            break
+                if not group_title:
+                    try:
+                        chat = await asyncio.wait_for(event.get_chat(), timeout=0.15)
+                        group_title = getattr(chat, 'title', '') or ''
+                        if group_title:
+                            self._chat_title_cache[group_id] = group_title
+                    except Exception:
+                        pass
+
+            # Sovereign Intelligence: Entity Extraction
+            extracted_entities = self._extract_entities(text, group_id, group_title, event.id, sender_id or 0, full_name)
+
+            # Extract rich media metadata instantaneously without blocking live wiretap delivery
+            media_info = extract_media_info(getattr(event, 'message', None) or event, group_id=group_id)
+            display_text = text or media_info.get("fallback_text", "")
+            file_name = media_info.get("file_name", "")
+
+            # Ghost Media Vault preservation runs in background task so live delivery never stalls
+            async def _bg_save_media_vault(ev, gid, gtitle, snd_id, fname, dtext, minfo):
+                m_path = ""
+                f_size = 0
+                f_hash = ""
+                if ev.media:
+                    try:
+                        f_sz = getattr(getattr(ev, 'file', None), 'size', 0)
+                        if f_sz and f_sz <= 15 * 1024 * 1024:
+                            vdir = Path(__file__).resolve().parent.parent / "media_vault"
+                            vdir.mkdir(parents=True, exist_ok=True)
+                            ext = getattr(getattr(ev, 'file', None), 'ext', '') or '.bin'
+                            clean_ext = ext if ext.startswith('.') else f".{ext}"
+                            fn = f"ghost_{abs(gid)}_{ev.id}{clean_ext}"
+                            tf = vdir / fn
+                            dl = await ev.download_media(file=str(tf))
+                            if dl and Path(dl).exists():
+                                m_path = str(dl)
+                                f_size = Path(dl).stat().st_size
+                                hasher = hashlib.sha256()
+                                with open(dl, "rb") as mf:
+                                    while chunk := mf.read(65536):
+                                        hasher.update(chunk)
+                                f_hash = hasher.hexdigest()
+                    except Exception as me:
+                        logger.debug(f"Ghost media vault background note: {me}")
+                if self.db:
+                    await self.db.save_intercepted_message(
+                        gid, gtitle, ev.id, snd_id, full_name, username, dtext,
+                        minfo.get("media_type") or ("media" if ev.media else "text"),
+                        m_path, fname or file_name, f_size, f_hash
+                    )
+
+            if self.db:
+                asyncio.create_task(_bg_save_media_vault(event, group_id, group_title, sender_id or 0, file_name, display_text, media_info))
+
+            # Ultra-Fast Tagged / Replied Message Resolution with Ring Buffer
+            reply_info = None
+            is_reply = bool(getattr(event, 'is_reply', False))
+            reply_to_id = getattr(event, 'reply_to_msg_id', None)
+            if is_reply and reply_to_id:
+                if reply_to_id in self._recent_msg_cache:
+                    c_msg = self._recent_msg_cache[reply_to_id]
+                    reply_info = {
+                        "reply_to_msg_id": reply_to_id,
+                        "reply_to_sender": c_msg.get("sender", "User"),
+                        "reply_to_text": c_msg.get("text", ""),
+                        "reply_to_media_type": c_msg.get("media_type")
+                    }
+                else:
+                    reply_hdr = getattr(event, 'reply_to', None) or getattr(getattr(event, 'message', None), 'reply_to', None)
+                    quote_text = getattr(reply_hdr, 'quote_text', None)
+                    if quote_text:
+                        reply_info = {
+                            "reply_to_msg_id": reply_to_id,
+                            "reply_to_sender": "Replied Message",
+                            "reply_to_text": quote_text,
+                            "reply_to_media_type": None
+                        }
+                    else:
+                        reply_info = await extract_reply_info(getattr(event, 'message', None) or event, timeout=0.12)
+
+            reactions_info = extract_reactions_info(getattr(event, 'message', None) or event)
+
+            # Background OSINT & Intelligence tracking tasks
+            if self.db:
+                asyncio.create_task(self.db.update_user_cross_profile(
+                    sender_id or 0, full_name, username, group_id, group_title,
+                    is_premium, is_verified
+                ))
+                asyncio.create_task(self._check_surveillance(
+                    group_id, group_title, sender_id or 0, full_name, username, text
+                ))
+                if extracted_entities:
+                    asyncio.create_task(self.db.save_extracted_entities(extracted_entities))
+                    asyncio.create_task(self.emit_sentinel_event("entity_discovered", {
+                        "group_id": group_id,
+                        "group_title": group_title,
+                        "sender_id": sender_id or 0,
+                        "sender_name": full_name,
+                        "entities": extracted_entities,
+                        "timestamp": time.strftime("%H:%M:%S", time.localtime())
+                    }))
+                asyncio.create_task(self._track_interaction(event, group_id, sender_id or 0, full_name, text))
+                asyncio.create_task(self._check_siphon(
+                    group_id, group_title, sender_id or 0, full_name, username, text, event.id, extracted_entities
+                ))
+            
+            # Ultra-Fast User Forensic Reputation Cache (5-minute TTL)
+            now_ts = time.time()
+            member_rep = None
+            effective_uid = sender_id or 0
+            cache_key = (group_id, effective_uid)
+            if cache_key in self._member_rep_cache:
+                c_time, c_data = self._member_rep_cache[cache_key]
+                if now_ts - c_time < 300:
+                    member_rep = c_data
+
+            if member_rep is None and self.db and hasattr(self.db, "get_group_member_reputation"):
+                try:
+                    rep_call = self.db.get_group_member_reputation(group_id, effective_uid)
+                    if asyncio.iscoroutine(rep_call):
+                        member_rep = await asyncio.wait_for(rep_call, timeout=0.06)
+                    else:
+                        member_rep = rep_call
+                    if member_rep:
+                        self._member_rep_cache[cache_key] = (now_ts, member_rep)
+                except Exception:
+                    pass
+
+            user_profile = ForensicInspector.inspect_user(sender, member_stats=member_rep)
+
+            msg_dt = getattr(event, 'date', None) or getattr(getattr(event, 'message', None), 'date', None)
+            msg_ts = msg_dt.timestamp() if msg_dt else time.time()
+            msg_date_str = msg_dt.strftime("%H:%M:%S") if msg_dt else time.strftime("%H:%M:%S", time.gmtime())
+
+            # Cache message in in-memory ring buffer for instant future reply resolutions
+            self._recent_msg_cache[event.id] = {
+                "sender": full_name,
+                "text": display_text,
+                "media_type": media_info.get("media_type")
+            }
+            if len(self._recent_msg_cache) > 2000:
+                old_keys = list(self._recent_msg_cache.keys())[:500]
+                for k in old_keys:
+                    self._recent_msg_cache.pop(k, None)
+
+            # ⚡ ZERO LATENCY BROADCAST: Emit message to wiretap stream immediately!
+            await self.emit_sentinel_event("live_chat_message", {
+                "message_id": event.id,
+                "group_id": group_id,
+                "group_title": group_title,
+                "user_id": effective_uid,
+                "full_name": full_name,
+                "username": username,
+                "text": display_text,
+                "raw_text": text,
+                "date": msg_date_str,
+                "timestamp": msg_ts,
+                "is_threat": is_threat,
+                "threat_type": threat_type,
+                "confidence": confidence,
+                "reason": trigger_reason,
+                "message_count": member_rep.get("message_count", 1) if member_rep else 1,
+                "trust_score": user_profile.get("trust_score", 70),
+                "trust_level": user_profile.get("trust_level", "NEUTRAL CITIZEN"),
+                "trust_color": user_profile.get("trust_color", "#38bdf8"),
+                "vintage": user_profile.get("vintage", ""),
+                "is_premium": is_premium,
+                "is_verified": is_verified,
+                "has_media": media_info["has_media"],
+                "media_type": media_info["media_type"],
+                "media_emoji": media_info["media_emoji"],
+                "file_name": file_name or media_info["file_name"],
+                "media_url": media_info["media_url"],
+                "is_reply": bool(reply_info),
+                "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
+                "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
+                "reply_to_text": reply_info["reply_to_text"] if reply_info else None,
+                "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None,
+                "reactions": reactions_info.get("reactions", []),
+                "recent_reactors": reactions_info.get("recent_reactors", [])
+            })
+
+            if group_id not in self.active_groups:
+                return
+
+            opts = self.active_groups[group_id]
+            defcon = opts.get("defcon", 5)
+
+            # DEFCON 1: NUCLEAR LOCKDOWN
+            if defcon == 1:
+                try:
+                    await event.delete()
+                    return
+                except Exception:
+                    pass
+
+            # Threat Category 1: Zero-Day Phishing & Homoglyphs
+            if ZERO_DAY_REGEX.search(text):
+                is_threat = True
+                threat_type = "ZERO_DAY_PHISH"
+                trigger_reason = "Homoglyph / Obfuscated shortlink phishing detected"
+                confidence = 98
+
+            # Threat Category 2: Crypto Wallet Drainers & Presales
+            elif CRYPTO_SCAM_REGEX.search(text):
+                is_threat = True
+                threat_type = "CRYPTO_DRAINER"
+                trigger_reason = "Airdrop / Wallet drainer signature matched"
+                confidence = 95
+
+            # Threat Category 3: Unauthorized Invites (DEFCON 2+ blocks all links)
+            elif SPAM_LINK_REGEX.search(text):
+                if defcon <= 3 or opts.get("anti_spam_messages", True):
+                    is_threat = True
+                    threat_type = "UNAUTHORIZED_INVITE"
+                    trigger_reason = "Unauthorized channel invite / external link"
+                    confidence = 92
+
+            # Threat Category 4: Impersonator & Admin Spoofing
+            sender_display = f"{first_name} {last_name} {username}".lower()
+            if any(k in sender_display for k in IMPERSONATION_KEYWORDS):
+                is_admin = False
+                try:
+                    perms = await self.client.get_permissions(event.chat, sender)
+                    if perms and perms.is_admin:
+                        is_admin = True
+                except Exception:
+                    pass
+                if not is_admin:
+                    is_threat = True
+                    threat_type = "IMPERSONATOR"
+                    trigger_reason = f"Impersonation keyword in profile: {sender_display}"
+                    confidence = 96
+
+            if is_threat:
+                action_taken = "FLAGGED"
+                try:
+                    await event.delete()
+                    self.stats["spam_messages_nuked"] += 1
+                    action_taken = "DELETED"
+
+                    if opts.get("ban_message_spammers", True) or defcon <= 3:
+                        rights = ChatBannedRights(until_date=None, view_messages=True)
+                        await self.client(EditBannedRequest(channel=event.chat, participant=effective_uid, banned_rights=rights))
+                        action_taken = "BANNED"
+                except Exception as del_err:
+                    action_taken = "FLAGGED_AUTOREACT"
+                    try:
+                        from telethon.tl.functions.messages import SendReactionRequest
+                        from telethon.tl.types import ReactionEmoji
+                        await self.client(SendReactionRequest(peer=event.chat, msg_id=event.id, reaction=[ReactionEmoji(emoticon="🤡")]))
+                        logger.info(f"🤡 Non-admin reaction dropped on threat msg #{event.id} in group {group_id}")
+                    except Exception as react_err:
+                        logger.debug(f"Threat reaction notice: {react_err}")
+
+                try:
+                    logger.warning(f"🚨 Neural Threat [{threat_type}] intercepted from {effective_uid}: {trigger_reason} -> {action_taken}")
+                    await self.db.log_ai_threat(
+                        group_id, effective_uid, username,
+                        threat_type, confidence, trigger_reason, action_taken
+                    )
+                    await self.emit_sentinel_event("ai_threat_neutralized", {
+                        "group_id": group_id, "user_id": effective_uid,
+                        "threat_type": threat_type, "confidence": confidence,
+                        "reason": trigger_reason, "action": action_taken, "text": text[:120]
+                    })
+
+                    # High-confidence drainer alert sent directly to Saved Messages
+                    if confidence >= 95 and is_threat:
+                        try:
+                            alert_card = (
+                                f"🚨 <b>[SUPERBAN OS // THREAT RADAR]</b>\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"👥 <b>Group:</b> {group_title} (<code>{group_id}</code>)\n"
+                                f"👤 <b>Author:</b> {full_name} (@{username} / <code>{effective_uid}</code>)\n"
+                                f"⚡ <b>Detected Threat:</b> <code>{threat_type}</code> ({confidence}%)\n"
+                                f"🔍 <b>Trigger:</b> <i>{trigger_reason}</i>\n"
+                                f"🎯 <b>Action:</b> <code>{action_taken}</code>\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"<blockquote>{text[:200]}</blockquote>"
+                            )
+                            await self.client.send_message('me', alert_card, parse_mode='html')
+                        except Exception:
+                            pass
+
+                        # Plan H: Autonomous MTProto Report directly to Telegram Trust & Safety
+                        if hasattr(self, 'engine') and self.engine:
+                            try:
+                                asyncio.create_task(self.engine.report_threat_to_telegram(
+                                    group_id, event.id, reason="spam",
+                                    details=f"Automated threat neutralization: {threat_type} (confidence: {confidence}%)"
+                                ))
+                                await self.emit_sentinel_event("threat_reported_to_telegram", {
+                                    "group_id": group_id, "message_id": event.id, "threat_type": threat_type, "confidence": confidence
+                                })
+                            except Exception as rep_err:
+                                logger.debug(f"Auto MTProto report note: {rep_err}")
+                except Exception as e:
+                    logger.debug(f"Failed to record threat: {e}")
+        except Exception as ex:
+            logger.debug(f"Sentinel process incoming message error: {ex}")
 
     async def _check_surveillance(self, group_id: int, group_title: str, user_id: int, 
                                   full_name: str, username: str, text: str):

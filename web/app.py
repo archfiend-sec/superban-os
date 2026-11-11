@@ -128,14 +128,20 @@ def create_app(engine: SuperBanEngine):
     }
 
     async def broadcast_ws(payload: dict):
-        dead = set()
-        for ws in connected_clients:
+        if not connected_clients:
+            return
+
+        async def _safe_send(ws):
             try:
-                await ws.send_json(payload)
+                await asyncio.wait_for(ws.send_json(payload), timeout=1.0)
+                return None
             except Exception:
-                dead.add(ws)
+                return ws
+
+        dead = await asyncio.gather(*[_safe_send(ws) for ws in list(connected_clients)], return_exceptions=True)
         for d in dead:
-            connected_clients.discard(d)
+            if d and not isinstance(d, Exception):
+                connected_clients.discard(d)
 
     engine.register_listener(broadcast_ws)
     engine.sentinel.register_callback(broadcast_ws)

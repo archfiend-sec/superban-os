@@ -124,7 +124,11 @@ class SuperBanEngine:
         # Real-Time Autonomous Sentinel
         self.sentinel = SentinelShield(self.client, self.db, engine=self)
         self.sentinel.engine = self
-        self.sentinel.register_callback(lambda evt: asyncio.create_task(self.emit_telemetry(evt["type"], evt.get("data", {}))))
+        def _forward_sentinel_telemetry(evt):
+            # Guard against duplicating high-frequency chat messages over WebSocket
+            if evt.get("type") not in ("live_chat_message", "live_chat_action", "message_reactions_updated"):
+                asyncio.create_task(self.emit_telemetry(evt["type"], evt.get("data", {})))
+        self.sentinel.register_callback(_forward_sentinel_telemetry)
 
         # Active Voice Chat Tracking Session & Dispatch Policy
         self.active_vc_session: Optional[Dict[str, Any]] = None
