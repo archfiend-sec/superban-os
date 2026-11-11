@@ -4136,44 +4136,77 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   }
   .wiretap-sub-header {
     flex: 0 0 auto !important;
-    padding: 6px 10px !important;
+    padding: 6px 8px !important;
     background: var(--deep-carbon) !important;
     border-bottom: 1px solid var(--hairline) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
   }
   .wiretap-sub-header .sec-head {
     display: none !important;
   }
   #wiretap-controls-sub {
     width: 100% !important;
+    max-width: 100% !important;
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    gap: 5px !important;
+    gap: 6px !important;
     overflow-x: auto !important;
+    overflow-y: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     scrollbar-width: none !important;
-    padding: 2px 0 !important;
+    padding: 2px 2px !important;
     box-sizing: border-box !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
   }
   #wiretap-controls-sub::-webkit-scrollbar {
     display: none !important;
   }
   .hud-filter-toggle {
     display: inline-flex !important;
-    gap: 3px !important;
+    align-items: center !important;
+    gap: 2px !important;
+    flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    padding: 1px !important;
+    padding: 2px !important;
     background: var(--graphite) !important;
     border: 1px solid var(--hairline) !important;
     border-radius: 4px !important;
+    white-space: nowrap !important;
   }
   .flt-btn {
-    font-size: 9.5px !important;
-    padding: 3px 7px !important;
-    height: 24px !important;
-    line-height: 18px !important;
+    font-size: 10px !important;
+    font-family: var(--font-mono) !important;
+    padding: 4px 8px !important;
+    height: 25px !important;
+    line-height: 17px !important;
+    flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    border-radius: 2px !important;
+    border-radius: 3px !important;
+    white-space: nowrap !important;
+    letter-spacing: 0.04em !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+
+  /* Fast Action Header Buttons on Mobile */
+  .nav-mobile-actions {
+    display: flex !important;
+  }
+  .mob-action-pill {
+    padding: 4px 8px !important;
+    border-radius: 5px !important;
+    background: rgba(223, 231, 224, 0.06) !important;
+    border: 1px solid rgba(223, 231, 224, 0.12) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 28px !important;
+    height: 28px !important;
   }
 
   /* Chat Feed on Mobile */
@@ -4415,9 +4448,9 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   </div>
 
   <!-- Clean Mobile Target Group Selector (Only Visible on Mobile in Center) -->
-  <button type="button" onclick="switchMobileNav('sentinel')" id="nav-mob-group-btn" class="nav-mob-group-pill" title="Tap to switch target group">
+  <button type="button" onclick="openMobileGroupPicker()" id="nav-mob-group-btn" class="nav-mob-group-pill" title="Tap to switch target group">
     <span class="nav-mob-target-dot"></span>
-    <span id="nav-mob-group-title">War Room</span>
+    <span id="nav-mob-group-title">Select Target</span>
     <i data-lucide="chevron-down" style="width: 12px; height: 12px; opacity: 0.7;"></i>
   </button>
 
@@ -4425,6 +4458,16 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     <!-- Minimalist Mobile Status Pill (Only Visible on Mobile) -->
     <div class="nav-mobile-status" style="display: none;">
       <span id="nav-mob-status-badge" class="badge badge-emerald" style="font-size: 9px; padding: 2px 6px;">● ONLINE</span>
+    </div>
+
+    <!-- Mobile Fast Action Pills (Only Visible on Mobile) -->
+    <div class="nav-mobile-actions" style="display: none; align-items: center; gap: 6px;">
+      <button type="button" onclick="openVCModal()" class="kage-btn-pill mob-action-pill" title="Group Voice Chat Controls">
+        <i data-lucide="mic" style="width: 13px; height: 13px; color: var(--vermilion);"></i>
+      </button>
+      <button type="button" onclick="openSearchModal()" class="kage-btn-pill mob-action-pill" title="Global Forensic Search">
+        <i data-lucide="search" style="width: 13px; height: 13px;"></i>
+      </button>
     </div>
 
     <!-- Voice Chamber Apex -->
@@ -4785,10 +4828,16 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
               <button type="button" onclick="filterWiretap('threats')" id="wiretap-flt-threats" class="flt-btn danger" style="font-size: 10px;">⚠️ THREATS</button>
             </div>
             <div class="hud-filter-toggle">
+              <button type="button" onclick="toggleWiretapScroll()" id="btn-wiretap-scroll-sub" class="flt-btn active" style="font-size: 10px;" title="Toggle Auto-Scroll Lock">SCROLL: AUTO</button>
+            </div>
+            <div class="hud-filter-toggle">
               <button type="button" onclick="toggleScreenWakeLock()" id="wiretap-wakelock-btn" class="flt-btn active" style="font-size: 10px;" title="Prevent screen from sleeping / keep display awake constantly">👁️ AWAKE: ON</button>
             </div>
             <div class="hud-filter-toggle">
               <button type="button" onclick="toggleWiretapDensity()" id="wiretap-density-btn" class="flt-btn active" style="font-size: 10px;" title="Toggle Compact Density (Maximum messages visible on screen) vs Comfort (Expanded buttons)">≡ COMPACT</button>
+            </div>
+            <div class="hud-filter-toggle">
+              <button type="button" onclick="clearWiretapFeed()" class="flt-btn" style="font-size: 10px;" title="Clear local message stream buffer">🗑️ CLEAR</button>
             </div>
           </div>
         </div>
@@ -6752,6 +6801,30 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   </div>
 </div>
 
+<!-- MODAL: MOBILE TARGET GROUP SELECTOR BOTTOM SHEET -->
+<div id="mobile-group-picker-modal" class="kage-modal-overlay" style="display: none; z-index: 10006;" onclick="if(event.target===this) closeMobileGroupPicker()">
+  <div class="kage-modal font-mono" style="padding: 18px 14px; width: 100vw; max-width: 100vw; max-height: 82vh; border-radius: 16px 16px 0 0; background: #080c10; border-top: 1px solid var(--line); display: flex; flex-direction: column; box-sizing: border-box;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 12px; margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="nav-mob-target-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span>
+        <h4 style="font-size: 14px; color: var(--bone); margin: 0; font-family: 'Onest', sans-serif; font-weight: 600;">SELECT SURVEILLANCE TARGET</h4>
+      </div>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <button type="button" onclick="fetchDialogs();" class="kage-btn-pill" style="font-size: 11px; padding: 4px 8px;" title="Refresh Group List">
+          <i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i>
+        </button>
+        <button type="button" onclick="closeMobileGroupPicker()" class="kage-btn-pill" style="font-size: 11px; padding: 4px 8px;">✕ Close</button>
+      </div>
+    </div>
+    <div style="margin-bottom: 10px;">
+      <input type="text" id="mob-group-search-input" oninput="filterMobileGroupList(this.value)" placeholder="Search Telegram groups..." style="width: 100%; box-sizing: border-box; background: rgba(14, 18, 24, 0.9); border: 1px solid var(--line-soft); border-radius: 6px; padding: 8px 12px; font-size: 12px; color: var(--bone);" />
+    </div>
+    <div id="mob-group-picker-list" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 6px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));">
+      <!-- Dynamically populated by renderMobileGroupPicker() -->
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: MOBILE TACTICAL TOOLS BOTTOM SHEET -->
 <div id="mobile-tools-sheet" class="kage-modal-overlay" style="display: none; z-index: 10005;" onclick="if(event.target===this) closeMobileToolsSheet()">
   <div class="kage-modal font-mono" style="padding: 18px 14px; width: 100vw; max-width: 100vw; max-height: 82vh; border-radius: 16px 16px 0 0; background: #080c10; border-top: 1px solid var(--line);">
@@ -7132,7 +7205,16 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   let audioEnabled = false;
   let audioCtx = null;
   let velocityChart = null;
-  let currentSelectedGroupId = "";
+  let currentSelectedGroupId = localStorage.getItem('kage_selected_group_id') || "";
+  const _cachedTitle = localStorage.getItem('kage_selected_group_title');
+  if (_cachedTitle) {
+    window.addEventListener('DOMContentLoaded', () => {
+      const mobTitleEl = document.getElementById('nav-mob-group-title');
+      if (mobTitleEl) mobTitleEl.innerText = _cachedTitle;
+      const titleEl = document.getElementById('hud-target-group-name');
+      if (titleEl) titleEl.innerText = _cachedTitle;
+    });
+  }
 
   // ═══════════════════════════════════════════════════════════════
   //   LOCAL TIMEZONE FORMATTER (12-HOUR FORMAT WITH AM/PM)
@@ -7256,12 +7338,18 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
   function toggleAudio() {
     audioEnabled = !audioEnabled;
-    const btn = document.getElementById('btn-audio');
-    btn.style.color = audioEnabled ? 'var(--vermilion)' : 'var(--bone-dim)';
-    btn.style.borderColor = audioEnabled ? 'var(--vermilion)' : 'var(--line)';
+    const btns = [document.getElementById('btn-audio'), document.getElementById('btn-audio-toggle-mob')];
+    btns.forEach(btn => {
+      if (btn) {
+        btn.style.color = audioEnabled ? 'var(--vermilion)' : 'var(--bone-dim)';
+        btn.style.borderColor = audioEnabled ? 'var(--vermilion)' : 'var(--line)';
+      }
+    });
     if (audioEnabled) {
       playSound('blip');
       showToast("Atmospheric Audio Enabled");
+    } else {
+      showToast("Audio Alerts Muted");
     }
   }
 
@@ -7530,6 +7618,8 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     syncDefconStatus(val);
     if (!val) return;
     currentSelectedGroupId = String(val);
+    localStorage.setItem('kage_selected_group_id', currentSelectedGroupId);
+
     const ids = ['group-select', 'hud-group-select', 'sentinel-group-select', 'leads-group-select', 'sweeper-group-select', 'chatters-group-select'];
     ids.forEach(id => {
       const el = document.getElementById(id);
@@ -7538,6 +7628,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
     const selectedGroup = dialogsList.find(d => isSameGroup(d.id, currentSelectedGroupId));
     if (selectedGroup) {
+      localStorage.setItem('kage_selected_group_title', selectedGroup.title);
       const titleEl = document.getElementById('hud-target-group-name');
       if (titleEl) titleEl.innerText = `${selectedGroup.title} (${selectedGroup.members_count || '?'} members)`;
       const badge = document.getElementById('wiretap-target-badge');
@@ -7573,15 +7664,108 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
   function getActiveGroupId() {
     if (currentSelectedGroupId) return currentSelectedGroupId;
+    const saved = localStorage.getItem('kage_selected_group_id');
+    if (saved) {
+      currentSelectedGroupId = saved;
+      return saved;
+    }
     const ids = ['group-select', 'hud-group-select', 'sentinel-group-select', 'leads-group-select', 'sweeper-group-select', 'chatters-group-select'];
     for (const id of ids) {
       const el = document.getElementById(id);
       if (el && el.value) {
         currentSelectedGroupId = String(el.value);
+        localStorage.setItem('kage_selected_group_id', currentSelectedGroupId);
         return el.value;
       }
     }
     return "";
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MOBILE GROUP PICKER BOTTOM SHEET CONTROLS
+  // ═══════════════════════════════════════════════════════════════
+  function openMobileGroupPicker() {
+    playZenSound('clack');
+    const modal = document.getElementById('mobile-group-picker-modal');
+    if (!modal) return;
+    renderMobileGroupPicker();
+    modal.style.display = 'flex';
+    const input = document.getElementById('mob-group-search-input');
+    if (input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 120);
+    }
+    safeCreateIcons(modal);
+  }
+
+  function closeMobileGroupPicker() {
+    const modal = document.getElementById('mobile-group-picker-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function filterMobileGroupList(query) {
+    renderMobileGroupPicker(query);
+  }
+
+  function renderMobileGroupPicker(filter = '') {
+    const list = document.getElementById('mob-group-picker-list');
+    if (!list) return;
+
+    if (!dialogsList || dialogsList.length === 0) {
+      list.innerHTML = `
+        <div style="text-align: center; padding: 36px 14px; color: var(--muted); font-size: 12px;">
+          <p>No Telegram groups loaded yet.</p>
+          <button type="button" onclick="fetchDialogs();" class="kage-action-btn" style="margin-top: 10px; font-size: 11px;">
+            ⚡ Fetch Groups via MTProto
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    const q = (filter || '').toLowerCase().trim();
+    const filtered = dialogsList.filter(g => !q || (g.title && g.title.toLowerCase().includes(q)) || String(g.id).includes(q));
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<div style="text-align: center; padding: 36px 14px; color: var(--muted); font-size: 12px;">No matching groups found.</div>`;
+      return;
+    }
+
+    const currentGid = getActiveGroupId();
+
+    list.innerHTML = filtered.map(g => {
+      const isSelected = isSameGroup(g.id, currentGid);
+      const memberCount = g.members_count ? `${g.members_count.toLocaleString()} members` : 'Telegram Group';
+      return `
+        <div onclick="selectGroupFromMobilePicker('${g.id}', '${escapeQuote(g.title)}')" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: ${isSelected ? 'rgba(229,43,47,0.12)' : 'rgba(20,24,30,0.85)'}; border: 1px solid ${isSelected ? 'var(--signal-red)' : 'var(--hairline)'}; border-radius: 8px; cursor: pointer; touch-action: manipulation; transition: background 0.15s ease;">
+          <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #13171d; border: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--bone); flex: 0 0 32px;">
+              ${escapeHtml((g.title || 'G').charAt(0).toUpperCase())}
+            </div>
+            <div style="min-width: 0; flex: 1;">
+              <div style="font-weight: 600; color: ${isSelected ? 'var(--warm-white)' : 'var(--bone)'}; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                ${escapeHtml(g.title || ('Group #' + g.id))}
+              </div>
+              <div style="font-size: 10.5px; color: var(--muted); margin-top: 2px;">
+                ${memberCount} • #${g.id}
+              </div>
+            </div>
+          </div>
+          <div style="flex: 0 0 auto; margin-left: 10px;">
+            ${isSelected ? '<span class="badge badge-vermilion" style="font-size: 9px; padding: 2px 7px;">ACTIVE</span>' : '<span style="color: var(--muted); font-size: 11px;">Select →</span>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+    safeCreateIcons(list);
+  }
+
+  function selectGroupFromMobilePicker(gid, title) {
+    closeMobileGroupPicker();
+    syncGroupSelect(gid);
+    refreshWiretap();
+    playZenSound('click');
+    showToast(`🎯 Surveillance Target Switched: ${title}`, 'success');
   }
 
   async function fetchDialogs() {
@@ -7644,11 +7828,20 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
           sel.value = currentSelectedGroupId || dialogsList[0].id;
         }
       });
-      if (dialogsList.length > 0 && !currentSelectedGroupId) {
-        currentSelectedGroupId = String(dialogsList[0].id);
+
+      if (dialogsList.length > 0) {
+        const savedGid = localStorage.getItem('kage_selected_group_id');
+        if (savedGid && dialogsList.some(d => isSameGroup(d.id, savedGid))) {
+          currentSelectedGroupId = savedGid;
+        } else if (!currentSelectedGroupId || !dialogsList.some(d => isSameGroup(d.id, currentSelectedGroupId))) {
+          currentSelectedGroupId = String(dialogsList[0].id);
+        }
+        localStorage.setItem('kage_selected_group_id', currentSelectedGroupId);
       }
+
       const selectedGroup = dialogsList.find(d => isSameGroup(d.id, currentSelectedGroupId));
       if (selectedGroup) {
+        localStorage.setItem('kage_selected_group_title', selectedGroup.title);
         const titleEl = document.getElementById('hud-target-group-name');
         if (titleEl) titleEl.innerText = `${selectedGroup.title} (${selectedGroup.members_count || '?'} members)`;
         const badge = document.getElementById('wiretap-target-badge');
@@ -10021,6 +10214,17 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
   let wiretapScrollRaf = null;
 
+  function updateWiretapScrollButtons(active, label) {
+    const ids = ['btn-wiretap-scroll', 'btn-wiretap-scroll-sub'];
+    ids.forEach(id => {
+      const b = document.getElementById(id);
+      if (b) {
+        b.innerText = label || (active ? 'SCROLL: AUTO' : 'SCROLL: PAUSED (RESUME ↓)');
+        b.classList.toggle('active', Boolean(active));
+      }
+    });
+  }
+
   function scrollWiretapToBottom(force = false) {
     const stream = document.getElementById('wiretap-stream');
     if (!stream) return;
@@ -10028,10 +10232,8 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     if (force) {
       userScrolledUpWiretap = false;
       isUserInteractingWithWiretap = false;
-      const btn = document.getElementById('btn-wiretap-scroll');
-      if (btn && wiretapAutoScroll) {
-        btn.innerText = 'SCROLL: AUTO';
-        btn.classList.add('active');
+      if (wiretapAutoScroll) {
+        updateWiretapScrollButtons(true, 'SCROLL: AUTO');
       }
     }
 
@@ -10065,21 +10267,18 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     if (el.scrollHeight <= el.clientHeight + 10) return;
 
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const btn = document.getElementById('btn-wiretap-scroll');
 
     // If user is near bottom (within 80px), automatically resume autoscroll
     if (distFromBottom <= 80) {
       userScrolledUpWiretap = false;
-      if (wiretapAutoScroll && btn) {
-        btn.innerText = 'SCROLL: AUTO';
-        btn.classList.add('active');
+      if (wiretapAutoScroll) {
+        updateWiretapScrollButtons(true, 'SCROLL: AUTO');
       }
     } else if (isUserInteractingWithWiretap && distFromBottom > 120) {
       // ONLY pause if user is actively touching/wheeling upwards!
       userScrolledUpWiretap = true;
-      if (btn && wiretapAutoScroll) {
-        btn.innerText = 'SCROLL: PAUSED (RESUME ↓)';
-        btn.classList.remove('active');
+      if (wiretapAutoScroll) {
+        updateWiretapScrollButtons(false, 'SCROLL: PAUSED (RESUME ↓)');
       }
     }
   }
@@ -12141,14 +12340,10 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   }
 
   function toggleWiretapScroll() {
-    const btn = document.getElementById('btn-wiretap-scroll');
     if (userScrolledUpWiretap && wiretapAutoScroll) {
       userScrolledUpWiretap = false;
       isUserInteractingWithWiretap = false;
-      if (btn) {
-        btn.innerText = 'SCROLL: AUTO';
-        btn.classList.add('active');
-      }
+      updateWiretapScrollButtons(true, 'SCROLL: AUTO');
       scrollWiretapToBottom(true);
       showToast('Resumed autoscroll to latest messages', 'info');
       playZenSound('click');
@@ -12159,17 +12354,11 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     if (wiretapAutoScroll) {
       userScrolledUpWiretap = false;
       isUserInteractingWithWiretap = false;
-      if (btn) {
-        btn.innerText = 'SCROLL: AUTO';
-        btn.classList.add('active');
-      }
+      updateWiretapScrollButtons(true, 'SCROLL: AUTO');
       scrollWiretapToBottom(true);
       showToast('Wiretap autoscroll locked to newest messages', 'info');
     } else {
-      if (btn) {
-        btn.innerText = 'SCROLL: PAUSED';
-        btn.classList.remove('active');
-      }
+      updateWiretapScrollButtons(false, 'SCROLL: PAUSED');
       showToast('Wiretap autoscroll paused', 'info');
     }
     playZenSound('click');
