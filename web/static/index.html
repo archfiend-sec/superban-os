@@ -1200,8 +1200,13 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   border: 1px solid var(--line-soft);
   border-radius: 3px;
   padding: 10px 14px;
-  transition: all .25s ease;
-  animation: slideInMsg .2s ease-out;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  animation: slideInMsg .16s ease-out;
+  contain: layout style;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 90px;
+  transform: translateZ(0);
+  will-change: transform, opacity;
 }
 @keyframes slideInMsg {
   from { opacity: 0; transform: translateY(-6px); }
@@ -3582,6 +3587,10 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   gap: 8px !important;
   padding: 12px 16px 24px 16px !important;
   scroll-behavior: auto !important;
+  transform: translateZ(0) !important;
+  will-change: scroll-position !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-y: contain !important;
 }
 #tab-content-intel,
 #tab-content-ghost,
@@ -3591,6 +3600,9 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   min-height: 0 !important;
   height: 100% !important;
   overflow-y: auto !important;
+  transform: translateZ(0) !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-y: contain !important;
 }
 .wiretap-card {
   background: var(--deep-carbon) !important;
@@ -3599,6 +3611,11 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   padding: 11px 14px !important;
   transition: background var(--ease-editorial), border-color var(--ease-editorial) !important;
   animation: slideInMsg 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  contain: layout style !important;
+  content-visibility: auto !important;
+  contain-intrinsic-size: auto 90px !important;
+  transform: translateZ(0) !important;
+  will-change: transform, opacity !important;
 }
 .wiretap-card:hover {
   background: var(--graphite) !important;
@@ -7179,13 +7196,23 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
   }
 
+  let _lucideGlobalScheduled = false;
   function safeCreateIcons(root) {
     try {
-      if (window.lucide && typeof window.lucide.createIcons === 'function') {
-        if (root && (root.nodeType === 1 || root.nodeType === 11)) {
-          window.lucide.createIcons({ root: root });
-        } else {
-          window.lucide.createIcons();
+      if (!window.lucide || typeof window.lucide.createIcons !== 'function') return;
+      if (root && (root.nodeType === 1 || root.nodeType === 11)) {
+        window.lucide.createIcons({ root: root });
+      } else {
+        if (!_lucideGlobalScheduled) {
+          _lucideGlobalScheduled = true;
+          requestAnimationFrame(() => {
+            _lucideGlobalScheduled = false;
+            try {
+              if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+              }
+            } catch (e) {}
+          });
         }
       }
     } catch (e) {}
@@ -9645,7 +9672,11 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
       let sum = 0;
       for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-      if (placeholder) placeholder.style.display = sum > 10 ? 'none' : 'block';
+      const shouldHide = sum > 10;
+      if (placeholder && placeholder._isVis !== shouldHide) {
+        placeholder._isVis = shouldHide;
+        placeholder.style.display = shouldHide ? 'none' : 'block';
+      }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const barWidth = (canvas.width / bufferLength) * 1.6;
@@ -9988,6 +10019,8 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
   let isProgrammaticScroll = false;
   let programmaticScrollTimer = null;
 
+  let wiretapScrollRaf = null;
+
   function scrollWiretapToBottom(force = false) {
     const stream = document.getElementById('wiretap-stream');
     if (!stream) return;
@@ -10004,26 +10037,26 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
     if (force || (wiretapAutoScroll && !userScrolledUpWiretap)) {
       isProgrammaticScroll = true;
-      if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
-
-      const doScroll = () => {
+      if (wiretapScrollRaf) cancelAnimationFrame(wiretapScrollRaf);
+      wiretapScrollRaf = requestAnimationFrame(() => {
+        wiretapScrollRaf = null;
         stream.scrollTop = stream.scrollHeight;
-      };
-
-      doScroll();
-      requestAnimationFrame(() => {
-        doScroll();
+        if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
         programmaticScrollTimer = setTimeout(() => {
-          doScroll();
           isProgrammaticScroll = false;
-        }, 140);
+        }, 80);
       });
     }
   }
 
+  let mediaScrollRaf = null;
   function onWiretapMediaLoaded() {
     if (wiretapAutoScroll && !userScrolledUpWiretap) {
-      scrollWiretapToBottom(false);
+      if (mediaScrollRaf) return;
+      mediaScrollRaf = requestAnimationFrame(() => {
+        mediaScrollRaf = null;
+        scrollWiretapToBottom(false);
+      });
     }
   }
 
@@ -10051,6 +10084,7 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     }
   }
 
+  let wiretapScrollCheckRaf = null;
   function initWiretapScrollListeners() {
     const stream = document.getElementById('wiretap-stream');
     if (!stream || stream._hasScrollListeners) return;
@@ -10082,7 +10116,11 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
     stream.addEventListener('scroll', () => {
       if (isProgrammaticScroll) return;
-      checkWiretapScrollPosition(stream);
+      if (wiretapScrollCheckRaf) return;
+      wiretapScrollCheckRaf = requestAnimationFrame(() => {
+        wiretapScrollCheckRaf = null;
+        checkWiretapScrollPosition(stream);
+      });
     }, { passive: true });
   }
 
@@ -10129,7 +10167,12 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
     const mobSanctuary = document.getElementById('mob-dock-sanctuary');
     const mobWarroom = document.getElementById('mob-dock-warroom');
 
+    const glCanvas = document.getElementById('gl');
+    const vignette = document.getElementById('vignette');
+
     if (mode === 'warroom') {
+      if (glCanvas) glCanvas.style.display = 'none';
+      if (vignette) vignette.style.display = 'none';
       if (sanctuaryView) sanctuaryView.style.display = 'none';
       if (warRoomView) warRoomView.style.display = 'flex';
       if (sanctuaryBtn) sanctuaryBtn.classList.remove('active');
@@ -10151,6 +10194,8 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       refreshWiretap();
       loadThreatsHistory();
     } else {
+      if (glCanvas) glCanvas.style.display = 'block';
+      if (vignette) vignette.style.display = 'block';
       if (sanctuaryView) sanctuaryView.style.display = 'block';
       if (warRoomView) warRoomView.style.display = 'none';
       if (sanctuaryBtn) sanctuaryBtn.classList.add('active');
@@ -10855,6 +10900,21 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
 
     stream.appendChild(card);
     wiretapMessageCount++;
+
+    // Keep DOM buffer bounded to 160 cards for butter-smooth 60/120 FPS performance
+    const MAX_WIRETAP_DOM_CARDS = 160;
+    while (stream.children.length > MAX_WIRETAP_DOM_CARDS) {
+      const oldest = stream.firstElementChild;
+      if (!oldest || oldest.classList.contains('wiretap-init-state')) break;
+      oldest.remove();
+    }
+
+    if (wiretapSeenIds.size > 3000) {
+      const arr = Array.from(wiretapSeenIds);
+      wiretapSeenIds.clear();
+      arr.slice(arr.length - 1500).forEach(id => wiretapSeenIds.add(id));
+    }
+
     const countEl = document.getElementById('wiretap-count');
     if (countEl) countEl.innerText = wiretapMessageCount;
 
@@ -10907,6 +10967,12 @@ div[style*="border-bottom: 1px solid var(--line-soft)"][style*="background: rgba
       </div>
     `;
     stream.appendChild(card);
+    const MAX_WIRETAP_DOM_CARDS = 160;
+    while (stream.children.length > MAX_WIRETAP_DOM_CARDS) {
+      const oldest = stream.firstElementChild;
+      if (!oldest || oldest.classList.contains('wiretap-init-state')) break;
+      oldest.remove();
+    }
     scrollWiretapToBottom(false);
   }
 
