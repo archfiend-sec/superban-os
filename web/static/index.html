@@ -5163,15 +5163,39 @@ html, body {
 }
 
 /* ── POWER COCKPIT BOTTOM LAYOUT & DOCKS ── */
-.hud-col-left {
-  display: flex !important;
-  flex-direction: column !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
-  background: rgba(8, 12, 18, 0.72) !important;
+@media (min-width: 769px) {
+  .hud-col-left {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(8, 12, 18, 0.72) !important;
+  }
+}
+
+@media (max-width: 768px), (max-aspect-ratio: 9/10) and (max-width: 920px), (pointer: coarse) and (max-width: 820px) {
+  .hud-col {
+    display: none !important;
+  }
+  .hud-col-left:not(.mobile-active),
+  .hud-col-center:not(.mobile-active),
+  .hud-col-right:not(.mobile-active) {
+    display: none !important;
+  }
+  .hud-col-left.mobile-active,
+  .hud-col-center.mobile-active {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
 }
 
 .hud-left-scroll-area {
