@@ -2855,9 +2855,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     align-items: flex-end !important;
     justify-content: center !important;
     z-index: 10050 !important;
-    background: rgba(2, 4, 6, 0.78) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
+    background: rgba(2, 4, 6, 0.4) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
   }
   .kage-modal {
     width: 100vw !important;
@@ -4473,9 +4473,9 @@ body {
     align-items: flex-end !important;
     justify-content: center !important;
     z-index: 10050 !important;
-    background: rgba(2, 4, 6, 0.78) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
+    background: rgba(2, 4, 6, 0.4) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
   }
   .kage-modal {
     width: 100vw !important;
@@ -6653,7 +6653,7 @@ body {
           <i data-lucide="share-2" style="width: 18px; height: 18px; color: #ec4899;"></i>
         </div>
         <div style="min-width: 0;">
-          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">COMMUNITY SOCIAL TOPOLOGY</h4>
+          <h4 class="display" style="font-size: 15px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span class="desk-only">COMMUNITY </span>SOCIAL TOPOLOGY</h4>
           <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">FORCE-DIRECTED INTERACTION GRAPH • CONVERSATION TOPOLOGY</span>
         </div>
       </div>
@@ -6693,11 +6693,14 @@ body {
 
       <!-- Top Influencer Roster -->
       <div class="graph-influencers-wrap" style="border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 12px; display: flex; flex-direction: column; overflow: hidden;">
-        <span class="eyebrow" style="color: var(--bone); font-size: 10px; margin-bottom: 8px; display: block;">
-          <i data-lucide="crown" style="width: 11px; height: 11px; color: #fbbf24; display: inline; vertical-align: middle;"></i>
-          CENTRAL INFLUENCERS (TOP DEGREE)
-        </span>
-        <div id="graph-influencers-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span class="eyebrow" style="color: var(--bone); font-size: 10px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="crown" style="width: 11px; height: 11px; color: #fbbf24;"></i>
+            CENTRAL INFLUENCERS (TOP DEGREE)
+          </span>
+          <span style="font-size: 9px; color: var(--muted); letter-spacing: 0.04em;">TAP TO ISOLATE</span>
+        </div>
+        <div id="graph-influencers-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-bottom: 14px;">
           <div style="text-align: center; color: var(--muted); padding: 24px;">Mapping communication paths...</div>
         </div>
       </div>
@@ -14348,6 +14351,7 @@ body {
   let graphLinks = [];
   let draggedGraphNode = null;
   let hoveredGraphNode = null;
+  let selectedGraphNode = null;
   let graphScale = 1.0;
   let graphPanX = 0;
   let graphPanY = 0;
@@ -14370,6 +14374,7 @@ body {
   }
 
   function closeGraphModalDirect() {
+    clearGraphSelection();
     const m = document.getElementById('graph-modal');
     if (m) {
       m.style.display = 'none';
@@ -14378,6 +14383,84 @@ body {
     }
     const tip = document.getElementById('graph-node-tooltip');
     if (tip) tip.style.display = 'none';
+  }
+
+  function selectGraphNodeById(id) {
+    if (id === null || id === undefined) {
+      clearGraphSelection();
+      return;
+    }
+    const target = graphNodes.find(n => n.id === id);
+    if (!target) return;
+
+    if (selectedGraphNode === target) {
+      clearGraphSelection();
+      return;
+    }
+
+    selectedGraphNode = target;
+    hoveredGraphNode = null;
+
+    // Smooth camera center on target node
+    const canvas = document.getElementById('social-graph-canvas');
+    if (canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width || 800;
+      const h = rect.height || 520;
+      graphPanX = (w / 2) - (target.x * graphScale);
+      graphPanY = (h / 2) - (target.y * graphScale);
+    }
+
+    updateGraphSelectionUI(target);
+  }
+
+  function clearGraphSelection() {
+    selectedGraphNode = null;
+    hoveredGraphNode = null;
+    updateGraphSelectionUI(null);
+  }
+
+  function updateGraphSelectionUI(node) {
+    // 1. Highlight active influencer row
+    document.querySelectorAll('.graph-inf-item').forEach(el => {
+      el.style.background = 'rgba(8,12,16,0.7)';
+      el.style.borderColor = 'var(--line-soft)';
+      el.style.boxShadow = 'none';
+    });
+    if (node) {
+      const activeItem = document.getElementById(`graph-inf-item-${node.id}`);
+      if (activeItem) {
+        activeItem.style.background = 'rgba(236,72,153,0.22)';
+        activeItem.style.borderColor = '#ec4899';
+        activeItem.style.boxShadow = '0 0 14px rgba(236,72,153,0.35)';
+      }
+    }
+
+    // 2. Floating focus indicator on canvas
+    let focusBanner = document.getElementById('graph-focus-banner');
+    if (node) {
+      if (!focusBanner) {
+        focusBanner = document.createElement('div');
+        focusBanner.id = 'graph-focus-banner';
+        focusBanner.style.cssText = 'position: absolute; top: 12px; left: 12px; z-index: 15; display: flex; align-items: center; gap: 8px; background: rgba(5,7,10,0.92); border: 1px solid #38bdf8; border-radius: 4px; padding: 4px 10px; font-family: monospace; font-size: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.8);';
+        const container = document.getElementById('social-graph-container');
+        if (container) container.appendChild(focusBanner);
+      }
+      focusBanner.style.display = 'flex';
+      focusBanner.innerHTML = `
+        <span style="color: #38bdf8; font-weight: bold;">🎯 ISOLATED:</span>
+        <span style="color: #ffffff; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(node.label)}</span>
+        <span style="color: #f472b6; font-size: 9px;">(${node.degree} edges)</span>
+        <button type="button" onclick="openOSINTModal(${node.id})" class="act-pill" style="font-size: 8.5px; padding: 1px 6px; margin-left: 2px;">Dossier</button>
+        <button type="button" onclick="clearGraphSelection()" class="btn-xs-outline" style="font-size: 8.5px; padding: 1px 5px; color: var(--muted); border-color: var(--line);">✕ Show All</button>
+      `;
+      const defaultTag = document.getElementById('graph-stats-tag');
+      if (defaultTag) defaultTag.style.display = 'none';
+    } else {
+      if (focusBanner) focusBanner.style.display = 'none';
+      const defaultTag = document.getElementById('graph-stats-tag');
+      if (defaultTag) defaultTag.style.display = '';
+    }
   }
 
   function zoomSocialGraph(factor) {
@@ -14405,6 +14488,7 @@ body {
   }
 
   async function refreshSocialGraph() {
+    clearGraphSelection();
     const gid = getActiveGroupId();
     const statsTag = document.getElementById('graph-stats-tag');
     const infList = document.getElementById('graph-influencers-list');
@@ -14420,12 +14504,15 @@ body {
             infList.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">No interaction paths mapped yet.</div>`;
           } else {
             infList.innerHTML = data.top_influencers.map((inf, i) => `
-              <div style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="openOSINTModal(${inf.id})" title="Click to view OSINT dossier">
-                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-                  <span style="font-size: 10px; color: #fbbf24; font-weight: bold;">#${i+1}</span>
-                  <span style="font-size: 11px; color: var(--bone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(inf.label)}</span>
+              <div id="graph-inf-item-${inf.id}" class="graph-inf-item" style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-radius: 4px; padding: 7px 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s ease;" onclick="selectGraphNodeById(${inf.id})" title="Click to isolate & highlight in network graph">
+                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; min-width: 0; flex: 1;">
+                  <span style="font-size: 10px; color: #fbbf24; font-weight: bold; flex-shrink: 0;">#${i+1}</span>
+                  <span style="font-size: 11px; color: var(--bone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">${escapeHtml(inf.label)}</span>
                 </div>
-                <span class="badge" style="background: rgba(236,72,153,0.15); color: #f472b6; border: 1px solid #ec4899; font-size: 8px;">${inf.degree} EDGES</span>
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                  <span class="badge" style="background: rgba(236,72,153,0.15); color: #f472b6; border: 1px solid #ec4899; font-size: 8px;">${inf.degree} EDGES</span>
+                  <button type="button" onclick="event.stopPropagation(); openOSINTModal(${inf.id})" class="act-pill" style="font-size: 8.5px; padding: 2px 6px;" title="View deep OSINT profile">OSINT</button>
+                </div>
               </div>
             `).join('');
           }
@@ -14583,13 +14670,17 @@ body {
       const mouseY = e.clientY - cRect.top;
       const moved = Math.sqrt((mouseX - dragStartPos.x) ** 2 + (mouseY - dragStartPos.y) ** 2);
       
-      if (moved < 5 && draggedGraphNode) {
-        openOSINTModal(draggedGraphNode.id);
+      if (moved < 6) {
+        if (draggedGraphNode) {
+          selectGraphNodeById(draggedGraphNode.id);
+        } else if (!isPanningGraph) {
+          clearGraphSelection();
+        }
       }
 
       isPanningGraph = false;
       draggedGraphNode = null;
-      canvas.style.cursor = hoveredGraphNode ? 'pointer' : 'grab';
+      canvas.style.cursor = (selectedGraphNode || hoveredGraphNode) ? 'pointer' : 'grab';
     };
 
     // Mobile Touch Drag, Pan & Pinch-to-Zoom
@@ -14674,8 +14765,12 @@ body {
         const touchX = touch.clientX - cRect.left;
         const touchY = touch.clientY - cRect.top;
         const moved = Math.sqrt((touchX - dragStartPos.x) ** 2 + (touchY - dragStartPos.y) ** 2);
-        if (moved < 8 && draggedGraphNode) {
-          openOSINTModal(draggedGraphNode.id);
+        if (moved < 8) {
+          if (draggedGraphNode) {
+            selectGraphNodeById(draggedGraphNode.id);
+          } else {
+            clearGraphSelection();
+          }
         }
       }
       isPanningGraph = false;
@@ -14765,33 +14860,37 @@ body {
         }
       }
 
-      // Helper: check if node is connected to hovered node
-      const isConnectedToHovered = (n) => {
-        if (!hoveredGraphNode) return true;
-        if (n === hoveredGraphNode) return true;
+      // Active focus node: selected takes precedence over hovered
+      const activeFocus = selectedGraphNode || hoveredGraphNode;
+
+      // Helper: check if node is connected to active focus node
+      const isConnectedToFocus = (n) => {
+        if (!activeFocus) return true;
+        if (n === activeFocus) return true;
         return graphLinks.some(l => 
-          (l.source === hoveredGraphNode && l.target === n) || 
-          (l.target === hoveredGraphNode && l.source === n)
+          (l.source === activeFocus && l.target === n) || 
+          (l.target === activeFocus && l.source === n)
         );
       };
 
       // Draw Links
       for (let l of graphLinks) {
-        const isHoverConnected = hoveredGraphNode && (l.source === hoveredGraphNode || l.target === hoveredGraphNode);
+        const isFocusConnected = activeFocus && (l.source === activeFocus || l.target === activeFocus);
         
         ctx.beginPath();
         ctx.moveTo(l.source.x, l.source.y);
         ctx.lineTo(l.target.x, l.target.y);
 
-        if (hoveredGraphNode) {
-          if (isHoverConnected) {
+        if (activeFocus) {
+          if (isFocusConnected) {
             ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = Math.min(Math.max(l.weight * 2, 2.5), 6);
+            ctx.lineWidth = Math.min(Math.max(l.weight * 2.5, 3), 7);
             ctx.shadowColor = '#38bdf8';
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 12;
           } else {
-            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-            ctx.lineWidth = 1;
+            // Hide unconnected links when isolating
+            ctx.strokeStyle = selectedGraphNode ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.04)';
+            ctx.lineWidth = 0.5;
             ctx.shadowBlur = 0;
           }
         } else {
@@ -14805,23 +14904,52 @@ body {
 
       // Draw Nodes
       for (let n of graphNodes) {
-        const isFocus = isConnectedToHovered(n);
-        const isSelfHover = hoveredGraphNode === n;
-        const alpha = hoveredGraphNode ? (isFocus ? 1.0 : 0.22) : 1.0;
+        const isSelf = activeFocus === n;
+        const isConnected = isConnectedToFocus(n);
+
+        let alpha = 1.0;
+        if (selectedGraphNode) {
+          if (isSelf) {
+            alpha = 1.0;
+          } else if (isConnected) {
+            alpha = 0.65;
+          } else {
+            // User requested: "highlight only its circle or hide everyone else in the mobile phone"
+            alpha = 0.03;
+          }
+        } else if (hoveredGraphNode) {
+          alpha = isConnected ? 1.0 : 0.22;
+        }
 
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        // Outer glow on focus
-        if (isSelfHover || n.degree >= 3) {
+        // Outer glow & pulse ring on focus
+        if (isSelf && selectedGraphNode) {
+          const pulse = (Math.sin(Date.now() / 180) + 1) / 2;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.r + 5 + pulse * 4, 0, Math.PI * 2);
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 16;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        } else if (isSelf) {
           ctx.shadowColor = n.degree >= 3 ? '#ec4899' : '#10b981';
-          ctx.shadowBlur = isSelfHover ? 16 : 8;
+          ctx.shadowBlur = 16;
+        } else if (isConnected && selectedGraphNode) {
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 8;
+        } else if (n.degree >= 3 && !selectedGraphNode) {
+          ctx.shadowColor = '#ec4899';
+          ctx.shadowBlur = 8;
         }
 
         // Outer circle
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-        ctx.fillStyle = n.degree >= 3 ? '#ec4899' : '#10b981';
+        ctx.fillStyle = isSelf ? '#38bdf8' : (n.degree >= 3 ? '#ec4899' : '#10b981');
         ctx.fill();
 
         // Inner dark core
@@ -14838,33 +14966,35 @@ body {
         ctx.textBaseline = 'middle';
         ctx.fillText(n.initials, n.x, n.y);
 
-        // Name badge pill underneath
-        const cleanName = (n.label || '').slice(0, 12);
-        ctx.font = '10px monospace';
-        const textWidth = ctx.measureText(cleanName).width;
-        const pillW = textWidth + 14;
-        const pillH = 16;
-        const pillX = n.x - pillW / 2;
-        const pillY = n.y + n.r + 5;
+        // Name badge pill underneath: only show if no isolation or is self or connected
+        if (!selectedGraphNode || isSelf || isConnected) {
+          const cleanName = (n.label || '').slice(0, 14);
+          ctx.font = '10px monospace';
+          const textWidth = ctx.measureText(cleanName).width;
+          const pillW = textWidth + 14;
+          const pillH = 16;
+          const pillX = n.x - pillW / 2;
+          const pillY = n.y + n.r + 5;
 
-        // Draw pill background so text never clashes with lines
-        ctx.fillStyle = 'rgba(8,12,16,0.92)';
-        ctx.strokeStyle = isSelfHover ? '#38bdf8' : 'rgba(255,255,255,0.14)';
-        ctx.lineWidth = 1;
-        if (ctx.roundRect) {
-          ctx.beginPath();
-          ctx.roundRect(pillX, pillY, pillW, pillH, 3);
-          ctx.fill();
-          ctx.stroke();
-        } else {
-          ctx.fillRect(pillX, pillY, pillW, pillH);
-          ctx.strokeRect(pillX, pillY, pillW, pillH);
+          // Draw pill background so text never clashes with lines
+          ctx.fillStyle = 'rgba(8,12,16,0.92)';
+          ctx.strokeStyle = isSelf ? '#38bdf8' : (isConnected && selectedGraphNode ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.14)');
+          ctx.lineWidth = 1;
+          if (ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(pillX, pillY, pillW, pillH, 3);
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            ctx.fillRect(pillX, pillY, pillW, pillH);
+            ctx.strokeRect(pillX, pillY, pillW, pillH);
+          }
+
+          ctx.fillStyle = isSelf ? '#38bdf8' : (isConnected && selectedGraphNode ? '#7dd3fc' : '#e2e8f0');
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(cleanName, n.x, pillY + pillH / 2);
         }
-
-        ctx.fillStyle = isSelfHover ? '#38bdf8' : '#e2e8f0';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(cleanName, n.x, pillY + pillH / 2);
 
         ctx.restore();
       }
