@@ -560,8 +560,13 @@ class SuperBanEngine:
                     scan_info["unique_members"] = len(member_aggregates)
                     scan_info["percent"] = pct
 
-                    # Checkpoint flush to SQLite every 10,000 messages
-                    if scanned_now % 10000 == 0 and self.db and hasattr(self.db, "batch_upsert_member_reputation"):
+                    # Progressive Checkpoint flush to SQLite for real-time member table ingestion:
+                    # Flush early at 500, 1000, 2500, and every 2500 messages thereafter
+                    should_flush = (
+                        scanned_now in (500, 1000, 2500)
+                        or (scanned_now % 2500 == 0)
+                    )
+                    if should_flush and self.db and hasattr(self.db, "batch_upsert_member_reputation"):
                         member_payload = self._build_member_reputation_payload(norm_gid, member_aggregates)
                         asyncio.create_task(self.db.batch_upsert_member_reputation(norm_gid, member_payload))
 

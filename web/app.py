@@ -778,8 +778,7 @@ def create_app(engine: SuperBanEngine):
             me = await engine.client.get_me() if is_auth else None
             if me:
                 engine._me_id = me.id
-            raw_phone = creds["phone"] if creds and creds.get("phone") else ""
-            masked_phone = f"+{raw_phone[:3]} ••• ••• {raw_phone[-2:]}" if len(raw_phone) > 6 else (raw_phone[:3] + "•••" if raw_phone else "")
+            masked_phone = "PROTECTED SENSOR NODE (ENCRYPTED)"
             return {
                 "authorized": is_auth,
                 "phone": masked_phone,

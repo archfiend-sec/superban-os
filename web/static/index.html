@@ -5162,6 +5162,164 @@ html, body {
   display: none !important;
 }
 
+/* ── POWER COCKPIT BOTTOM LAYOUT & DOCKS ── */
+.hud-col-left {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(8, 12, 18, 0.72) !important;
+}
+
+.hud-left-scroll-area {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 16px !important;
+  -webkit-overflow-scrolling: touch !important;
+  min-height: 0 !important;
+}
+
+.hud-left-footer-dock {
+  flex-shrink: 0 !important;
+  padding: 12px 16px 14px 16px !important;
+  background: rgba(12, 16, 26, 0.92) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  z-index: 5 !important;
+}
+
+.hud-left-footer-dock .hud-stat-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 8px !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.hud-left-status-banner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-top: 10px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  font-size: 9.5px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  letter-spacing: 0.08em !important;
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+.hud-pulse-dot-green {
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background: #34c759 !important;
+  box-shadow: 0 0 8px #34c759 !important;
+  animation: pulseDotGreen 2s infinite ease-in-out !important;
+  display: inline-block !important;
+}
+
+@keyframes pulseDotGreen {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 12px #34c759; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+#tab-content-recon {
+  flex: 1 1 0% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 16px 20px 20px 20px !important;
+  box-sizing: border-box !important;
+}
+
+#recon-table-wrap {
+  flex: 1 1 auto !important;
+  min-height: 380px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: rgba(10, 14, 22, 0.72) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  overflow: hidden !important;
+  position: relative !important;
+  margin-bottom: 12px !important;
+}
+
+.recon-table-scroll-wrap {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.recon-table th, .recon-table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  background: rgba(14, 18, 27, 0.98) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+.recon-row:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+@keyframes radarRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.hud-telemetry-tag {
+  font-size: 9.5px !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  background: rgba(56, 189, 248, 0.1) !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+  color: #38bdf8 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+}
+
+@media (max-width: 600px) {
+  .wiretap-header {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .wiretap-user-meta {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+  .wiretap-user-top {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+  .wiretap-user-sub {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    margin-top: 2px !important;
+  }
+}
+
 </style>
 </head>
 
@@ -5346,8 +5504,8 @@ html, body {
       <span id="user-display">STEALTH SENSOR ONLINE</span>
     </div>
 
-    <!-- Master Owner Clearance Controls (Shown only to @archfiend000) -->
-    <button id="owner-clearance-nav-btn" onclick="openOperatorClearanceModal()" class="kage-btn-pill" style="border-color: rgba(56,189,248,0.4); color: #38bdf8; display: none;" title="Manage Operator Clearances (@archfiend000 only)">
+    <!-- Master Owner Clearance Controls (Shown only to Owner) -->
+    <button id="owner-clearance-nav-btn" onclick="openOperatorClearanceModal()" class="kage-btn-pill" style="border-color: rgba(56,189,248,0.4); color: #38bdf8; display: none;" title="Manage Operator Clearances (Owner Only)">
       <i data-lucide="shield-check" style="width: 12px; height: 12px;"></i>
       <span>Clearances</span>
     </button>
@@ -5406,6 +5564,7 @@ html, body {
   <div class="hud-body">
     <!-- LEFT COLUMN: TARGET RECONNAISSANCE (310px) -->
     <aside class="hud-col hud-col-left">
+      <div class="hud-left-scroll-area">
       <div class="hud-panel-title">
         <span><b style="color:var(--vermilion); font-family: 'JetBrains Mono', monospace;">01</b> // TARGET RECONNAISSANCE</span>
         <span class="jp" style="font-size: 10px; color: var(--muted); letter-spacing: 0.15em;">偵察</span>
@@ -5559,20 +5718,30 @@ html, body {
           <span style="font-size: 10px; color: var(--muted);">No active keyword triggers. Add above.</span>
         </div>
       </div>
+      </div><!-- end hud-left-scroll-area -->
 
-      <!-- Quick Metrics Summary -->
-      <div class="hud-stat-grid" style="margin-top: auto; padding-top: 14px;">
-        <div class="hud-stat-cell">
-          <b id="hud-stat-scanned">0</b>
-          <span>Scanned</span>
+      <!-- Anchored Left Rail Footer Dock -->
+      <div class="hud-left-footer-dock">
+        <div class="hud-stat-grid">
+          <div class="hud-stat-cell">
+            <b id="hud-stat-scanned">0</b>
+            <span>Scanned</span>
+          </div>
+          <div class="hud-stat-cell">
+            <b id="hud-stat-threats" style="color: var(--ember);">0</b>
+            <span>Threats</span>
+          </div>
+          <div class="hud-stat-cell">
+            <b id="hud-stat-velocity">0.0</b>
+            <span>Ops/sec</span>
+          </div>
         </div>
-        <div class="hud-stat-cell">
-          <b id="hud-stat-threats" style="color: var(--ember);">0</b>
-          <span>Threats</span>
-        </div>
-        <div class="hud-stat-cell">
-          <b id="hud-stat-velocity">0.0</b>
-          <span>Ops/sec</span>
+        <div class="hud-left-status-banner">
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <span class="hud-pulse-dot-green"></span>
+            <span class="hud-dock-status-label">MTPROTO SENSOR // ONLINE</span>
+          </span>
+          <span style="color: var(--muted); font-size: 9px;">ZERO SENSOR LEAK</span>
         </div>
       </div>
     </aside>
@@ -5811,10 +5980,19 @@ html, body {
           <span id="recon-count-label" style="margin-left: auto; font-size: 11px; color: var(--muted);">0 members</span>
         </div>
 
-        <div id="recon-table-wrap" style="background: #05070a; border: 1px solid var(--line); border-radius: 4px; overflow-x: auto;">
-          <div style="text-align: center; padding: 60px 20px; color: var(--muted);">
-            <i data-lucide="users" style="width: 36px; height: 36px; margin: 0 auto 12px; opacity: 0.5;"></i>
-            <p style="font-size: 13px; color: var(--bone-dim);">Click "SCAN MEMBERS" above to profile all participants in the active group.</p>
+        <div id="recon-table-wrap">
+          <div style="flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 48px 24px;">
+            <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); display: grid; place-items: center; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(56, 189, 248, 0.2);">
+              <i data-lucide="shield-check" style="width: 24px; height: 24px; color: #38bdf8;"></i>
+            </div>
+            <div style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 6px;">Participant Surveillance Matrix Ready</div>
+            <p style="font-size: 11.5px; color: rgba(255, 255, 255, 0.6); max-width: 440px; margin-bottom: 18px; line-height: 1.5;">
+              Select your preferred scan mode above to profile group participants, identify top chatters, filter lurkers, and generate forensic dossiers.
+            </p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+              <button type="button" onclick="start100kScan(100000)" class="kage-btn" style="padding: 10px 18px; font-size: 11.5px;">⚡ 100K Reputation Scan</button>
+              <button type="button" onclick="runMemberRecon()" class="kage-btn secondary" style="padding: 10px 18px; font-size: 11.5px;">Scan Current Roster</button>
+            </div>
           </div>
         </div>
       </div>
@@ -6368,8 +6546,8 @@ html, body {
       <!-- STEP 1: PHONE DISPLAY & SEND CODE BUTTON -->
       <div id="auth-step-1">
         <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); padding: 14px 18px; border-radius: 14px; margin-bottom: 18px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);">
-          <div style="font-size: 10px; color: rgba(255, 255, 255, 0.6); margin-bottom: 4px; letter-spacing: 0.06em; font-weight: 600;">TARGET TELEGRAM PHONE [OPSEC MASKED]</div>
-          <div id="auth-phone-display" style="color: #34c759; font-size: 16px; font-weight: 600; letter-spacing: 0.02em;">+263 ••• ••• 1244</div>
+          <div style="font-size: 10px; color: rgba(255, 255, 255, 0.6); margin-bottom: 4px; letter-spacing: 0.06em; font-weight: 600;">TARGET TELEGRAM SENSOR [STEALTH PROTECTED]</div>
+          <div id="auth-phone-display" style="color: #34c759; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">PROTECTED SENSOR NODE (ENCRYPTED)</div>
         </div>
 
         <button id="auth-send-code-btn" onclick="sendAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12.5px; justify-content: center; min-height: 48px; border-radius: 12px;">
@@ -8272,10 +8450,8 @@ html, body {
       fetch('/api/auth/status')
         .then(r => r.json())
         .then(data => {
-          if (data && data.phone) {
-            const phoneEl = document.getElementById('auth-phone-display');
-            if (phoneEl) phoneEl.innerText = data.phone;
-          }
+          const phoneEl = document.getElementById('auth-phone-display');
+          if (phoneEl) phoneEl.innerText = 'PROTECTED SENSOR NODE (ENCRYPTED)';
           const desc = document.getElementById('auth-status-desc');
           if (desc) {
             if (data && data.authorized) {
@@ -8375,8 +8551,7 @@ html, body {
 
       if (data.authorized) {
         if (userDisp) {
-          const opLabel = currentOperatorUser ? `@${escapeHtml(currentOperatorUser)}` : 'WAR ROOM';
-          userDisp.innerHTML = `<span style="color: #38bdf8; font-weight: 600;">🛡️ ${opLabel}</span> <span style="color: #34c759; margin-left: 6px;">● SENSOR ONLINE</span>`;
+          userDisp.innerHTML = `<span style="color: #38bdf8; font-weight: 600;">🛡️ STEALTH COCKPIT</span> <span style="color: #34c759; margin-left: 6px;">● SENSOR ONLINE</span>`;
         }
         if (modal) modal.style.display = 'none';
         showTelegramLinkBanner(false);
@@ -12836,6 +13011,11 @@ html, body {
     const etaLbl = document.getElementById('deep-scan-eta-label');
     if (etaLbl) etaLbl.innerText = `ETA: calculating...`;
 
+    // Immediately display real-time radar cockpit inside table wrap
+    if (!cachedReconMembers || cachedReconMembers.length === 0) {
+      renderReconTable([]);
+    }
+
     try {
       const res = await fetch('/api/messages/deep_scan', {
         method: 'POST',
@@ -12946,7 +13126,7 @@ html, body {
     const fill = document.getElementById('deep-scan-progress-fill');
     if (fill) fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
 
-    if (scanned > 0 && scanned % 5000 === 0) {
+    if (scanned > 0 && (scanned === 500 || scanned === 1000 || scanned === 2500 || scanned % 2500 === 0)) {
       loadGroupReputationGrid();
     }
 
@@ -13103,78 +13283,127 @@ html, body {
   function renderReconTable(members) {
     const wrap = document.getElementById('recon-table-wrap');
     const label = document.getElementById('recon-count-label');
-    if (label) label.innerText = `${members.length} members`;
+    if (label) label.innerText = `${members ? members.length : 0} members`;
+    if (!wrap) return;
+
+    const isScanPanelActive = document.getElementById('deep-scan-progress-panel') && 
+      document.getElementById('deep-scan-progress-panel').style.display !== 'none';
 
     if (!members || members.length === 0) {
-      wrap.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--muted);">No matching participants found. Click "⚡ 100K REPUTATION SCAN" to ingest group history.</div>';
+      if (isScanPanelActive) {
+        wrap.innerHTML = `
+          <div class="recon-radar-scanning-box" style="flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 48px 24px; background: radial-gradient(circle at center, rgba(56, 189, 248, 0.08) 0%, rgba(10, 14, 22, 0.4) 70%);">
+            <div class="radar-sweep-scanner" style="width: 72px; height: 72px; border-radius: 50%; border: 1.5px solid rgba(56, 189, 248, 0.4); position: relative; margin-bottom: 18px; box-shadow: 0 0 24px rgba(56, 189, 248, 0.25); display: grid; place-items: center;">
+              <div style="width: 100%; height: 100%; border-radius: 50%; position: absolute; border: 1px dashed rgba(56, 189, 248, 0.2); animation: radarRotate 4s linear infinite;"></div>
+              <div style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 10px #38bdf8;"></div>
+            </div>
+            <div style="font-size: 13.5px; font-weight: 600; color: #38bdf8; letter-spacing: 0.12em; margin-bottom: 6px; font-family: 'JetBrains Mono', monospace;">
+              📡 TELEGRAM RECONNAISSANCE SCAN IN PROGRESS
+            </div>
+            <p style="font-size: 11.5px; color: rgba(255, 255, 255, 0.65); max-width: 480px; margin: 0 auto 16px auto; line-height: 1.55;">
+              Extracting conversation threads, calculating participation tenure, and synthesizing AI reputation archetypes. Profiled members stream here automatically.
+            </p>
+            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+              <span class="hud-telemetry-tag">● TELEMETRY STREAMING</span>
+              <span class="hud-telemetry-tag">AUTO-FLUSHING TO DB</span>
+              <span class="hud-telemetry-tag">STEALTH SENSOR PROTECTED</span>
+            </div>
+          </div>
+        `;
+      } else {
+        wrap.innerHTML = `
+          <div style="flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 48px 24px;">
+            <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); display: grid; place-items: center; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(56, 189, 248, 0.2);">
+              <i data-lucide="shield-check" style="width: 24px; height: 24px; color: #38bdf8;"></i>
+            </div>
+            <div style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 6px;">Participant Surveillance Matrix Ready</div>
+            <p style="font-size: 11.5px; color: rgba(255, 255, 255, 0.6); max-width: 440px; margin-bottom: 18px; line-height: 1.5;">
+              Select your preferred scan mode above to profile group participants, identify top chatters, filter lurkers, and generate forensic dossiers.
+            </p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+              <button type="button" onclick="start100kScan(100000)" class="kage-btn" style="padding: 10px 18px; font-size: 11.5px;">⚡ 100K Reputation Scan</button>
+              <button type="button" onclick="runMemberRecon()" class="kage-btn secondary" style="padding: 10px 18px; font-size: 11.5px;">Scan Current Roster</button>
+            </div>
+          </div>
+        `;
+      }
+      safeCreateIcons();
       return;
     }
 
     wrap.innerHTML = `
-      <table class="recon-table" style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
-        <thead>
-          <tr style="border-bottom: 1px solid var(--line); color: var(--muted); background: #070a0e;">
-            <th style="padding: 10px 12px;">PARTICIPANT</th>
-            <th style="padding: 10px 12px;">HANDLE / ID</th>
-            <th style="padding: 10px 12px;">REPUTATION (100K)</th>
-            <th style="padding: 10px 12px;">MESSAGES</th>
-            <th style="padding: 10px 12px;">ACTIVITY &amp; TENURE</th>
-            <th style="padding: 10px 12px; text-align: right;">INTEL ACTION</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${members.slice(0, 150).map(m => {
-            const initial = (m.full_name || 'U').charAt(0).toUpperCase();
-            const color = m.trust_color || '#38bdf8';
-            return `
-              <tr style="border-bottom: 1px solid var(--line-soft);">
-                <td style="padding: 10px 12px; display: flex; align-items: center; gap: 8px;">
-                  <div style="width: 24px; height: 24px; border-radius: 50%; background: #12181f; border: 1px solid var(--line); display: grid; place-items: center; font-size: 11px; color: var(--bone);">
-                    ${initial}
-                  </div>
-                  <div>
-                    <span style="font-weight: 600; color: var(--bone);">${escapeHtml(m.full_name || 'Anonymous')}</span>
-                    ${m.is_premium ? '<span style="color: #c084fc; margin-left: 4px;" title="Telegram Premium">⭐</span>' : ''}
-                    ${m.is_verified ? '<span style="color: #34d399; margin-left: 4px;" title="Telegram Verified">✓</span>' : ''}
-                  </div>
-                </td>
-                <td style="padding: 10px 12px; color: var(--bone-dim);">
-                  ${m.username ? '@' + escapeHtml(m.username) : '#' + m.id}
-                </td>
-                <td style="padding: 10px 12px;">
-                  <span class="badge" style="font-size: 8px; padding: 2px 7px; background: rgba(5,7,10,0.85); border: 1px solid ${color}; color: ${color}; font-weight: 700; white-space: nowrap;">
-                    ${m.trust_score || 50}% ${m.trust_level || 'NEUTRAL'}
-                  </span>
-                  ${m.persona_archetype ? `<div style="font-size: 8px; color: var(--intel-cyan); margin-top: 3px; font-weight: 600;">🤖 ${escapeHtml(m.persona_archetype.split('//')[0].trim())}</div>` : ''}
-                </td>
-                <td style="padding: 10px 12px;">
-                  <div style="font-weight: 700; color: #38bdf8;">
-                    ${(m.message_count || 0).toLocaleString()} <span style="color: var(--muted); font-size: 9px; font-weight: 400;">msgs</span>
-                    ${m.reactions_received ? `<span style="color: #f59e0b; margin-left: 4px;" title="${m.reactions_received} reactions received">🔥 ${m.reactions_received}</span>` : ''}
-                  </div>
-                </td>
-                <td style="padding: 10px 12px;">
-                  <div style="font-size: 10px; color: var(--bone-dim);">
-                    ${m.first_seen ? m.first_seen.split('T')[0] : (m.vintage || 'Active')}
-                  </div>
-                  <div style="font-size: 9px; color: var(--muted);">
-                    ${m.last_seen ? 'Last: ' + (m.last_seen.includes('T') ? m.last_seen.split('T')[0] : m.last_seen) : 'Observed in radar'}
-                  </div>
-                </td>
-                <td style="padding: 10px 12px; text-align: right;">
-                  <button type="button" onclick="openWiretapDossier(${m.id}, '${escapeQuote(m.full_name)}', '${m.username || ''}')" class="act-pill">
-                    Dossier
-                  </button>
-                  <button type="button" onclick="quickAddWatchdog('user', '${m.username ? '@' + m.username : m.id}')" class="act-pill danger">
-                    Track
-                  </button>
-                </td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-      ${members.length > 150 ? `<div style="padding: 10px; text-align: center; font-size: 10px; color: var(--muted);">Showing top 150 of ${members.length} participants. Use search filter or export CSV for full callset.</div>` : ''}
+      <div class="recon-table-scroll-wrap" style="flex: 1 1 auto; overflow-y: auto; overflow-x: auto; width: 100%; min-height: 0;">
+        <table class="recon-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; text-align: left;">
+          <thead>
+            <tr style="color: rgba(255, 255, 255, 0.7); background: rgba(14, 18, 27, 0.98); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
+              <th style="padding: 12px 14px; position: sticky; top: 0; z-index: 10; background: rgba(14, 18, 27, 0.98); border-bottom: 1px solid rgba(255, 255, 255, 0.12);">PARTICIPANT</th>
+              <th style="padding: 12px 14px; position: sticky; top: 0; z-index: 10; background: rgba(14, 18, 27, 0.98); border-bottom: 1px solid rgba(255, 255, 255, 0.12);">HANDLE / ID</th>
+              <th style="padding: 12px 14px; position: sticky; top: 0; z-index: 10; background: rgba(14, 18, 27, 0.98); border-bottom: 1px solid rgba(255, 255, 255, 0.12);">REPUTATION (100K)</th>
+              <th style="padding: 12px 14px; position: sticky; top: 0; z-index: 10; background: rgba(14, 18, 27, 0.98); border-bottom: 1px solid rgba(255, 255, 255, 0.12);">MESSAGES</th>
+              <th style="padding: 12px 14px; position: sticky; top: 0; z-index: 10; background: rgba(14, 18, 27, 0.98); border-bottom: 1px solid rgba(255, 255, 255, 0.12);">ACTIVITY &amp; TENURE</th>
+              <th style="padding: 12px 14px; position: sticky; top: 0; z-index: 10; background: rgba(14, 18, 27, 0.98); border-bottom: 1px solid rgba(255, 255, 255, 0.12); text-align: right;">INTEL ACTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${members.slice(0, 250).map(m => {
+              const initial = (m.full_name || 'U').charAt(0).toUpperCase();
+              const color = m.trust_color || '#38bdf8';
+              return `
+                <tr class="recon-row" style="border-bottom: 1px solid rgba(255, 255, 255, 0.06); transition: background 0.15s ease;">
+                  <td style="padding: 11px 14px; display: flex; align-items: center; gap: 9px;">
+                    <div style="width: 26px; height: 26px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14); display: grid; place-items: center; font-size: 11px; font-weight: 600; color: #ffffff; flex-shrink: 0;">
+                      ${initial}
+                    </div>
+                    <div style="min-width: 0;">
+                      <span style="font-weight: 600; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 180px;" title="${escapeHtml(m.full_name || 'Anonymous')}">${escapeHtml(m.full_name || 'Anonymous')}</span>
+                      ${m.is_premium ? '<span style="color: #c084fc; margin-right: 4px; font-size: 10px;" title="Telegram Premium">⭐ Premium</span>' : ''}
+                      ${m.is_verified ? '<span style="color: #34d399; font-size: 10px;" title="Telegram Verified">✓ Verified</span>' : ''}
+                    </div>
+                  </td>
+                  <td style="padding: 11px 14px; color: rgba(255, 255, 255, 0.7); font-family: 'JetBrains Mono', monospace; font-size: 10.5px;">
+                    ${m.username ? '@' + escapeHtml(m.username) : '#' + m.id}
+                  </td>
+                  <td style="padding: 11px 14px;">
+                    <span class="badge" style="font-size: 9px; padding: 3px 8px; border-radius: 6px; background: ${color}15; border: 1px solid ${color}; color: ${color}; font-weight: 700; white-space: nowrap; font-family: 'JetBrains Mono', monospace;">
+                      ${m.trust_score || 50}% ${m.trust_level || 'NEUTRAL'}
+                    </span>
+                    ${m.persona_archetype ? `<div style="font-size: 8.5px; color: #38bdf8; margin-top: 3px; font-weight: 600;">🤖 ${escapeHtml(m.persona_archetype.split('//')[0].trim())}</div>` : ''}
+                  </td>
+                  <td style="padding: 11px 14px;">
+                    <div style="font-weight: 700; color: #38bdf8; font-family: 'JetBrains Mono', monospace;">
+                      ${(m.message_count || 0).toLocaleString()} <span style="color: rgba(255, 255, 255, 0.45); font-size: 9px; font-weight: 400;">msgs</span>
+                      ${m.reactions_received ? `<span style="color: #f59e0b; margin-left: 5px;" title="${m.reactions_received} reactions received">🔥 ${m.reactions_received}</span>` : ''}
+                    </div>
+                  </td>
+                  <td style="padding: 11px 14px;">
+                    <div style="font-size: 10px; color: rgba(255, 255, 255, 0.8);">
+                      ${m.first_seen ? m.first_seen.split('T')[0] : (m.vintage || 'Active')}
+                    </div>
+                    <div style="font-size: 9px; color: rgba(255, 255, 255, 0.45);">
+                      ${m.last_seen ? 'Last: ' + (m.last_seen.includes('T') ? m.last_seen.split('T')[0] : m.last_seen) : 'Observed in radar'}
+                    </div>
+                  </td>
+                  <td style="padding: 11px 14px; text-align: right;">
+                    <button type="button" onclick="openWiretapDossier(${m.id}, '${escapeQuote(m.full_name)}', '${m.username || ''}')" class="act-pill" style="padding: 4px 10px; font-size: 10px; border-radius: 6px;">
+                      Dossier
+                    </button>
+                    <button type="button" onclick="quickAddWatchdog('user', '${m.username ? '@' + m.username : m.id}')" class="act-pill danger" style="padding: 4px 10px; font-size: 10px; border-radius: 6px; margin-left: 4px;">
+                      Track
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="recon-table-dock-footer" style="flex-shrink: 0; padding: 10px 16px; background: rgba(12, 16, 26, 0.95); border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: rgba(255, 255, 255, 0.6); font-family: 'JetBrains Mono', monospace;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+          <span>RECON DATABASE ACTIVE • 0 SENSOR LEAKS</span>
+        </span>
+        <span>DISPLAYING ${Math.min(members.length, 250)} OF ${members.length.toLocaleString()} MEMBERS</span>
+      </div>
     `;
     safeCreateIcons();
   }
@@ -16182,7 +16411,7 @@ html, body {
 
       const welcomeMsg = data.is_owner
         ? '👑 Master Owner clearance verified. War room unlocked.'
-        : `🛡️ Clearance verified. Welcome Operator @${currentOperatorUser}`;
+        : '🛡️ Clearance verified. Stealth Sensor Console Active.';
       if (window.showToast) {
         showToast(welcomeMsg, 'success');
       }
