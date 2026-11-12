@@ -32,10 +32,14 @@
 <!-- Three.js CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<!-- Immediate Pre-Render Device Classification (Mobile vs Tablet vs Monitor) -->
+<!-- Immediate Pre-Render Device Classification (Mobile vs Tablet vs Monitor) & Theme Restoration -->
 <script>
 (function() {
   try {
+    var savedTheme = localStorage.getItem('kage_theme');
+    if (savedTheme === 'light') {
+      document.documentElement.classList.add('theme-light');
+    }
     var w = window.innerWidth || screen.width;
     var h = window.innerHeight || screen.height;
     var ratio = w / h;
@@ -2411,10 +2415,23 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
   /* ── 3. WAR ROOM HUD: ZERO CLUTTER, FULL VIEWPORT FIT ── */
   .war-room-hud {
-    height: calc(100dvh - var(--nav-h) - 56px - env(safe-area-inset-bottom, 0px)) !important;
-    position: relative !important;
+    position: fixed !important;
+    top: var(--nav-h, 50px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    height: calc(100vh - var(--nav-h, 50px)) !important;
+    height: calc(100dvh - var(--nav-h, 50px)) !important;
+    max-height: calc(100vh - var(--nav-h, 50px)) !important;
+    max-height: calc(100dvh - var(--nav-h, 50px)) !important;
+    min-height: calc(100vh - var(--nav-h, 50px)) !important;
+    min-height: calc(100dvh - var(--nav-h, 50px)) !important;
     overflow: hidden !important;
     border: none !important;
+    z-index: 10 !important;
   }
 
   /* Eliminate Redundant Desktop Clutter Bars on Mobile:
@@ -3259,6 +3276,195 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   --text-secondary: var(--steel-grey);
 }
 
+/* ── 01B. LIGHT / WHITE THEME TOKENS & OVERRIDES ── */
+html.theme-light,
+body.theme-light {
+  --ink: #f1f5f9;
+  --ink-2: #ffffff;
+  --bone: #0f172a;
+  --bone-dim: #334155;
+  --muted: #64748b;
+  --warm-white: #0f172a;
+  --steel-grey: #475569;
+  --muted-grey: #64748b;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --line: rgba(0, 0, 0, 0.12);
+  --line-soft: rgba(0, 0, 0, 0.07);
+  --dark-border: rgba(0, 0, 0, 0.14);
+  --hairline: rgba(0, 0, 0, 0.08);
+  --hairline-hover: rgba(0, 0, 0, 0.18);
+  --apple-glass-bg: rgba(255, 255, 255, 0.88);
+  --apple-glass-card: rgba(255, 255, 255, 0.94);
+  --apple-glass-elevated: #ffffff;
+  --apple-glass-border: rgba(0, 0, 0, 0.12);
+  --apple-glass-border-subtle: rgba(0, 0, 0, 0.06);
+  --apple-glass-border-bright: rgba(0, 0, 0, 0.22);
+  --deep-carbon: #ffffff;
+  --graphite: #f8fafc;
+  --elevated: #ffffff;
+  --bg-card: #ffffff;
+  --bg-surface: #f8fafc;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+body.theme-light .nav {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-light .nav .brand h2,
+body.theme-light .nav-link,
+body.theme-light .kage-btn-pill {
+  color: #0f172a !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+body.theme-light .war-room-hud {
+  background: #f1f5f9 !important;
+}
+
+body.theme-light .hud-top-bar {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.theme-light .hud-col-left {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.theme-light .hud-tabs-bar {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.theme-light .kage-hud-tab {
+  color: #64748b !important;
+}
+
+body.theme-light .kage-hud-tab.active {
+  color: #0f172a !important;
+  border-bottom-color: var(--vermilion) !important;
+}
+
+body.theme-light .wiretap-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  color: #0f172a !important;
+}
+
+body.theme-light .wiretap-card .name {
+  color: #0f172a !important;
+}
+
+body.theme-light .wiretap-card .msg-txt {
+  color: #1e293b !important;
+}
+
+body.theme-light .wiretap-sub-header {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.theme-light .flt-btn {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #475569 !important;
+}
+
+body.theme-light .flt-btn.active {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #0f172a !important;
+}
+
+body.theme-light .kage-dock {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-light .kage-dock-item {
+  color: #64748b !important;
+}
+
+body.theme-light .kage-dock-item.active {
+  color: var(--vermilion) !important;
+}
+
+body.theme-light #recon-table-wrap {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-light .recon-table th,
+body.theme-light .recon-table thead th {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+body.theme-light .recon-row {
+  color: #1e293b !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-light .recon-row:hover {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+body.theme-light .kage-modal,
+body.theme-light #mobile-tools-sheet .kage-modal {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.16) !important;
+}
+
+body.theme-light #nav-tools-dropdown {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  color: #0f172a !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+body.theme-light .kage-dropdown-item {
+  color: #1e293b !important;
+}
+
+body.theme-light .kage-dropdown-item:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-light .mobile-tool-card {
+  background: #f8fafc !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #0f172a !important;
+}
+
+body.theme-light .mobile-tool-card b {
+  color: #0f172a !important;
+}
+
+body.theme-light .hud-left-footer-dock {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-light .hud-top-ticker-pill,
+body.theme-light .target-sel,
+body.theme-light .group-picker-trigger {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
 /* ── 02. BASE BODY & FULL DISPLAY ROOTS ── */
 html, body {
   background: #06080d !important;
@@ -3455,19 +3661,20 @@ body.warroom-active {
 
 .war-room-hud {
   position: fixed !important;
-  top: 56px !important;
+  top: var(--nav-h, 50px) !important;
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
   width: 100vw !important;
   max-width: 100vw !important;
-  height: calc(100vh - 56px) !important;
-  height: calc(100dvh - 56px) !important;
-  max-height: calc(100vh - 56px) !important;
-  max-height: calc(100dvh - 56px) !important;
-  min-height: calc(100vh - 56px) !important;
-  min-height: calc(100dvh - 56px) !important;
+  height: calc(100vh - var(--nav-h, 50px)) !important;
+  height: calc(100dvh - var(--nav-h, 50px)) !important;
+  max-height: calc(100vh - var(--nav-h, 50px)) !important;
+  max-height: calc(100dvh - var(--nav-h, 50px)) !important;
+  min-height: calc(100vh - var(--nav-h, 50px)) !important;
+  min-height: calc(100dvh - var(--nav-h, 50px)) !important;
   margin: 0 !important;
+  margin-top: 0 !important;
   padding: 0 !important;
   display: flex !important;
   flex-direction: column !important;
@@ -4433,15 +4640,25 @@ body.warroom-active {
     display: none !important;
   }
   
-  /* War Room HUD Viewport Fill - Edge to Edge */
+  /* War Room HUD Viewport Fill - Edge to Edge with ZERO GAP */
   .war-room-hud {
+    position: fixed !important;
+    top: var(--nav-h, 50px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    height: calc(100vh - var(--nav-h, 50px)) !important;
     height: calc(100dvh - var(--nav-h, 50px)) !important;
+    max-height: calc(100vh - var(--nav-h, 50px)) !important;
     max-height: calc(100dvh - var(--nav-h, 50px)) !important;
+    min-height: calc(100vh - var(--nav-h, 50px)) !important;
     min-height: calc(100dvh - var(--nav-h, 50px)) !important;
-    position: relative !important;
     overflow: hidden !important;
     border: none !important;
-    margin-top: var(--nav-h, 50px) !important;
+    z-index: 10 !important;
   }
 
   /* Single-column Cockpit */
@@ -5665,6 +5882,11 @@ body.warroom-active {
         <button type="button" onclick="openTerminalModal(); closeNavToolsDropdown();" class="kage-dropdown-item">
           <i data-lucide="terminal" style="width: 13px; height: 13px; color: var(--vermilion);"></i>
           <span>Terminal Launch Method</span>
+        </button>
+        <div style="border-top: 1px solid var(--line-soft); margin: 4px 0;"></div>
+        <button type="button" id="theme-toggle-desktop-btn" onclick="toggleKageTheme(); closeNavToolsDropdown();" class="kage-dropdown-item" title="Toggle Obsidian Dark / Daylight White Theme">
+          <i id="theme-toggle-desktop-icon" data-lucide="sun" style="width: 13px; height: 13px; color: #f59e0b;"></i>
+          <span id="theme-toggle-desktop-text">Daylight / Obsidian Theme</span>
         </button>
       </div>
     </div>
@@ -8128,6 +8350,11 @@ body.warroom-active {
         <i data-lucide="smartphone"></i>
         <b>Device Intel</b>
         <span>Screen &amp; Ratio</span>
+      </button>
+      <button id="theme-toggle-mobile-btn" type="button" onclick="toggleKageTheme(); closeMobileToolsSheet();" class="mobile-tool-card" style="border-color: rgba(245,158,11,0.4);">
+        <i id="theme-toggle-mobile-icon" data-lucide="sun" style="color: #f59e0b;"></i>
+        <b id="theme-toggle-mobile-label">Theme Switcher</b>
+        <span id="theme-toggle-mobile-desc">Daylight / Obsidian</span>
       </button>
     </div>
   </div>
@@ -12909,8 +13136,15 @@ body.warroom-active {
   let currentReconFilter = 'all';
   let centerGhostFilter = 'all';
 
-  function switchCenterTab(tab) {
+  function switchCenterTab(tab, skipHistory = false) {
     activeCenterTab = tab;
+    if (!skipHistory && window.history && window.history.pushState) {
+      if (tab !== 'wiretap') {
+        try {
+          window.history.pushState({ kageNav: true, tab: tab }, '', '#' + tab);
+        } catch (e) {}
+      }
+    }
     const tabs = ['wiretap', 'intel', 'ghost', 'recon', 'alpha'];
     tabs.forEach(t => {
       const content = document.getElementById(`tab-content-${t}`);
@@ -17006,7 +17240,7 @@ body.warroom-active {
     playZenSound('bell');
   }
 
-  function switchMobileNav(tab) {
+  function switchMobileNav(tab, skipHistory = false) {
     playZenSound('clack');
     if (currentViewMode !== 'warroom') switchViewMode('warroom');
     document.querySelectorAll('.kage-dock-item').forEach(el => el.classList.remove('active'));
@@ -17014,22 +17248,27 @@ body.warroom-active {
     if (btn) btn.classList.add('active');
 
     if (tab === 'wiretap') {
-      switchMobileHUDCol('center');
-      switchCenterTab('wiretap');
+      switchMobileHUDCol('center', skipHistory);
+      switchCenterTab('wiretap', skipHistory);
     } else if (tab === 'sentinel') {
-      switchMobileHUDCol('left');
+      switchMobileHUDCol('left', skipHistory);
     } else if (tab === 'recon') {
-      switchMobileHUDCol('center');
-      switchCenterTab('recon');
+      switchMobileHUDCol('center', skipHistory);
+      switchCenterTab('recon', skipHistory);
     } else if (tab === 'ghost') {
-      switchMobileHUDCol('center');
-      switchCenterTab('ghost');
+      switchMobileHUDCol('center', skipHistory);
+      switchCenterTab('ghost', skipHistory);
     }
     safeCreateIcons();
   }
 
-  function switchMobileHUDCol(col) {
+  function switchMobileHUDCol(col, skipHistory = false) {
     playZenSound('click');
+    if (!skipHistory && col === 'left' && window.history && window.history.pushState) {
+      try {
+        window.history.pushState({ kageNav: true, col: 'left' }, '', '#sentinel');
+      } catch (e) {}
+    }
     const cols = {
       left: document.querySelector('.hud-col-left'),
       center: document.querySelector('.hud-col-center'),
@@ -17069,6 +17308,11 @@ body.warroom-active {
     playZenSound('clack');
     const modal = document.getElementById('mobile-tools-sheet');
     if (modal) modal.style.display = 'flex';
+    if (window.history && window.history.pushState) {
+      try {
+        window.history.pushState({ kageNav: true, modal: 'mobile-tools-sheet' }, '', '#tools');
+      } catch (e) {}
+    }
     safeCreateIcons();
   }
 
@@ -17076,6 +17320,129 @@ body.warroom-active {
     const modal = document.getElementById('mobile-tools-sheet');
     if (modal) modal.style.display = 'none';
   }
+
+  // ── 12. OBSIDIAN / DAYLIGHT WHITE THEME SYSTEM ──
+  let currentKageTheme = localStorage.getItem('kage_theme') || 'dark';
+
+  function applyKageTheme(theme, notify = false) {
+    currentKageTheme = theme === 'light' ? 'light' : 'dark';
+    try {
+      localStorage.setItem('kage_theme', currentKageTheme);
+    } catch(e) {}
+
+    const isLight = currentKageTheme === 'light';
+    if (isLight) {
+      document.documentElement.classList.add('theme-light');
+      document.body.classList.add('theme-light');
+    } else {
+      document.documentElement.classList.remove('theme-light');
+      document.body.classList.remove('theme-light');
+    }
+
+    // Update Desktop button in Tools dropdown
+    const deskIcon = document.getElementById('theme-toggle-desktop-icon');
+    const deskText = document.getElementById('theme-toggle-desktop-text');
+    if (deskIcon) deskIcon.setAttribute('data-lucide', isLight ? 'moon' : 'sun');
+    if (deskText) deskText.textContent = isLight ? 'Obsidian Dark Theme' : 'Daylight White Theme';
+
+    // Update Mobile button in Tactical Operations bottom sheet
+    const mobIcon = document.getElementById('theme-toggle-mobile-icon');
+    const mobLabel = document.getElementById('theme-toggle-mobile-label');
+    const mobDesc = document.getElementById('theme-toggle-mobile-desc');
+    if (mobIcon) mobIcon.setAttribute('data-lucide', isLight ? 'moon' : 'sun');
+    if (mobLabel) mobLabel.textContent = isLight ? 'Obsidian Theme' : 'Daylight Theme';
+    if (mobDesc) mobDesc.textContent = isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode';
+
+    safeCreateIcons();
+
+    if (notify) {
+      showToast(isLight ? '☀️ Daylight White theme engaged' : '🌙 Obsidian Dark theme engaged', 'info');
+      playZenSound('clack');
+    }
+  }
+
+  function toggleKageTheme() {
+    const nextTheme = currentKageTheme === 'light' ? 'dark' : 'light';
+    applyKageTheme(nextTheme, true);
+  }
+
+  // ── 13. NATIVE HARDWARE / BROWSER BACK BUTTON TAB CLOSURE ──
+  let lastKageBackPress = 0;
+
+  function initKageHistoryNavigation() {
+    if (window.history && window.history.replaceState) {
+      try {
+        window.history.replaceState({ kageNav: true, tab: 'wiretap', root: true }, '', window.location.pathname);
+      } catch (e) {}
+    }
+  }
+
+  window.addEventListener('popstate', function(e) {
+    // 1. If any modal overlay is open, close it and prevent leaving the site
+    const openModals = Array.from(document.querySelectorAll('.kage-modal-overlay')).filter(el => {
+      return el.style.display && el.style.display !== 'none';
+    });
+    if (openModals.length > 0) {
+      const topModal = openModals[openModals.length - 1];
+      topModal.style.display = 'none';
+      if (topModal.id === 'vc-modal' && typeof closeVCModal === 'function') {
+        try { closeVCModal(); } catch (err) {}
+      }
+      if (window.history && window.history.pushState) {
+        window.history.pushState({ kageNav: true, tab: activeCenterTab }, '', activeCenterTab === 'wiretap' ? window.location.pathname : '#' + activeCenterTab);
+      }
+      return;
+    }
+
+    // 2. If desktop nav tools dropdown is open, close it
+    const navTools = document.getElementById('nav-tools-dropdown');
+    if (navTools && navTools.style.display !== 'none') {
+      navTools.style.display = 'none';
+      if (window.history && window.history.pushState) {
+        window.history.pushState({ kageNav: true, tab: activeCenterTab }, '', activeCenterTab === 'wiretap' ? window.location.pathname : '#' + activeCenterTab);
+      }
+      return;
+    }
+
+    // 3. If mobile Sentinel column is open, close Sentinel and return to Wiretap
+    const hudLeft = document.querySelector('.hud-col-left');
+    if (hudLeft && hudLeft.classList.contains('mobile-active')) {
+      switchMobileHUDCol('center', true);
+      document.querySelectorAll('.kage-dock-item').forEach(el => el.classList.remove('active'));
+      const wiretapDock = document.getElementById('mob-dock-wiretap');
+      if (wiretapDock) wiretapDock.classList.add('active');
+      if (window.history && window.history.pushState) {
+        window.history.pushState({ kageNav: true, tab: 'wiretap' }, '', window.location.pathname);
+      }
+      return;
+    }
+
+    // 4. If any sub-tab (intel, ghost, recon, alpha) is active, close the tab and return to Wiretap
+    if (activeCenterTab && activeCenterTab !== 'wiretap') {
+      switchCenterTab('wiretap', true);
+      document.querySelectorAll('.kage-dock-item').forEach(el => el.classList.remove('active'));
+      const wiretapDock = document.getElementById('mob-dock-wiretap');
+      if (wiretapDock) wiretapDock.classList.add('active');
+      if (window.history && window.history.pushState) {
+        window.history.pushState({ kageNav: true, tab: 'wiretap' }, '', window.location.pathname);
+      }
+      return;
+    }
+
+    // 5. If already at the main Wiretap feed: double-tap protection to avoid accidental website exit
+    const now = Date.now();
+    if (now - lastKageBackPress < 2500) {
+      // User tapped back twice within 2.5s -> let browser exit naturally
+      return;
+    }
+    lastKageBackPress = now;
+    if (window.history && window.history.pushState) {
+      window.history.pushState({ kageNav: true, tab: 'wiretap' }, '', window.location.pathname);
+    }
+    if (typeof showToast === 'function') {
+      showToast('Press BACK again to exit War Room', 'info');
+    }
+  });
 
   // Reactive listeners for rotation & viewport resizing
   window.addEventListener('resize', () => {
@@ -17088,6 +17455,8 @@ body.warroom-active {
   });
 
   window.onload = () => {
+    applyKageTheme(currentKageTheme, false);
+    initKageHistoryNavigation();
     safeCreateIcons();
     checkOwnerStatus();
     detectDeviceProfile();
