@@ -1236,37 +1236,40 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 }
 .wiretap-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 6px;
   font-size: 11px;
 }
 .wiretap-user-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 .wiretap-avatar-pill {
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: rgba(223, 231, 224, 0.1);
   display: grid;
   place-items: center;
   position: relative;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: #fff;
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  flex: 0 0 36px;
   user-select: none;
   cursor: pointer;
   transition: transform 0.18s ease, border-color 0.18s ease;
 }
 .wiretap-avatar-pill:hover {
-  transform: scale(1.12);
+  transform: scale(1.08);
   border-color: var(--vermilion);
 }
 .wiretap-avatar-img {
@@ -1285,19 +1288,86 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   font-weight: 700;
   text-transform: uppercase;
 }
+.wiretap-user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.wiretap-user-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
 .wiretap-sender-name {
-  font-weight: 500;
-  color: var(--bone);
+  font-weight: 600;
+  color: #ffffff;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+}
+.wiretap-user-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 .wiretap-sender-handle {
-  color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  color: #94a3b8;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+.wiretap-reputation-pill {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding: 1px 7px;
+  border-radius: 6px;
+  border: 1px solid;
+  line-height: 1.35;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: opacity 0.15s ease;
+}
+.wiretap-reputation-pill:hover {
+  opacity: 0.85;
+}
+.wiretap-group-tag {
   font-size: 10px;
+  color: #64748b;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  flex: 0 0 auto;
+}
+.wiretap-time-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-top: 1px;
 }
 .wiretap-time {
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--muted);
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "JetBrains Mono", monospace;
+  color: #94a3b8;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .wiretap-text {
   font-size: 12px;
@@ -2537,69 +2607,100 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     background: rgba(224, 35, 28, 0.07) !important;
   }
 
-  /* Card Header: Avatar, Name, Trust Pill, Time, More Button */
+  /* Card Header: Avatar, Name, Handle, Trust Pill, Time, More Button (Natural 2-Line Structure) */
   .wiretap-header {
     display: flex !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     justify-content: space-between !important;
     gap: 8px !important;
-    margin-bottom: 5px !important;
+    margin-bottom: 6px !important;
   }
   .wiretap-user-meta {
-    display: inline-flex !important;
+    display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 9px !important;
     min-width: 0 !important;
     flex: 1 1 auto !important;
     overflow: hidden !important;
   }
   .wiretap-avatar-pill {
-    width: 32px !important;
-    height: 32px !important;
+    width: 36px !important;
+    height: 36px !important;
     font-size: 13px !important;
     font-weight: 600 !important;
-    flex: 0 0 32px !important;
+    flex: 0 0 36px !important;
     border-radius: 50% !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+  }
+  .wiretap-user-details {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+  }
+  .wiretap-user-top {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    min-width: 0 !important;
   }
   .wiretap-sender-name {
     font-size: 13.5px !important;
-    font-family: 'Onest', sans-serif !important;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif !important;
     font-weight: 600 !important;
-    color: #f8fafc !important;
+    color: #ffffff !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    max-width: 130px !important;
+    max-width: 190px !important;
+    letter-spacing: -0.01em !important;
+  }
+  .wiretap-user-sub {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
   }
   .wiretap-sender-handle {
-    font-size: 11.5px !important;
+    font-size: 11px !important;
     color: #94a3b8 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    max-width: 110px !important;
+  }
+  .wiretap-reputation-pill {
+    font-size: 9px !important;
+    padding: 1px 6px !important;
+    border-radius: 5px !important;
+    white-space: nowrap !important;
+    flex: 0 0 auto !important;
+  }
+  .wiretap-group-tag {
+    font-size: 9.5px !important;
+    color: #64748b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
     max-width: 90px !important;
+    flex: 0 0 auto !important;
   }
   .wiretap-time-wrap {
-    display: inline-flex !important;
+    display: flex !important;
     align-items: center !important;
     gap: 6px !important;
     flex: 0 0 auto !important;
     margin-left: auto !important;
-  }
-  .wiretap-group-badge {
-    font-size: 10px !important;
-    padding: 2px 6px !important;
-    border-radius: 6px !important;
-    max-width: 90px !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    padding-top: 1px !important;
   }
   .wiretap-time {
     font-size: 11px !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    color: #64748b !important;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "JetBrains Mono", monospace !important;
+    color: #94a3b8 !important;
+    white-space: nowrap !important;
     flex: 0 0 auto !important;
   }
   .wiretap-more-btn {
@@ -4517,19 +4618,19 @@ html, body {
     border: 1px solid var(--apple-glass-border) !important;
   }
   .wiretap-header {
-    gap: 6px !important;
+    gap: 8px !important;
     flex-wrap: nowrap !important;
   }
   .wiretap-sender-name {
-    font-size: 12px !important;
-    max-width: 120px !important;
+    font-size: 13.5px !important;
+    max-width: 200px !important;
   }
   .wiretap-sender-handle {
-    font-size: 9.5px !important;
-    max-width: 80px !important;
+    font-size: 11px !important;
+    max-width: 120px !important;
   }
   .wiretap-time {
-    font-size: 9.5px !important;
+    font-size: 11px !important;
   }
   .wiretap-msg-tx {
     font-size: 12.5px !important;
@@ -7718,7 +7819,7 @@ html, body {
   // ═══════════════════════════════════════════════════════════════
   function formatLocalTime(val) {
     if (!val) {
-      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     }
     let d;
     if (typeof val === 'number') {
@@ -7726,10 +7827,11 @@ html, body {
     } else if (typeof val === 'string') {
       val = val.trim();
       if (!val) {
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
       }
       if (/\b(?:am|pm)\b/i.test(val)) {
-        return val;
+        // Strip seconds and leading zeros: "09:14:45 pm" -> "9:14 pm"
+        return val.replace(/:(\d{2})(?::\d{2})\s*(am|pm)/i, ':$1 $2').replace(/^0(\d):/, '$1:');
       }
       if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
         // Treat raw HH:MM:SS from server as UTC time today
@@ -7748,7 +7850,7 @@ html, body {
     if (!d || isNaN(d.getTime())) {
       return String(val);
     }
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
   }
 
   function formatLocalDateTime(val) {
@@ -11484,19 +11586,20 @@ html, body {
     const senderInitial = (data.full_name || 'U').charAt(0).toUpperCase();
     const usernameDisplay = data.username ? `@${data.username}` : `ID: ${data.user_id}`;
 
-    const groupBadge = (wiretapScope === 'all' || data.group_title) ? `
-      <span class="badge badge-muted wiretap-group-badge" style="font-size: 8.5px; padding: 1px 5px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(data.group_title || '')}">
-        ${escapeHtml(data.group_title || ('#' + (data.group_id || '')))}
-      </span>
+    // Group Badge: ONLY displayed in GLOBAL mode ('all') when multiple groups interleave. In TARGET mode, it is hidden.
+    const groupBadge = (wiretapScope === 'all' && data.group_title) ? `
+      <span class="wiretap-group-tag" title="${escapeHtml(data.group_title)}">in ${escapeHtml(data.group_title)}</span>
     ` : '';
 
     const effectiveGid = data.group_id || activeGid;
 
-    const msgCountSuffix = data.message_count ? ` • ${data.message_count >= 1000 ? (data.message_count/1000).toFixed(1) + 'k' : data.message_count} msgs` : '';
-    const tierName = data.trust_level ? data.trust_level.split(' ')[0] : 'TRUST';
-    const trustBadge = data.trust_score !== undefined ? `
-      <span class="badge" style="font-size: 8px; padding: 1px 6px; background: rgba(5,7,10,0.85); border: 1px solid ${data.trust_color || '#38bdf8'}; color: ${data.trust_color || '#38bdf8'}; cursor: pointer;" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" title="${data.trust_level || 'Reputation'}: ${data.trust_score}/100 • ${data.message_count ? data.message_count + ' msgs in 100k history' : 'Unindexed chatter'}">
-        ${data.trust_score}% ${tierName}${msgCountSuffix}
+    // Reputation Score Pill: Clean, single-line, readable sentence case
+    const tierColor = data.trust_color || '#38bdf8';
+    const rawTier = data.trust_level ? data.trust_level.split(' ')[0] : '';
+    const tierFormatted = rawTier ? (rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase()) : '';
+    const trustBadge = (data.trust_score !== undefined && data.trust_score !== null) ? `
+      <span class="wiretap-reputation-pill" style="border-color: ${tierColor}; color: ${tierColor}; background: ${tierColor}18;" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" title="${data.trust_level || 'Reputation'}: ${data.trust_score}%${data.message_count ? ' (' + data.message_count + ' msgs)' : ''} • Click for Dossier">
+        ${data.trust_score}% ${tierFormatted}
       </span>
     ` : '';
 
@@ -11607,12 +11710,18 @@ html, body {
       <div class="wiretap-header">
         <div class="wiretap-user-meta">
           ${avatarHtml}
-          <span class="wiretap-sender-name">${escapeHtml(data.full_name || 'Anonymous')}</span>
-          <span class="wiretap-sender-handle">${usernameDisplay}</span>
-          ${trustBadge}
+          <div class="wiretap-user-details">
+            <div class="wiretap-user-top">
+              <span class="wiretap-sender-name" title="${escapeHtml(data.full_name || 'Anonymous')}">${escapeHtml(data.full_name || 'Anonymous')}</span>
+            </div>
+            <div class="wiretap-user-sub">
+              <span class="wiretap-sender-handle">${usernameDisplay}</span>
+              ${trustBadge}
+              ${groupBadge}
+            </div>
+          </div>
         </div>
         <div class="wiretap-time-wrap">
-          ${groupBadge}
           <span class="wiretap-time">${formatLocalTime(data.timestamp || data.date)}</span>
           <button type="button" class="wiretap-more-btn" onclick="event.stopPropagation(); handleWiretapCardClick(this.closest('.wiretap-card'), event);" title="Actions & Reactions">
             <i data-lucide="more-horizontal" style="width: 14px; height: 14px;"></i>
