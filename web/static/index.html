@@ -1212,9 +1212,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   padding: 10px 14px;
   transition: background 0.15s ease, border-color 0.15s ease;
   animation: slideInMsg .16s ease-out;
-  contain: layout style;
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 85px;
   transform: translateZ(0);
-  will-change: transform, opacity;
 }
 @keyframes slideInMsg {
   from { opacity: 0; transform: translateY(-6px); }
@@ -3935,6 +3936,9 @@ html, body {
   padding: 14px 18px 28px 18px !important;
   scroll-behavior: auto !important;
   box-sizing: border-box !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+  contain: layout paint !important;
 }
 #tab-content-intel,
 #tab-content-ghost,
@@ -3948,27 +3952,29 @@ html, body {
   overflow-x: hidden !important;
   box-sizing: border-box !important;
   padding: 14px 18px 28px 18px !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
-/* Transparent Liquid Glass Cards */
+/* High-Velocity 120 FPS Liquid Glass Cards (Zero-Jank Virtual Composite) */
 .wiretap-card {
-  background: var(--apple-glass-bg) !important;
-  backdrop-filter: var(--apple-blur-card) !important;
-  -webkit-backdrop-filter: var(--apple-blur-card) !important;
+  background: rgba(13, 17, 25, 0.78) !important;
   border: 1px solid var(--apple-glass-border) !important;
   border-radius: var(--apple-radius-md) !important;
   padding: 13px 16px !important;
-  box-shadow: var(--apple-shadow-xs), var(--apple-glass-shine) !important;
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease !important;
-  contain: layout style !important;
+  box-shadow: var(--apple-shadow-xs) !important;
+  transition: background 0.12s ease, border-color 0.12s ease !important;
+  contain: layout style paint !important;
+  content-visibility: auto !important;
+  contain-intrinsic-size: 0 85px !important;
   transform: translateZ(0) !important;
-  will-change: transform, opacity !important;
 }
-.wiretap-card:hover {
-  background: var(--apple-glass-elevated) !important;
-  border-color: var(--apple-glass-border-bright) !important;
-  box-shadow: var(--apple-shadow-md), var(--apple-glass-shine-intense) !important;
-  transform: translateY(-1px) !important;
+@media (hover: hover) and (pointer: fine) {
+  .wiretap-card:hover {
+    background: rgba(22, 28, 40, 0.92) !important;
+    border-color: var(--apple-glass-border-bright) !important;
+    box-shadow: var(--apple-shadow-sm) !important;
+  }
 }
 .wiretap-card.threat-card {
   background: rgba(45, 14, 22, 0.35) !important;
@@ -4216,6 +4222,16 @@ html, body {
 }
 .recon-table tr:hover td {
   background: rgba(255, 255, 255, 0.06) !important;
+}
+.recon-row {
+  content-visibility: auto !important;
+  contain-intrinsic-size: 0 46px !important;
+  contain: layout paint !important;
+}
+.recon-table-scroll-wrap {
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+  contain: layout paint !important;
 }
 
 /* ── 09. PRIMARY & SECONDARY BUTTONS ── */
@@ -4621,24 +4637,30 @@ html, body {
     box-shadow: var(--apple-glass-shine) !important;
   }
 
-  /* Chat Feed on Mobile - Smooth edge to edge behind floating island */
+  /* Chat Feed on Mobile - Smooth edge to edge behind floating island (120 FPS Touch Scrolling) */
   #wiretap-stream {
     flex: 1 1 0% !important;
     min-height: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
     padding: 10px 10px calc(76px + env(safe-area-inset-bottom, 0px)) 10px !important;
     gap: 8px !important;
     box-sizing: border-box !important;
     width: 100% !important;
+    contain: layout paint !important;
   }
   .wiretap-card {
     padding: 11px 13px !important;
     border-radius: var(--apple-radius-md) !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    background: var(--apple-glass-bg) !important;
+    background: rgba(13, 17, 25, 0.85) !important;
     border: 1px solid var(--apple-glass-border) !important;
+    contain: layout style paint !important;
+    content-visibility: auto !important;
+    contain-intrinsic-size: 0 80px !important;
   }
   .wiretap-header {
     gap: 8px !important;
@@ -8222,41 +8244,77 @@ html, body {
     latestScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
   }, { passive: true });
 
+  let lastTime = 0;
+  let sanctuary3dRaf = null;
+  let sanctuary3dRunning = false;
+
   function animate(t) {
-    requestAnimationFrame(animate);
+    if (!sanctuary3dRunning) return;
 
-    // Save GPU & battery when backgrounded
-    if (document.hidden) return;
+    // Save GPU & battery when backgrounded or inside War Room HUD
+    if (document.hidden || (typeof currentViewMode !== 'undefined' && currentViewMode === 'warroom')) {
+      sanctuary3dRunning = false;
+      sanctuary3dRaf = null;
+      return;
+    }
 
-    // Pause Sanctuary 3D scene when inside War Room HUD
-    if (typeof currentViewMode !== 'undefined' && currentViewMode === 'warroom') return;
+    sanctuary3dRaf = requestAnimationFrame(animate);
+
+    if (!lastTime) lastTime = t || performance.now();
+    const now = t || performance.now();
+    const dt = Math.min((now - lastTime) / 1000, 0.1);
+    lastTime = now;
+    // Scale motion relative to 60fps baseline for butter-smooth 30-120fps display matching
+    const timeScale = dt * 60;
 
     const s = Math.min(Math.max(latestScrollY / cachedMaxScroll, 0), 1);
     targetCamY = 3.8 + s * 8.0;
     targetCamZ = 14 - s * 22.0;
 
-    camera.position.x += (mouseX * 1.6 - camera.position.x) * 0.05;
-    camera.position.y += (targetCamY - mouseY * 0.8 - camera.position.y) * 0.05;
-    
-    // Rotate celestial member orbit
+    const smoothFactor = 1 - Math.pow(0.95, timeScale);
+    camera.position.x += (mouseX * 1.6 - camera.position.x) * smoothFactor;
+    camera.position.y += (targetCamY - mouseY * 0.8 - camera.position.y) * smoothFactor;
+    camera.position.z += (targetCamZ - camera.position.z) * smoothFactor;
+
+    // Rotate celestial member orbit (scaled to delta time)
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
-      n.angle += n.speed;
+      n.angle += n.speed * timeScale;
       n.mesh.position.x = Math.cos(n.angle) * n.radius;
       n.mesh.position.z = -22 + Math.sin(n.angle) * n.radius;
     }
-    camera.position.z += (targetCamZ - camera.position.z) * 0.05;
     camera.lookAt(0, targetCamY * 0.6 + 2.0, targetCamZ - 28);
 
     const pos = embers.geometry.attributes.position.array;
     for (let i = 1; i < emberCount * 3; i += 3) {
-      pos[i] += 0.015;
+      pos[i] += 0.015 * timeScale;
       if (pos[i] > 14) pos[i] = 0;
     }
     embers.geometry.attributes.position.needsUpdate = true;
     renderer.render(scene, camera);
   }
-  requestAnimationFrame(animate);
+
+  function startSanctuary3D() {
+    if (sanctuary3dRunning) return;
+    if (typeof currentViewMode !== 'undefined' && currentViewMode === 'warroom') return;
+    if (document.hidden) return;
+    sanctuary3dRunning = true;
+    lastTime = performance.now();
+    sanctuary3dRaf = requestAnimationFrame(animate);
+  }
+
+  function pauseSanctuary3D() {
+    sanctuary3dRunning = false;
+    if (sanctuary3dRaf) {
+      cancelAnimationFrame(sanctuary3dRaf);
+      sanctuary3dRaf = null;
+    }
+  }
+
+  window.startSanctuary3D = startSanctuary3D;
+  window.pauseSanctuary3D = pauseSanctuary3D;
+
+  startSanctuary3D();
 })();
 </script>
 
@@ -11358,23 +11416,20 @@ html, body {
       if (wiretapAutoScroll) {
         updateWiretapScrollButtons(true, 'SCROLL: AUTO');
       }
+      isProgrammaticScroll = true;
+      stream.scrollTop = stream.scrollHeight + 10000;
     }
 
     if (force || (wiretapAutoScroll && !userScrolledUpWiretap)) {
       isProgrammaticScroll = true;
-
-      // 1. Instant synchronous scroll to maximum bottom (no scrollIntoView side-effects on ancestors)
-      stream.scrollTop = stream.scrollHeight + 10000;
-
-      // 2. Next animation frame to ensure layout reflow adheres to bottom
-      if (wiretapScrollRaf) cancelAnimationFrame(wiretapScrollRaf);
+      if (wiretapScrollRaf) return; // Coalesce multiple message arrivals within the same frame (prevents layout thrashing)
       wiretapScrollRaf = requestAnimationFrame(() => {
         wiretapScrollRaf = null;
         stream.scrollTop = stream.scrollHeight + 10000;
         if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
         programmaticScrollTimer = setTimeout(() => {
           isProgrammaticScroll = false;
-        }, 120);
+        }, 80);
       });
     }
   }
@@ -11524,6 +11579,9 @@ html, body {
     const vignette = document.getElementById('vignette');
 
     if (mode === 'warroom') {
+      if (typeof window.pauseSanctuary3D === 'function') {
+        window.pauseSanctuary3D();
+      }
       if (glCanvas) glCanvas.style.display = 'none';
       if (vignette) vignette.style.display = 'block';
       if (sanctuaryView) sanctuaryView.style.display = 'none';
@@ -11557,6 +11615,10 @@ html, body {
       if (mobWarroom) mobWarroom.classList.remove('active');
       if (navLinks) navLinks.style.display = 'flex';
       document.body.classList.remove('warroom-active');
+
+      if (typeof window.startSanctuary3D === 'function') {
+        window.startSanctuary3D();
+      }
 
       if (window.updateKageScrollMetrics) {
         window.updateKageScrollMetrics();
@@ -11634,9 +11696,17 @@ html, body {
 
   // Auto-sync catchup on tab focus & background interval (Only when WebSocket stream is offline)
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && currentViewMode === 'warroom') {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        syncWiretapCatchup();
+    if (document.visibilityState === 'visible') {
+      if (currentViewMode === 'warroom') {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          syncWiretapCatchup();
+        }
+      } else if (typeof window.startSanctuary3D === 'function') {
+        window.startSanctuary3D();
+      }
+    } else {
+      if (typeof window.pauseSanctuary3D === 'function') {
+        window.pauseSanctuary3D();
       }
     }
   });
@@ -15359,12 +15429,14 @@ html, body {
     }
 
     updateGraphSelectionUI(target);
+    if (typeof window.wakeGraphSim === 'function') window.wakeGraphSim();
   }
 
   function clearGraphSelection() {
     selectedGraphNode = null;
     hoveredGraphNode = null;
     updateGraphSelectionUI(null);
+    if (typeof window.wakeGraphSim === 'function') window.wakeGraphSim();
   }
 
   function updateGraphSelectionUI(node) {
@@ -15420,6 +15492,7 @@ html, body {
     graphPanY = cy - (cy - graphPanY) * (newScale / graphScale);
     graphScale = newScale;
     updateGraphZoomLabel();
+    if (typeof window.wakeGraphSim === 'function') window.wakeGraphSim();
   }
 
   function resetSocialGraphView() {
@@ -15427,6 +15500,7 @@ html, body {
     graphPanX = 0;
     graphPanY = 0;
     updateGraphZoomLabel();
+    if (typeof window.wakeGraphSim === 'function') window.wakeGraphSim();
   }
 
   function updateGraphZoomLabel() {
@@ -15550,6 +15624,7 @@ html, body {
       graphPanY = mouseY - (mouseY - graphPanY) * (newScale / graphScale);
       graphScale = newScale;
       updateGraphZoomLabel();
+      if (typeof wakeGraphSim === 'function') wakeGraphSim();
     };
 
     canvas.onmousedown = (e) => {
@@ -15577,6 +15652,7 @@ html, body {
       } else {
         canvas.style.cursor = 'grabbing';
       }
+      if (typeof wakeGraphSim === 'function') wakeGraphSim();
     };
 
     canvas.onmousemove = (e) => {
@@ -15591,9 +15667,11 @@ html, body {
         draggedGraphNode.y = worldY;
         draggedGraphNode.vx = 0;
         draggedGraphNode.vy = 0;
+        if (typeof wakeGraphSim === 'function') wakeGraphSim();
       } else if (isPanningGraph) {
         graphPanX = mouseX - graphPanStart.x;
         graphPanY = mouseY - graphPanStart.y;
+        if (typeof wakeGraphSim === 'function') wakeGraphSim();
       } else {
         // Hover detection
         let found = null;
@@ -15608,6 +15686,7 @@ html, body {
         hoveredGraphNode = found;
         canvas.style.cursor = found ? 'pointer' : 'grab';
         updateGraphTooltip(found, mouseX, mouseY);
+        if (found && typeof wakeGraphSim === 'function') wakeGraphSim();
       }
     };
 
@@ -15628,6 +15707,7 @@ html, body {
       isPanningGraph = false;
       draggedGraphNode = null;
       canvas.style.cursor = (selectedGraphNode || hoveredGraphNode) ? 'pointer' : 'grab';
+      if (typeof wakeGraphSim === 'function') wakeGraphSim();
     };
 
     // Mobile Touch Drag, Pan & Pinch-to-Zoom
@@ -15653,6 +15733,7 @@ html, body {
             break;
           }
         }
+        if (typeof wakeGraphSim === 'function') wakeGraphSim();
         if (!draggedGraphNode) {
           isPanningGraph = true;
           graphPanStart = { x: touchX - graphPanX, y: touchY - graphPanY };
@@ -15773,7 +15854,8 @@ html, body {
         l.target.vy -= fy;
       }
 
-      // 3. Very subtle gravity toward center
+      // 3. Very subtle gravity toward center & energy tally
+      let totalEnergy = 0;
       for (let n of graphNodes) {
         if (n !== draggedGraphNode) {
           n.vx += (cx - n.x) * 0.0008;
@@ -15782,6 +15864,7 @@ html, body {
           n.vy *= 0.85;
           n.x += n.vx;
           n.y += n.vy;
+          totalEnergy += Math.abs(n.vx) + Math.abs(n.vy);
         }
       }
 
@@ -15947,8 +16030,22 @@ html, body {
       }
 
       ctx.restore();
+      if (totalEnergy < 0.04 && !draggedGraphNode && !isPanningGraph) {
+        // Simulation reached stable low-energy equilibrium; pause RAF loop to save GPU & CPU
+        graphAnimId = null;
+        return;
+      }
       graphAnimId = requestAnimationFrame(runSim);
     }
+
+    function wakeGraphSim() {
+      if (!graphSimRunning) return;
+      if (!graphAnimId) {
+        graphAnimId = requestAnimationFrame(runSim);
+      }
+    }
+    window.wakeGraphSim = wakeGraphSim;
+
     runSim();
   }
 
