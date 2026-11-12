@@ -3134,6 +3134,8 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   }
   .hud-body {
     grid-template-columns: 280px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    align-items: stretch !important;
   }
   .hud-col-right {
     display: none;
@@ -3437,11 +3439,13 @@ html, body {
 }
 
 /* ── 04. WAR ROOM HUD STRUCTURE & FULL DISPLAY COCKPIT ── */
+html.warroom-active,
 body.warroom-active {
   overflow: hidden !important;
   overscroll-behavior: none !important;
   height: 100vh !important;
   height: 100dvh !important;
+  max-height: 100vh !important;
   max-height: 100dvh !important;
   width: 100vw !important;
   max-width: 100vw !important;
@@ -3457,16 +3461,20 @@ body.warroom-active {
   bottom: 0 !important;
   width: 100vw !important;
   max-width: 100vw !important;
+  height: calc(100vh - 56px) !important;
   height: calc(100dvh - 56px) !important;
+  max-height: calc(100vh - 56px) !important;
   max-height: calc(100dvh - 56px) !important;
+  min-height: calc(100vh - 56px) !important;
   min-height: calc(100dvh - 56px) !important;
   margin: 0 !important;
   padding: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
-  background: transparent !important;
-  backdrop-filter: none !important;
+  background: #080c12 !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
   z-index: 10 !important;
 }
 
@@ -3573,12 +3581,14 @@ body.warroom-active {
   .hud-body {
     display: grid !important;
     grid-template-columns: 310px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
     flex: 1 1 0% !important;
     height: calc(100% - 40px) !important;
     max-height: calc(100% - 40px) !important;
     min-height: 0 !important;
     overflow: hidden !important;
     width: 100% !important;
+    align-items: stretch !important;
   }
   .hud-col {
     padding: 0 !important;
@@ -5392,13 +5402,19 @@ body.warroom-active {
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
-  padding: 16px 20px 16px 20px !important;
+  padding: 14px 18px 14px 18px !important;
   box-sizing: border-box !important;
+}
+
+#tab-content-recon .sec-head {
+  flex-shrink: 0 !important;
+  margin-bottom: 12px !important;
 }
 
 #recon-table-wrap {
   flex: 1 1 0% !important;
   height: 100% !important;
+  max-height: 100% !important;
   min-height: 0 !important;
   display: flex !important;
   flex-direction: column !important;
@@ -5416,10 +5432,11 @@ body.warroom-active {
 .recon-table-scroll-wrap {
   flex: 1 1 0% !important;
   height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
   overflow-y: auto !important;
   overflow-x: auto !important;
   width: 100% !important;
-  min-height: 0 !important;
   -webkit-overflow-scrolling: touch !important;
 }
 
@@ -6068,7 +6085,7 @@ body.warroom-active {
       </div>
 
       <!-- TAB 4: MEMBER RECON MATRIX CONTAINER -->
-      <div id="tab-content-recon" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-recon" style="display: none; flex-direction: column; overflow: hidden; padding: 14px 18px; font-family: 'JetBrains Mono', monospace;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>04</b> — MEMBER RECONNAISSANCE GRID</span>
           <span class="rule"></span>
@@ -11735,7 +11752,9 @@ body.warroom-active {
       if (mobSanctuary) mobSanctuary.classList.remove('active');
       if (mobWarroom) mobWarroom.classList.add('active');
       if (navLinks) navLinks.style.display = 'none';
+      document.documentElement.classList.add('warroom-active');
       document.body.classList.add('warroom-active');
+      window.scrollTo(0, 0);
 
       const isMob = (window.innerWidth < 768) || (document.body && document.body.classList.contains('device-mobile'));
       if (isMob) {
@@ -11758,6 +11777,7 @@ body.warroom-active {
       if (mobSanctuary) mobSanctuary.classList.add('active');
       if (mobWarroom) mobWarroom.classList.remove('active');
       if (navLinks) navLinks.style.display = 'flex';
+      document.documentElement.classList.remove('warroom-active');
       document.body.classList.remove('warroom-active');
 
       if (typeof window.startSanctuary3D === 'function') {
