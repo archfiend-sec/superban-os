@@ -2412,7 +2412,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     padding: 0 6px !important;
     background: rgba(8, 12, 16, 0.96) !important;
     border-bottom: none !important;
-    display: flex !important;
+    display: flex;
     align-items: center !important;
     justify-content: flex-start !important;
     gap: 6px !important;
@@ -2478,7 +2478,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     flex: 1 1 0% !important;
     min-height: 0 !important;
     height: 100% !important;
-    display: flex !important;
+    display: flex;
     flex-direction: column !important;
     overflow: hidden !important;
     padding: 0 !important;
@@ -3628,7 +3628,7 @@ body {
   gap: 8px !important;
 }
 #wiretap-controls-sub {
-  display: flex !important;
+  display: flex;
   align-items: center !important;
   gap: 8px !important;
 }
@@ -3656,12 +3656,23 @@ body {
   color: var(--signal-red) !important;
 }
 
+.kage-tab-hidden,
+#tab-content-wiretap.kage-tab-hidden,
+.wiretap-stream-wrap.kage-tab-hidden,
+#tab-content-intel.kage-tab-hidden,
+#tab-content-ghost.kage-tab-hidden,
+#tab-content-recon.kage-tab-hidden,
+#tab-content-alpha.kage-tab-hidden,
+#wiretap-controls-sub.kage-tab-hidden {
+  display: none !important;
+}
+
 /* Wiretap Stream Layout & Cards */
 .wiretap-stream-wrap {
   flex: 1 1 0% !important;
   height: 100% !important;
   min-height: 0 !important;
-  display: flex !important;
+  display: flex;
   flex-direction: column !important;
   overflow: hidden !important;
   padding: 0 !important;
@@ -4218,7 +4229,7 @@ body {
     flex: 1 1 0% !important;
     height: 100% !important;
     min-height: 0 !important;
-    display: flex !important;
+    display: flex;
     flex-direction: column !important;
     overflow: hidden !important;
     padding: 0 !important;
@@ -4246,7 +4257,7 @@ body {
     min-width: 100% !important;
     height: 38px !important;
     min-height: 38px !important;
-    display: flex !important;
+    display: flex;
     align-items: center !important;
     justify-content: flex-start !important;
     gap: 6px !important;
@@ -4471,6 +4482,83 @@ body {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.85) !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ── 10. ADVANCED RESPONSIVE MODAL COCKPITS (MOBILE VIEWPORT) ── */
+  .graph-modal-cockpit,
+  .siphon-modal-cockpit,
+  .surveillance-modal-cockpit {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    overflow-y: visible !important;
+    min-height: 0 !important;
+    height: auto !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Social Influence Topology Modal Mobile */
+  #social-graph-container {
+    height: 270px !important;
+    min-height: 270px !important;
+    max-height: 290px !important;
+    width: 100% !important;
+    flex: 0 0 270px !important;
+    box-sizing: border-box !important;
+  }
+  #social-graph-canvas {
+    touch-action: none !important;
+    width: 100% !important;
+  }
+  .graph-influencers-wrap {
+    min-height: 220px !important;
+    max-height: 320px !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Signal Siphon & Surveillance Matrix Modals Mobile */
+  .siphon-modal-cockpit > div,
+  .surveillance-modal-cockpit > div {
+    width: 100% !important;
+    min-height: 180px !important;
+    max-height: 320px !important;
+    box-sizing: border-box !important;
+    flex: 1 1 auto !important;
+  }
+  .siphon-arm-bar,
+  .surveillance-arm-bar {
+    padding: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .siphon-arm-inputs {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .siphon-arm-inputs input,
+  .siphon-arm-inputs select,
+  .siphon-arm-inputs button {
+    width: 100% !important;
+    min-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .surveillance-arm-bar .surv-inputs {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .surveillance-arm-bar input,
+  .surveillance-arm-bar select,
+  .surveillance-arm-bar button {
+    width: 100% !important;
     box-sizing: border-box !important;
   }
 }
@@ -6339,26 +6427,27 @@ body {
 <!-- MODAL: TACTICAL SURVEILLANCE RADAR -->
 <div id="surveillance-modal" class="kage-modal-overlay" style="display: none; z-index: 9999;" onclick="closeSurveillanceModal(event)">
   <div class="kage-modal font-mono" style="padding: 24px; max-width: 950px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line);">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(234,179,8,0.15); border: 1px solid #eab308; display: grid; place-items: center;">
+    <div class="mob-sheet-handle" onclick="closeSurveillanceModalDirect()" title="Tap to close sheet"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(234,179,8,0.15); border: 1px solid #eab308; display: grid; place-items: center; flex-shrink: 0;">
           <i data-lucide="radar" style="width: 18px; height: 18px; color: #eab308;"></i>
         </div>
-        <div>
-          <h4 class="display" style="font-size: 17px; color: var(--bone); margin: 0;">SURVEILLANCE RADAR // WATCHLIST MATRIX</h4>
-          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">24/7 BACKGROUND KEYWORD, SCAM, &amp; HIGH-VALUE TARGET INTERCEPTOR</span>
+        <div style="min-width: 0;">
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">SURVEILLANCE RADAR</h4>
+          <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">24/7 BACKGROUND KEYWORD, SCAM, &amp; TARGET INTERCEPTOR</span>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button onclick="refreshSurveillanceData()" class="kage-btn-pill" title="Refresh radar"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> Sync</button>
+      <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+        <button onclick="refreshSurveillanceData()" class="kage-btn-pill" title="Refresh radar"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Sync</span><span class="mob-txt">Sync</span></button>
         <button onclick="closeSurveillanceModalDirect()" class="kage-btn-pill">✕ Close</button>
       </div>
     </div>
 
     <!-- Add Watchlist Target Bar -->
-    <div style="background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; margin-bottom: 14px;">
+    <div class="surveillance-arm-bar" style="background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; margin-bottom: 14px;">
       <div class="eyebrow" style="margin-bottom: 8px; color: var(--bone); font-size: 10px;">+ ENGAGE NEW SURVEILLANCE TARGET</div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <div class="surv-inputs" style="display: flex; gap: 8px; flex-wrap: wrap;">
         <select id="surv-type-select" class="kage-select font-mono" style="width: 130px; font-size: 11px; padding: 6px 10px;">
           <option value="keyword">KEYWORD</option>
           <option value="user">USER ID / HANDLE</option>
@@ -6372,7 +6461,7 @@ body {
     </div>
 
     <!-- 2-Column Cockpit: Active Rules vs Live Alert Log -->
-    <div style="flex: 1; display: grid; grid-template-columns: 320px 1fr; gap: 14px; min-height: 0; overflow: hidden;">
+    <div class="surveillance-modal-cockpit" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; gap: 14px; min-height: 0; overflow: hidden;">
       <!-- Column 1: Active Rules -->
       <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 12px; overflow: hidden;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -6548,30 +6637,31 @@ body {
 <!-- MODAL: SOCIAL INTERACTION & INFLUENCE NETWORK GRAPH -->
 <div id="graph-modal" class="kage-modal-overlay" style="display: none; z-index: 10002;" onclick="closeGraphModal(event)">
   <div class="kage-modal font-mono" style="padding: 24px; max-width: 1050px; width: 95vw; max-height: 90vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line);">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(236,72,153,0.15); border: 1px solid #ec4899; display: grid; place-items: center;">
+    <div class="mob-sheet-handle" onclick="closeGraphModalDirect()" title="Tap to close sheet"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(236,72,153,0.15); border: 1px solid #ec4899; display: grid; place-items: center; flex-shrink: 0;">
           <i data-lucide="share-2" style="width: 18px; height: 18px; color: #ec4899;"></i>
         </div>
-        <div>
-          <h4 class="display" style="font-size: 17px; color: var(--bone); margin: 0;">COMMUNITY SOCIAL INFLUENCE TOPOLOGY</h4>
-          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">FORCE-DIRECTED INTERACTION GRAPH • MAPPING WHO CONVERSES &amp; REPLIES TO WHOM</span>
+        <div style="min-width: 0;">
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">COMMUNITY SOCIAL TOPOLOGY</h4>
+          <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">FORCE-DIRECTED INTERACTION GRAPH • CONVERSATION TOPOLOGY</span>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button onclick="refreshSocialGraph()" class="kage-btn-pill" title="Recalculate topology"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> Recalculate</button>
+      <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+        <button onclick="refreshSocialGraph()" class="kage-btn-pill" title="Recalculate topology"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Recalculate</span><span class="mob-txt">Sync</span></button>
         <button onclick="closeGraphModalDirect()" class="kage-btn-pill">✕ Close</button>
       </div>
     </div>
 
     <!-- Cockpit: Graph Canvas vs Top Influencers -->
-    <div style="flex: 1; display: grid; grid-template-columns: 1fr 280px; gap: 14px; min-height: 0; overflow: hidden;">
+    <div class="graph-modal-cockpit" style="flex: 1; display: grid; grid-template-columns: 1fr 280px; gap: 14px; min-height: 0; overflow: hidden;">
       <!-- Interactive HTML5 Graph Canvas -->
       <div id="social-graph-container" style="position: relative; border: 1px solid var(--line-soft); border-radius: 4px; background: #05070a; overflow: hidden; display: flex; flex-direction: column;">
         <!-- Top Status Tags -->
         <div style="position: absolute; top: 12px; left: 12px; z-index: 10; display: flex; gap: 8px; pointer-events: none;">
           <span id="graph-stats-tag" class="badge badge-muted" style="font-size: 9px; pointer-events: auto;">0 Nodes / 0 Edges</span>
-          <span class="badge badge-emerald" style="font-size: 9px; pointer-events: auto;">Scroll to Zoom &bull; Drag to Pan &bull; Click Node for OSINT</span>
+          <span class="badge badge-emerald desk-only" style="font-size: 9px; pointer-events: auto;">Scroll to Zoom &bull; Drag to Pan &bull; Click Node for OSINT</span>
         </div>
 
         <!-- Floating Zoom Controls HUD -->
@@ -6593,7 +6683,7 @@ body {
       </div>
 
       <!-- Top Influencer Roster -->
-      <div style="border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 12px; display: flex; flex-direction: column; overflow: hidden;">
+      <div class="graph-influencers-wrap" style="border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 12px; display: flex; flex-direction: column; overflow: hidden;">
         <span class="eyebrow" style="color: var(--bone); font-size: 10px; margin-bottom: 8px; display: block;">
           <i data-lucide="crown" style="width: 11px; height: 11px; color: #fbbf24; display: inline; vertical-align: middle;"></i>
           CENTRAL INFLUENCERS (TOP DEGREE)
@@ -6609,29 +6699,30 @@ body {
 <!-- MODAL: AUTONOMOUS SIGNAL SIPHON -->
 <div id="siphon-modal" class="kage-modal-overlay" style="display: none; z-index: 10002;" onclick="closeSiphonModal(event)">
   <div class="kage-modal font-mono" style="padding: 24px; max-width: 950px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line);">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; display: grid; place-items: center;">
+    <div class="mob-sheet-handle" onclick="closeSiphonModalDirect()" title="Tap to close sheet"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; display: grid; place-items: center; flex-shrink: 0;">
           <i data-lucide="send" style="width: 18px; height: 18px; color: #38bdf8;"></i>
         </div>
-        <div>
-          <h4 class="display" style="font-size: 17px; color: var(--bone); margin: 0;">AUTONOMOUS SIGNAL SIPHON MATRIX</h4>
-          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">REAL-TIME PHONE PUSH • DELIVERS HIGH-VALUE ALERTS STRAIGHT TO TELEGRAM SAVED MESSAGES</span>
+        <div style="min-width: 0;">
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">SIGNAL SIPHON MATRIX</h4>
+          <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">REAL-TIME PHONE PUSH • TELEGRAM SAVED MESSAGES</span>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
         <button onclick="testSiphonPing()" class="kage-btn-pill" style="color: #38bdf8; border-color: rgba(56,189,248,0.4);" title="Test Saved Messages phone push notification">
-          <i data-lucide="smartphone" style="width: 11px; height: 11px;"></i> Test Phone Push
+          <i data-lucide="smartphone" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Test Phone Push</span><span class="mob-txt">Test Push</span>
         </button>
-        <button onclick="refreshSiphonData()" class="kage-btn-pill" title="Refresh rules and logs"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> Sync</button>
+        <button onclick="refreshSiphonData()" class="kage-btn-pill" title="Refresh rules and logs"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Sync</span><span class="mob-txt">Sync</span></button>
         <button onclick="closeSiphonModalDirect()" class="kage-btn-pill">✕ Close</button>
       </div>
     </div>
 
     <!-- Add Siphon Target Bar -->
-    <div style="background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; margin-bottom: 14px;">
+    <div class="siphon-arm-bar" style="background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; margin-bottom: 14px;">
       <div class="eyebrow" style="margin-bottom: 8px; color: var(--bone); font-size: 10px;">+ ARM NEW AUTONOMOUS SIPHON ROUTE</div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <div class="siphon-arm-inputs" style="display: flex; gap: 8px; flex-wrap: wrap;">
         <input type="text" id="siphon-name-input" placeholder="Rule Name (e.g. 'Solana Alpha', 'Whale Alert')" class="kage-input font-mono" style="flex: 1; min-width: 140px; font-size: 11px; padding: 6px 10px;">
         <select id="siphon-type-select" onchange="toggleSiphonValField(this.value)" class="kage-select font-mono" style="width: 170px; font-size: 11px; padding: 6px 10px;">
           <option value="crypto">CRYPTO WALLETS (ANY)</option>
@@ -6647,7 +6738,7 @@ body {
     </div>
 
     <!-- 2-Column: Active Rules vs Siphon Log -->
-    <div style="flex: 1; display: grid; grid-template-columns: 320px 1fr; gap: 14px; min-height: 0; overflow: hidden;">
+    <div class="siphon-modal-cockpit" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; gap: 14px; min-height: 0; overflow: hidden;">
       <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 12px; overflow: hidden;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <span class="eyebrow" style="color: var(--bone); font-size: 10px;">ACTIVE SIPHON ROUTES</span>
@@ -11690,10 +11781,24 @@ body {
     tabs.forEach(t => {
       const content = document.getElementById(`tab-content-${t}`);
       const btn = document.getElementById(`tab-btn-${t}`);
-      if (content) content.style.display = (t === tab) ? 'flex' : 'none';
+      if (content) {
+        if (t === tab) {
+          content.style.setProperty('display', 'flex', 'important');
+          content.classList.remove('kage-tab-hidden');
+        } else {
+          content.style.setProperty('display', 'none', 'important');
+          content.classList.add('kage-tab-hidden');
+        }
+      }
       if (btn) {
-        if (t === tab) btn.classList.add('active');
-        else btn.classList.remove('active');
+        if (t === tab) {
+          btn.classList.add('active');
+          if (typeof btn.scrollIntoView === 'function') {
+            btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        } else {
+          btn.classList.remove('active');
+        }
       }
     });
 
@@ -11707,7 +11812,13 @@ body {
 
     const wiretapControls = document.getElementById('wiretap-controls-sub');
     if (wiretapControls) {
-      wiretapControls.style.display = (tab === 'wiretap') ? 'flex' : 'none';
+      if (tab === 'wiretap') {
+        wiretapControls.style.removeProperty('display');
+        wiretapControls.classList.remove('kage-tab-hidden');
+      } else {
+        wiretapControls.style.setProperty('display', 'none', 'important');
+        wiretapControls.classList.add('kage-tab-hidden');
+      }
     }
 
     if (tab === 'wiretap') {
@@ -14222,7 +14333,9 @@ body {
     const m = document.getElementById('graph-modal');
     if (m) {
       m.style.display = 'flex';
-      refreshSocialGraph();
+      setTimeout(() => {
+        refreshSocialGraph();
+      }, 60);
     }
   }
 
@@ -14451,6 +14564,97 @@ body {
       isPanningGraph = false;
       draggedGraphNode = null;
       canvas.style.cursor = hoveredGraphNode ? 'pointer' : 'grab';
+    };
+
+    // Mobile Touch Drag, Pan & Pinch-to-Zoom
+    let touchStartDist = 0;
+    let initialTouchScale = 1;
+
+    canvas.ontouchstart = (e) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const cRect = canvas.getBoundingClientRect();
+        const touchX = touch.clientX - cRect.left;
+        const touchY = touch.clientY - cRect.top;
+        const worldX = (touchX - graphPanX) / graphScale;
+        const worldY = (touchY - graphPanY) / graphScale;
+        dragStartPos = { x: touchX, y: touchY };
+
+        draggedGraphNode = null;
+        for (let n of graphNodes) {
+          const dx = n.x - worldX;
+          const dy = n.y - worldY;
+          if (Math.sqrt(dx * dx + dy * dy) < n.r + 14) {
+            draggedGraphNode = n;
+            break;
+          }
+        }
+        if (!draggedGraphNode) {
+          isPanningGraph = true;
+          graphPanStart = { x: touchX - graphPanX, y: touchY - graphPanY };
+        }
+      } else if (e.touches.length === 2) {
+        isPanningGraph = false;
+        draggedGraphNode = null;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchStartDist = Math.hypot(dx, dy);
+        initialTouchScale = graphScale;
+      }
+      e.preventDefault();
+    };
+
+    canvas.ontouchmove = (e) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const cRect = canvas.getBoundingClientRect();
+        const touchX = touch.clientX - cRect.left;
+        const touchY = touch.clientY - cRect.top;
+        const worldX = (touchX - graphPanX) / graphScale;
+        const worldY = (touchY - graphPanY) / graphScale;
+
+        if (draggedGraphNode) {
+          draggedGraphNode.x = worldX;
+          draggedGraphNode.y = worldY;
+          draggedGraphNode.vx = 0;
+          draggedGraphNode.vy = 0;
+        } else if (isPanningGraph) {
+          graphPanX = touchX - graphPanStart.x;
+          graphPanY = touchY - graphPanStart.y;
+        }
+      } else if (e.touches.length === 2 && touchStartDist > 0) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const factor = dist / touchStartDist;
+        const newScale = Math.max(0.25, Math.min(initialTouchScale * factor, 4.0));
+        
+        const cRect = canvas.getBoundingClientRect();
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - cRect.left;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - cRect.top;
+
+        graphPanX = midX - (midX - graphPanX) * (newScale / graphScale);
+        graphPanY = midY - (midY - graphPanY) * (newScale / graphScale);
+        graphScale = newScale;
+        updateGraphZoomLabel();
+      }
+      e.preventDefault();
+    };
+
+    canvas.ontouchend = (e) => {
+      if (e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        const cRect = canvas.getBoundingClientRect();
+        const touchX = touch.clientX - cRect.left;
+        const touchY = touch.clientY - cRect.top;
+        const moved = Math.sqrt((touchX - dragStartPos.x) ** 2 + (touchY - dragStartPos.y) ** 2);
+        if (moved < 8 && draggedGraphNode) {
+          openOSINTModal(draggedGraphNode.id);
+        }
+      }
+      isPanningGraph = false;
+      draggedGraphNode = null;
+      touchStartDist = 0;
     };
 
     canvas.onmouseleave = () => {
