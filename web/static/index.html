@@ -2439,7 +2439,16 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   }
 
   /* Left & Right HUD Columns (Smooth Touch Pane with Clean Padding) */
-  .hud-body .hud-col-left,
+  .hud-body .hud-col-left {
+    display: none !important;
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    border: none !important;
+    padding: 0 !important;
+  }
   .hud-body .hud-col-right {
     display: none !important;
     width: 100% !important;
@@ -4426,30 +4435,43 @@ html, body {
 
   /* Sentinel / Left Rail Mobile Full-Width Experience (Clean Natural Scrolling) */
   .hud-col-left.mobile-active {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
     background: rgba(10, 14, 22, 0.3) !important;
     backdrop-filter: var(--apple-blur-nav) !important;
     -webkit-backdrop-filter: var(--apple-blur-nav) !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .hud-col-left.mobile-active .hud-left-scroll-area {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0% !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
-    padding: 14px 14px calc(80px + env(safe-area-inset-bottom, 16px)) 14px !important;
+    touch-action: pan-y !important;
+    padding: 14px 14px calc(92px + env(safe-area-inset-bottom, 24px)) 14px !important;
     box-sizing: border-box !important;
-    height: 100% !important;
-  }
-  .hud-col-left.mobile-active .hud-left-scroll-area {
-    flex: 0 0 auto !important;
-    overflow: visible !important;
-    padding: 0 !important;
   }
   .hud-col-left.mobile-active .hud-left-footer-dock {
     flex-shrink: 0 !important;
     position: static !important;
     margin-top: 18px !important;
-    margin-bottom: 8px !important;
+    margin-bottom: 0 !important;
     border-radius: var(--apple-radius-md) !important;
     border: 1px solid var(--apple-glass-border) !important;
-    background: rgba(14, 18, 28, 0.8) !important;
+    background: rgba(14, 18, 28, 0.88) !important;
     box-shadow: var(--apple-shadow-xs) !important;
     padding: 14px !important;
   }
@@ -4664,7 +4686,7 @@ html, body {
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
     touch-action: pan-y !important;
-    padding: 10px 10px calc(76px + env(safe-area-inset-bottom, 0px)) 10px !important;
+    padding: 10px 10px calc(88px + env(safe-area-inset-bottom, 20px)) 10px !important;
     gap: 8px !important;
     box-sizing: border-box !important;
     width: 100% !important;
@@ -4726,7 +4748,7 @@ html, body {
     height: 100% !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 10px 10px calc(76px + env(safe-area-inset-bottom, 0px)) 10px !important;
+    padding: 10px 10px calc(88px + env(safe-area-inset-bottom, 20px)) 10px !important;
     box-sizing: border-box !important;
     width: 100% !important;
   }
@@ -5247,6 +5269,8 @@ html, body {
     max-width: 100% !important;
     height: 100% !important;
     min-height: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
   }
   .hud-col-center.mobile-active {
     display: flex !important;
@@ -5262,15 +5286,21 @@ html, body {
 
 @media (min-width: 769px) {
   .hud-left-scroll-area {
-    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     padding: 16px !important;
     -webkit-overflow-scrolling: touch !important;
-    min-height: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .hud-left-footer-dock {
+    margin-top: auto !important;
     flex-shrink: 0 !important;
     padding: 12px 16px 14px 16px !important;
     background: rgba(12, 16, 26, 0.92) !important;
@@ -5278,6 +5308,7 @@ html, body {
     -webkit-backdrop-filter: blur(24px) !important;
     border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    border-radius: var(--apple-radius-md) !important;
     z-index: 5 !important;
   }
 }
@@ -5806,7 +5837,6 @@ html, body {
           <span style="font-size: 10px; color: var(--muted);">No active keyword triggers. Add above.</span>
         </div>
       </div>
-      </div><!-- end hud-left-scroll-area -->
 
       <!-- Anchored Left Rail Footer Dock -->
       <div class="hud-left-footer-dock">
@@ -5832,6 +5862,7 @@ html, body {
           <span style="color: var(--muted); font-size: 9px;">ZERO SENSOR LEAK</span>
         </div>
       </div>
+      </div><!-- end hud-left-scroll-area -->
     </aside>
 
     <!-- CENTER COLUMN: POWER INTELLIGENCE SUITE (flex-1) -->
