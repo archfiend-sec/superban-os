@@ -3290,27 +3290,27 @@ body.theme-light {
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --line: rgba(0, 0, 0, 0.12);
-  --line-soft: rgba(0, 0, 0, 0.07);
+  --line-soft: rgba(0, 0, 0, 0.08);
   --dark-border: rgba(0, 0, 0, 0.14);
   --hairline: rgba(0, 0, 0, 0.08);
   --hairline-hover: rgba(0, 0, 0, 0.18);
-  --apple-glass-bg: rgba(255, 255, 255, 0.88);
-  --apple-glass-card: rgba(255, 255, 255, 0.94);
+  --apple-glass-bg: rgba(255, 255, 255, 0.94);
+  --apple-glass-card: rgba(255, 255, 255, 0.96);
   --apple-glass-elevated: #ffffff;
-  --apple-glass-border: rgba(0, 0, 0, 0.12);
-  --apple-glass-border-subtle: rgba(0, 0, 0, 0.06);
+  --apple-glass-border: rgba(0, 0, 0, 0.14);
+  --apple-glass-border-subtle: rgba(0, 0, 0, 0.08);
   --apple-glass-border-bright: rgba(0, 0, 0, 0.22);
   --deep-carbon: #ffffff;
   --graphite: #f8fafc;
   --elevated: #ffffff;
   --bg-card: #ffffff;
-  --bg-surface: #f8fafc;
+  --bg-surface: #ffffff;
   background: #f1f5f9 !important;
   color: #0f172a !important;
 }
 
 body.theme-light .nav {
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.06) !important;
 }
@@ -3319,7 +3319,47 @@ body.theme-light .nav .brand h2,
 body.theme-light .nav-link,
 body.theme-light .kage-btn-pill {
   color: #0f172a !important;
-  border-color: rgba(0, 0, 0, 0.12) !important;
+  border-color: rgba(0, 0, 0, 0.14) !important;
+  background: #ffffff !important;
+}
+
+body.theme-light .kage-btn-pill i,
+body.theme-light .kage-btn-pill svg {
+  stroke: #0f172a !important;
+}
+
+body.theme-light .brand-tx b {
+  color: #0f172a !important;
+}
+
+body.theme-light .brand-tx i {
+  color: #64748b !important;
+}
+
+body.theme-light .brand svg path {
+  stroke: #0f172a !important;
+}
+
+body.theme-light .btn-round {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.16) !important;
+}
+
+body.theme-light .btn-round i,
+body.theme-light .btn-round svg {
+  stroke: #0f172a !important;
+}
+
+body.theme-light .nav-mob-group-pill {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.16) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-light #nav-mob-group-title {
+  color: #0f172a !important;
 }
 
 body.theme-light .war-room-hud {
@@ -3327,17 +3367,17 @@ body.theme-light .war-room-hud {
 }
 
 body.theme-light .hud-top-bar {
-  background: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 
 body.theme-light .hud-col-left {
-  background: rgba(255, 255, 255, 0.82) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
   border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 
 body.theme-light .hud-tabs-bar {
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 
@@ -3347,9 +3387,186 @@ body.theme-light .kage-hud-tab {
 
 body.theme-light .kage-hud-tab.active {
   color: #0f172a !important;
+  background: #ffffff !important;
   border-bottom-color: var(--vermilion) !important;
 }
 
+/* Secondary Action Buttons (FIXES WHITE-ON-WHITE BUTTONS) */
+body.theme-light .kage-sub-btn {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.18) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-light .kage-sub-btn:hover {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: rgba(0, 0, 0, 0.28) !important;
+}
+
+body.theme-light .kage-sub-btn i,
+body.theme-light .kage-sub-btn svg {
+  stroke: currentColor !important;
+}
+
+body.theme-light #btn-saved-chat-sync {
+  color: #0284c7 !important;
+  border-color: rgba(2, 132, 199, 0.35) !important;
+}
+
+body.theme-light #btn-saved-chat-restore {
+  color: #059669 !important;
+  border-color: rgba(5, 150, 105, 0.35) !important;
+}
+
+/* Inputs, Textareas, and Dropdown Selects */
+body.theme-light input[type="text"],
+body.theme-light input[type="search"],
+body.theme-light input[type="password"],
+body.theme-light input[type="number"],
+body.theme-light select,
+body.theme-light textarea,
+body.theme-light #recon-search-filter,
+body.theme-light #center-ghost-search,
+body.theme-light #quick-watchdog-input,
+body.theme-light .kage-select {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-light input::placeholder,
+body.theme-light textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+/* Filter Buttons & Badges */
+body.theme-light .flt-btn {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  color: #334155 !important;
+}
+
+body.theme-light .flt-btn.active {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #0f172a !important;
+}
+
+body.theme-light .flt-btn.danger {
+  background: #fff1f2 !important;
+  color: #be123c !important;
+  border-color: #fda4af !important;
+}
+
+body.theme-light .flt-btn.danger.active {
+  background: #be123c !important;
+  color: #ffffff !important;
+}
+
+/* Section Headings and Labels */
+body.theme-light .sec-head .k {
+  color: #0f172a !important;
+}
+
+body.theme-light .sec-head .rule {
+  border-top: 1px solid rgba(0, 0, 0, 0.12) !important;
+}
+
+body.theme-light .sec-head .jp {
+  color: #64748b !important;
+}
+
+body.theme-light h1,
+body.theme-light h2,
+body.theme-light h3,
+body.theme-light h4 {
+  color: #0f172a !important;
+}
+
+body.theme-light #recon-count-label,
+body.theme-light #center-ghost-count-tag,
+body.theme-light #intel-time-window {
+  color: #64748b !important;
+}
+
+/* Recon Table & Empty State Card */
+body.theme-light #recon-table-wrap {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-light #recon-table-wrap div,
+body.theme-light #recon-table-wrap h4,
+body.theme-light #recon-table-wrap p {
+  color: #1e293b !important;
+}
+
+body.theme-light #recon-table-wrap p {
+  color: #64748b !important;
+}
+
+body.theme-light .kage-btn.secondary {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.18) !important;
+}
+
+body.theme-light .recon-table th,
+body.theme-light .recon-table thead th {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+body.theme-light .recon-table tr {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.theme-light .recon-row {
+  color: #1e293b !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-light .recon-row span[style*="color: #ffffff"],
+body.theme-light .recon-row div[style*="color: #ffffff"],
+body.theme-light .recon-row span[style*="color:#ffffff"],
+body.theme-light .recon-row div[style*="color:#ffffff"] {
+  color: #0f172a !important;
+}
+
+body.theme-light .recon-row td {
+  color: #334155 !important;
+}
+
+body.theme-light .recon-table-dock-footer {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+body.theme-light .recon-row:hover {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+body.theme-light .act-pill {
+  background: #ffffff !important;
+  color: #334155 !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
+body.theme-light .act-pill:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Wiretap Stream */
 body.theme-light .wiretap-card {
   background: #ffffff !important;
   border: 1px solid rgba(0, 0, 0, 0.08) !important;
@@ -3366,58 +3583,68 @@ body.theme-light .wiretap-card .msg-txt {
 }
 
 body.theme-light .wiretap-sub-header {
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 
-body.theme-light .flt-btn {
+/* Left Column Sentinel Elements */
+body.theme-light .hud-action-btn {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-light .hud-action-btn:hover {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+body.theme-light .hud-action-btn .hud-tag-pill {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+body.theme-light .hud-box {
   background: #ffffff !important;
   border: 1px solid rgba(0, 0, 0, 0.12) !important;
-  color: #475569 !important;
 }
 
-body.theme-light .flt-btn.active {
-  background: #0f172a !important;
-  color: #ffffff !important;
-  border-color: #0f172a !important;
+body.theme-light .hud-stat-cell {
+  background: #f8fafc !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 
-body.theme-light .kage-dock {
-  background: rgba(255, 255, 255, 0.94) !important;
-  border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06) !important;
+body.theme-light .hud-stat-cell b {
+  color: #0f172a !important;
 }
 
-body.theme-light .kage-dock-item {
+body.theme-light .hud-stat-cell span {
   color: #64748b !important;
 }
 
-body.theme-light .kage-dock-item.active {
-  color: var(--vermilion) !important;
-}
-
-body.theme-light #recon-table-wrap {
-  background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
-}
-
-body.theme-light .recon-table th,
-body.theme-light .recon-table thead th {
+body.theme-light .hud-left-status-banner {
   background: #f8fafc !important;
+  color: #475569 !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.theme-light .hud-left-footer-dock {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-light .hud-top-ticker-pill,
+body.theme-light .target-sel,
+body.theme-light .group-picker-trigger {
+  background: #ffffff !important;
   color: #0f172a !important;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
 }
 
-body.theme-light .recon-row {
-  color: #1e293b !important;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
-}
-
-body.theme-light .recon-row:hover {
-  background: rgba(0, 0, 0, 0.03) !important;
-}
-
+/* Modals & Bottom Sheets */
 body.theme-light .kage-modal,
 body.theme-light #mobile-tools-sheet .kage-modal {
   background: #ffffff !important;
@@ -3451,18 +3678,36 @@ body.theme-light .mobile-tool-card b {
   color: #0f172a !important;
 }
 
-body.theme-light .hud-left-footer-dock {
+/* HIGH-CONTRAST LIGHT FLOATING DOCK (OVERRIDES MOBILE MEDIA QUERY) */
+body.theme-light #kage-mobile-dock,
+body.theme-light .kage-dock {
   background: rgba(255, 255, 255, 0.94) !important;
-  border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.14) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06) !important;
 }
 
-body.theme-light .hud-top-ticker-pill,
-body.theme-light .target-sel,
-body.theme-light .group-picker-trigger {
-  background: #ffffff !important;
-  color: #0f172a !important;
-  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+body.theme-light .kage-dock-item {
+  color: #475569 !important;
+}
+
+body.theme-light .kage-dock-item i,
+body.theme-light .kage-dock-item svg {
+  stroke: #475569 !important;
+  color: #475569 !important;
+}
+
+body.theme-light .kage-dock-item.active {
+  background: rgba(224, 35, 28, 0.1) !important;
+  color: #e0231c !important;
+  box-shadow: none !important;
+}
+
+body.theme-light .kage-dock-item.active i,
+body.theme-light .kage-dock-item.active svg {
+  stroke: #e0231c !important;
+  color: #e0231c !important;
 }
 
 /* ── 02. BASE BODY & FULL DISPLAY ROOTS ── */
@@ -5611,39 +5856,71 @@ body.warroom-active {
   100% { transform: scale(0.9); opacity: 0.7; }
 }
 
-#tab-content-recon {
-  flex: 1 1 0% !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-  display: flex !important;
-  flex-direction: column !important;
-  padding: 14px 18px 14px 18px !important;
-  box-sizing: border-box !important;
+@media (min-width: 901px) {
+  #tab-content-recon {
+    flex: 1 1 0% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 14px 18px 14px 18px !important;
+    box-sizing: border-box !important;
+  }
+
+  #tab-content-recon .sec-head {
+    flex-shrink: 0 !important;
+    margin-bottom: 12px !important;
+  }
+
+  #recon-table-wrap {
+    flex: 1 1 0% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: rgba(10, 14, 22, 0.72) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+    overflow: hidden !important;
+    position: relative !important;
+    margin-bottom: 0 !important;
+  }
 }
 
-#tab-content-recon .sec-head {
-  flex-shrink: 0 !important;
-  margin-bottom: 12px !important;
-}
-
-#recon-table-wrap {
-  flex: 1 1 0% !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  min-height: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  background: rgba(10, 14, 22, 0.72) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 14px !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
-  overflow: hidden !important;
-  position: relative !important;
-  margin-bottom: 0 !important;
+@media (max-width: 900px) {
+  #tab-content-recon {
+    flex: 1 1 0% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 12px 12px calc(110px + env(safe-area-inset-bottom, 24px)) 12px !important;
+    box-sizing: border-box !important;
+  }
+  #recon-table-wrap {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 360px !important;
+    flex: none !important;
+    background: rgba(10, 14, 22, 0.72) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 14px !important;
+    margin-bottom: 24px !important;
+  }
+  body.theme-light #recon-table-wrap {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+  }
 }
 
 .recon-table-scroll-wrap {
@@ -5706,6 +5983,113 @@ body.warroom-active {
     gap: 4px !important;
     margin-top: 2px !important;
   }
+}
+
+/* ── LIGHT THEME COMPLETE TERMINAL OVERRIDES (FINAL CASCADE PASS) ── */
+body.theme-light #kage-mobile-dock,
+body.theme-light .kage-dock {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.14) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-light .kage-dock-item {
+  color: #475569 !important;
+}
+
+body.theme-light .kage-dock-item i,
+body.theme-light .kage-dock-item svg {
+  stroke: #475569 !important;
+  color: #475569 !important;
+}
+
+body.theme-light .kage-dock-item.active {
+  background: rgba(224, 35, 28, 0.1) !important;
+  color: #e0231c !important;
+  box-shadow: none !important;
+}
+
+body.theme-light .kage-dock-item.active i,
+body.theme-light .kage-dock-item.active svg {
+  stroke: #e0231c !important;
+  color: #e0231c !important;
+}
+
+/* Secondary Action Buttons (Fixes White-on-White text) */
+body.theme-light .kage-sub-btn {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.18) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-light .kage-sub-btn:hover {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: rgba(0, 0, 0, 0.28) !important;
+}
+
+body.theme-light .kage-sub-btn i,
+body.theme-light .kage-sub-btn svg {
+  stroke: #0f172a !important;
+}
+
+body.theme-light #btn-saved-chat-sync {
+  color: #0284c7 !important;
+  border-color: rgba(2, 132, 199, 0.35) !important;
+}
+
+body.theme-light #btn-saved-chat-restore {
+  color: #059669 !important;
+  border-color: rgba(5, 150, 105, 0.35) !important;
+}
+
+/* Inputs, textareas and selects */
+body.theme-light input[type="text"],
+body.theme-light input[type="search"],
+body.theme-light input[type="password"],
+body.theme-light input[type="number"],
+body.theme-light select,
+body.theme-light textarea,
+body.theme-light #recon-search-filter,
+body.theme-light #center-ghost-search,
+body.theme-light #quick-watchdog-input,
+body.theme-light .kage-select {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-light input::placeholder,
+body.theme-light textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+/* Recon Table, Empty State & Badges */
+body.theme-light #recon-table-wrap {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-light #recon-table-wrap div,
+body.theme-light #recon-table-wrap h4,
+body.theme-light #recon-table-wrap p {
+  color: #1e293b !important;
+}
+
+body.theme-light #recon-table-wrap p {
+  color: #64748b !important;
+}
+
+body.theme-light .kage-btn.secondary {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.18) !important;
 }
 
 </style>
@@ -6104,7 +6488,7 @@ body.warroom-active {
       </div>
       <div class="hud-box" style="margin-bottom: 14px;">
         <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-          <input type="text" id="quick-watchdog-input" placeholder="Keyword or @username..." style="flex: 1; background: #030609; border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 10px; font-size: 11px; color: var(--bone); font-family: 'JetBrains Mono', monospace;" onkeydown="if(event.key==='Enter') quickAddWatchdog()" />
+          <input type="text" id="quick-watchdog-input" placeholder="Keyword or @username..." style="flex: 1; background: var(--bg-card, #030609); border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 10px; font-size: 11px; color: var(--bone); font-family: 'JetBrains Mono', monospace;" onkeydown="if(event.key==='Enter') quickAddWatchdog()" />
           <button type="button" onclick="quickAddWatchdog()" class="btn-xs-outline" style="border-color: var(--ember); color: var(--ember);" title="Add Trigger">+ TRACK</button>
         </div>
         <div id="quick-watchdog-list" style="display: flex; flex-wrap: wrap; gap: 4px; max-height: 80px; overflow-y: auto;">
@@ -6294,7 +6678,7 @@ body.warroom-active {
         </div>
 
         <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;">
-          <input type="text" id="center-ghost-search" oninput="renderCenterGhostVault()" placeholder="Search deleted or edited text / user..." style="background: #030609; border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 260px;" />
+          <input type="text" id="center-ghost-search" oninput="renderCenterGhostVault()" placeholder="Search deleted or edited text / user..." style="background: var(--bg-card, #030609); border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 260px;" />
           <button type="button" onclick="setCenterGhostFilter('all')" id="center-ghost-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
           <button type="button" onclick="setCenterGhostFilter('deleted')" id="center-ghost-flt-deleted" class="flt-btn danger" style="font-size: 10px;">🚨 DELETED ONLY</button>
           <button type="button" onclick="setCenterGhostFilter('edited')" id="center-ghost-flt-edited" class="flt-btn" style="font-size: 10px;">✏️ EDITED ONLY</button>
@@ -6363,7 +6747,7 @@ body.warroom-active {
         </div>
 
         <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;">
-          <input type="text" id="recon-search-filter" oninput="filterReconTable()" placeholder="Filter by name, @handle, or ID..." style="background: #030609; border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 240px;" />
+          <input type="text" id="recon-search-filter" oninput="filterReconTable()" placeholder="Filter by name, @handle, or ID..." style="background: var(--bg-card, #030609); border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 240px;" />
           <button type="button" onclick="setReconFilter('all')" id="recon-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
           <button type="button" onclick="setReconFilter('chatters')" id="recon-flt-chatters" class="flt-btn" style="font-size: 10px;">🔥 TOP CHATTERS (10+ MSGS)</button>
           <button type="button" onclick="setReconFilter('verified')" id="recon-flt-verified" class="flt-btn" style="font-size: 10px;">🛡️ HIGH REPUTATION (80%+)</button>
@@ -6378,8 +6762,8 @@ body.warroom-active {
             <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); display: grid; place-items: center; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(56, 189, 248, 0.2);">
               <i data-lucide="shield-check" style="width: 24px; height: 24px; color: #38bdf8;"></i>
             </div>
-            <div style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 6px;">Participant Surveillance Matrix Ready</div>
-            <p style="font-size: 11.5px; color: rgba(255, 255, 255, 0.6); max-width: 440px; margin-bottom: 18px; line-height: 1.5;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--bone); margin-bottom: 6px;">Participant Surveillance Matrix Ready</div>
+            <p style="font-size: 11.5px; color: var(--muted); max-width: 440px; margin-bottom: 18px; line-height: 1.5;">
               Select your preferred scan mode above to profile group participants, identify top chatters, filter lurkers, and generate forensic dossiers.
             </p>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
@@ -13827,8 +14211,8 @@ body.warroom-active {
             <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); display: grid; place-items: center; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(56, 189, 248, 0.2);">
               <i data-lucide="shield-check" style="width: 24px; height: 24px; color: #38bdf8;"></i>
             </div>
-            <div style="font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 6px;">Participant Surveillance Matrix Ready</div>
-            <p style="font-size: 11.5px; color: rgba(255, 255, 255, 0.6); max-width: 440px; margin-bottom: 18px; line-height: 1.5;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--bone); margin-bottom: 6px;">Participant Surveillance Matrix Ready</div>
+            <p style="font-size: 11.5px; color: var(--muted); max-width: 440px; margin-bottom: 18px; line-height: 1.5;">
               Select your preferred scan mode above to profile group participants, identify top chatters, filter lurkers, and generate forensic dossiers.
             </p>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
