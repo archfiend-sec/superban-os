@@ -788,19 +788,56 @@ def create_app(engine: SuperBanEngine):
         except Exception as e:
             return {"authorized": False, "error": str(e), "phone": creds["phone"] if creds else ""}
 
+    class SendCodeReq(BaseModel):
+        force_new: Optional[bool] = False
+
     @app.post("/api/auth/send_code")
-    async def send_code():
+    async def send_code(req: Optional[SendCodeReq] = None):
         creds = Config.get_credentials()
         if not creds:
             raise HTTPException(status_code=400, detail="Missing TELEGRAM_PHONE or credentials in .env")
+        phone = creds["phone"]
+        force_new = req.force_new if req else False
+
         try:
             if not engine.client.is_connected():
                 await engine.client.connect()
+
+            # If force_new requested, clear Telethon's internal code hash dict to trigger fresh SendCodeRequest
+            if force_new and hasattr(engine.client, "_phone_code_hash"):
+                engine.client._phone_code_hash.pop(phone, None)
+
             try:
-                res = await engine.client.send_code_request(creds["phone"])
+                res = await engine.client.send_code_request(phone)
+                auth_state["phone"] = phone
+                auth_state["phone_code_hash"] = res.phone_code_hash
+                logger.info(f"Telegram login code dispatched to {phone}")
+                return {"status": "code_sent", "phone": phone}
             except Exception as e:
                 err_str = str(e).lower()
-                if "different ip" in err_str or "auth_key" in err_str or "session" in err_str or "security" in err_str or "unregistered" in err_str:
+
+                # Handle ResendCodeRequest error (happens when code was already dispatched to Telegram app)
+                if "resendcoderequest" in err_str or "all available options" in err_str or "sendcodeunavailable" in err_str:
+                    logger.warning(f"ResendCodeRequest option exhausted for {phone}. Checking existing code hash...")
+                    existing_hash = auth_state.get("phone_code_hash") or getattr(engine.client, "_phone_code_hash", {}).get(phone)
+                    if existing_hash:
+                        auth_state["phone"] = phone
+                        auth_state["phone_code_hash"] = existing_hash
+                        return {
+                            "status": "code_sent",
+                            "phone": phone,
+                            "notice": "A verification code was already dispatched to your official Telegram app. Enter it below:"
+                        }
+                    else:
+                        # Clear telethon's cached hash and force a clean SendCodeRequest
+                        if hasattr(engine.client, "_phone_code_hash"):
+                            engine.client._phone_code_hash.pop(phone, None)
+                        res = await engine.client.send_code_request(phone)
+                        auth_state["phone"] = phone
+                        auth_state["phone_code_hash"] = res.phone_code_hash
+                        return {"status": "code_sent", "phone": phone}
+
+                elif "different ip" in err_str or "auth_key" in err_str or "session" in err_str or "security" in err_str or "unregistered" in err_str:
                     logger.warning(f"Resetting invalid session due to: {e}")
                     try:
                         await engine.client.disconnect()
@@ -808,14 +845,13 @@ def create_app(engine: SuperBanEngine):
                         pass
                     engine.client = TelegramClient(StringSession(), creds["api_id"], creds["api_hash"])
                     await engine.client.connect()
-                    res = await engine.client.send_code_request(creds["phone"])
+                    res = await engine.client.send_code_request(phone)
+                    auth_state["phone"] = phone
+                    auth_state["phone_code_hash"] = res.phone_code_hash
+                    logger.info(f"Telegram login code dispatched to {phone}")
+                    return {"status": "code_sent", "phone": phone}
                 else:
                     raise e
-
-            auth_state["phone"] = creds["phone"]
-            auth_state["phone_code_hash"] = res.phone_code_hash
-            logger.info(f"Telegram login code dispatched to {creds['phone']}")
-            return {"status": "code_sent", "phone": creds["phone"]}
         except Exception as e:
             logger.error(f"Failed to send code: {e}")
             raise HTTPException(status_code=400, detail=str(e))
@@ -833,11 +869,13 @@ def create_app(engine: SuperBanEngine):
             if req.password:
                 await engine.client.sign_in(password=req.password)
             else:
+                phone_target = auth_state.get("phone") or (Config.get_credentials() or {}).get("phone")
+                code_hash_target = auth_state.get("phone_code_hash") or getattr(engine.client, "_phone_code_hash", {}).get(phone_target)
                 try:
                     await engine.client.sign_in(
-                        phone=auth_state.get("phone") or Config.get_credentials()["phone"],
+                        phone=phone_target,
                         code=req.code,
-                        phone_code_hash=auth_state.get("phone_code_hash")
+                        phone_code_hash=code_hash_target
                     )
                 except SessionPasswordNeededError:
                     return {"status": "password_needed", "message": "2-Step Verification password is required."}

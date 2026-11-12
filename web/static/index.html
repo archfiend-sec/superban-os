@@ -5789,6 +5789,11 @@ body {
         <button id="auth-send-code-btn" onclick="sendAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12px; justify-content: center; min-height: 46px; border-radius: 6px;">
           <i data-lucide="send" style="width: 14px; height: 14px;"></i> 📨 Send Telegram Verification Code
         </button>
+
+        <button type="button" onclick="goToAuthStep2('Enter the 5-digit login code received in your Telegram app:')" class="kage-modal-close-btn" style="width: 100%; text-align: center; justify-content: center; font-size: 11px; min-height: 38px; margin-top: 10px; border: 1px dashed var(--line-soft); color: var(--intel-cyan);">
+          Already received code in Telegram? Enter it here →
+        </button>
+
         <div id="auth-send-error" style="color: var(--vermilion); font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 8px; border-radius: 4px;"></div>
       </div>
 
@@ -5808,9 +5813,14 @@ body {
           <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i> ⚡ Verify &amp; Authorize Cloud Instance
         </button>
 
-        <button onclick="document.getElementById('auth-step-2').style.display='none'; document.getElementById('auth-step-1').style.display='block';" class="kage-modal-close-btn" style="width: 100%; text-align: center; justify-content: center; font-size: 11px; min-height: 40px;">
-          ← Back / Resend Code
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" onclick="document.getElementById('auth-step-2').style.display='none'; document.getElementById('auth-step-1').style.display='block';" class="kage-modal-close-btn" style="flex: 1; text-align: center; justify-content: center; font-size: 11px; min-height: 40px;">
+            ← Back
+          </button>
+          <button type="button" onclick="sendAuthCode(true)" class="kage-modal-close-btn" style="flex: 1; text-align: center; justify-content: center; font-size: 11px; min-height: 40px; color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">
+            🔄 Request New Code
+          </button>
+        </div>
         <div id="auth-verify-error" style="color: var(--vermilion); font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 8px; border-radius: 4px;"></div>
       </div>
     </div>
@@ -7801,30 +7811,62 @@ body {
     if (banner) banner.style.display = show ? 'block' : 'none';
   }
 
-  async function sendAuthCode() {
+  function goToAuthStep2(noticeText) {
+    const s1 = document.getElementById('auth-step-1');
+    const s2 = document.getElementById('auth-step-2');
+    if (s1) s1.style.display = 'none';
+    if (s2) s2.style.display = 'block';
+    if (noticeText) {
+      const desc = document.getElementById('auth-status-desc');
+      if (desc) desc.innerText = noticeText;
+    }
+    const input = document.getElementById('auth-code-input');
+    if (input) {
+      setTimeout(() => input.focus(), 100);
+    }
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  async function sendAuthCode(forceNew = false) {
     const btn = document.getElementById('auth-send-code-btn');
     const errBox = document.getElementById('auth-send-error');
-    btn.innerHTML = '<span class="loading-spin"></span> Sending Telegram Code...';
-    btn.disabled = true;
-    errBox.style.display = 'none';
+    if (btn) {
+      btn.innerHTML = '<span class="loading-spin"></span> Sending Telegram Code...';
+      btn.disabled = true;
+    }
+    if (errBox) errBox.style.display = 'none';
 
     try {
-      const res = await fetch('/api/auth/send_code', { method: 'POST' });
+      const res = await fetch('/api/auth/send_code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force_new: !!forceNew })
+      });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || data.error || 'Failed to send code');
+        const errDetail = data.detail || data.error || '';
+        if (errDetail.toLowerCase().includes('resendcoderequest') || errDetail.toLowerCase().includes('all available options') || errDetail.toLowerCase().includes('sendcodeunavailable')) {
+          goToAuthStep2('A verification code was already dispatched to your official Telegram app. Enter it below:');
+          return;
+        }
+        throw new Error(errDetail || 'Failed to send code');
       }
-      document.getElementById('auth-step-1').style.display = 'none';
-      document.getElementById('auth-step-2').style.display = 'block';
-      document.getElementById('auth-status-desc').innerText = 'A 5-digit login code was sent to your official Telegram app. Enter it below:';
-      document.getElementById('auth-code-input').focus();
-      if (window.lucide) window.lucide.createIcons();
+      goToAuthStep2(data.notice || 'A 5-digit login code was sent to your official Telegram app. Enter it below:');
     } catch (err) {
-      errBox.innerText = `Error: ${err.message}`;
-      errBox.style.display = 'block';
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('resendcoderequest') || msg.toLowerCase().includes('all available options') || msg.toLowerCase().includes('sendcodeunavailable')) {
+        goToAuthStep2('A verification code was already dispatched to your official Telegram app. Enter it below:');
+      } else {
+        if (errBox) {
+          errBox.innerText = `Error: ${msg}`;
+          errBox.style.display = 'block';
+        }
+      }
     } finally {
-      btn.innerHTML = '<i data-lucide="send" style="width: 15px; height: 15px;"></i> 📨 Send Telegram Verification Code';
-      btn.disabled = false;
+      if (btn) {
+        btn.innerHTML = '<i data-lucide="send" style="width: 15px; height: 15px;"></i> 📨 Send Telegram Verification Code';
+        btn.disabled = false;
+      }
       if (window.lucide) window.lucide.createIcons();
     }
   }
