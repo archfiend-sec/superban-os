@@ -97,7 +97,13 @@ input, select, textarea { font-family: 'JetBrains Mono', 'Onest', sans-serif; }
 }
 #vignette {
   position: fixed; inset: 0; z-index: 1; pointer-events: none;
-  background: radial-gradient(125% 95% at 50% 42%, transparent 40%, rgba(2,4,6,.65) 100%);
+  background: 
+    radial-gradient(ellipse 70% 55% at 12% 15%, rgba(235, 59, 50, 0.13) 0%, transparent 60%),
+    radial-gradient(ellipse 65% 50% at 88% 18%, rgba(56, 189, 248, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 85% 65% at 50% 48%, rgba(99, 102, 241, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 65% 55% at 85% 82%, rgba(52, 211, 153, 0.09) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 15% 85%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
+    radial-gradient(125% 95% at 50% 42%, transparent 35%, rgba(6, 9, 15, 0.78) 100%);
   transform: translateZ(0);
   pointer-events: none;
 }
@@ -2219,9 +2225,12 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     overscroll-behavior-y: none !important;
   }
   .kage-box {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    background: rgba(10, 14, 18, 0.94) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    background: rgba(18, 24, 36, 0.72) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 14px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 24px rgba(0, 0, 0, 0.3) !important;
   }
   body {
     font-size: 14px;
@@ -3000,63 +3009,98 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 }
 
 /* ╔══════════════════════════════════════════════════════════════════════════╗
-   ║  KAGE — OBSIDIAN INTELLIGENCE                                          ║
-   ║  Editorial Brutalism · Obsidian Luxury · Tactical Intelligence         ║
-   ║  "Intelligence without noise."                                          ║
+   ║  KAGE — APPLE LIQUID GLASS & GLASSMORPHISM INTELLIGENCE                ║
+   ║  macOS Sonoma / Sequoia · visionOS · iOS 18 Frosted Glass Luxury       ║
+   ║  "Optical depth, translucent materials, and precision tactile design."  ║
    ╚══════════════════════════════════════════════════════════════════════════╝ */
 
-/* ── 01. THE OBSIDIAN COLOR SYSTEM ── */
+/* ── 01. THE APPLE LIQUID GLASS MATERIAL SYSTEM ── */
 :root {
-  /* Foundations */
-  --obsidian:       #08090B;
-  --deep-carbon:    #0D0F12;
-  --graphite:       #15171A;
-  --elevated:       #1A1C20;
-  --surface-hover:  rgba(240, 239, 236, 0.035);
-  --surface-active: rgba(229, 43, 47, 0.08);
+  /* Apple Glass Foundations (Translucent Frosted Materials) */
+  --apple-canvas:            #07090e;
+  --apple-glass-bg:          rgba(16, 22, 34, 0.65);
+  --apple-glass-subtle:      rgba(255, 255, 255, 0.045);
+  --apple-glass-elevated:    rgba(24, 32, 48, 0.76);
+  --apple-glass-hover:       rgba(255, 255, 255, 0.085);
+  --apple-glass-active:      rgba(255, 255, 255, 0.14);
 
-  /* Accents */
-  --signal-red:     #E52B2F;
-  --signal-red-dim: rgba(229, 43, 47, 0.22);
-  --signal-red-bg:  rgba(229, 43, 47, 0.08);
-  --signal-red-bdr: rgba(229, 43, 47, 0.38);
+  /* Specular Rim & Edge Reflections */
+  --apple-glass-border:        rgba(255, 255, 255, 0.12);
+  --apple-glass-border-subtle: rgba(255, 255, 255, 0.07);
+  --apple-glass-border-bright: rgba(255, 255, 255, 0.24);
+  --apple-glass-shine:         inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
+  --apple-glass-shine-intense: inset 0 1px 0 0 rgba(255, 255, 255, 0.32);
 
-  --burnt-orange:   #F26A35;
-  --orange-dim:     rgba(242, 106, 53, 0.22);
-  --orange-bg:      rgba(242, 106, 53, 0.08);
-  --orange-bdr:     rgba(242, 106, 53, 0.35);
+  /* Optical Glass Blurs */
+  --apple-blur-nav:   blur(28px) saturate(190%);
+  --apple-blur-modal: blur(48px) saturate(210%);
+  --apple-blur-card:  blur(16px) saturate(180%);
+  --apple-blur-dock:  blur(36px) saturate(200%);
 
-  --warm-white:     #F0EFEC;
-  --steel-grey:     #92949A;
-  --muted-grey:     #555B62;
+  /* Apple Radiuses (Smooth Organic Squircles & Pills) */
+  --apple-radius-xs:   6px;
+  --apple-radius-sm:   10px;
+  --apple-radius-md:   14px;
+  --apple-radius-lg:   20px;
+  --apple-radius-xl:   26px;
+  --apple-radius-pill: 9999px;
 
-  --op-green:       #38B98C;
-  --op-green-bg:    rgba(56, 185, 140, 0.08);
-  --op-green-bdr:   rgba(56, 185, 140, 0.32);
+  /* Apple System Shadows */
+  --apple-shadow-xs:    0 2px 6px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --apple-shadow-sm:    0 4px 14px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --apple-shadow-md:    0 10px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --apple-shadow-lg:    0 20px 50px rgba(0, 0, 0, 0.60), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  --apple-shadow-sheet: 0 32px 80px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.26);
 
-  --intel-cyan:     #65C9E8;
-  --intel-cyan-bg:  rgba(101, 201, 232, 0.08);
-  --intel-cyan-bdr: rgba(101, 201, 232, 0.30);
+  /* Apple Vibrant Semantic Accents */
+  --signal-red:     #ff3b30;
+  --signal-red-dim: rgba(255, 59, 48, 0.24);
+  --signal-red-bg:  rgba(255, 59, 48, 0.12);
+  --signal-red-bdr: rgba(255, 59, 48, 0.42);
 
-  /* Hairline borders & geometry */
-  --dark-border:    #1F2328;
-  --hairline:       rgba(240, 239, 236, 0.065);
-  --hairline-hover: rgba(240, 239, 236, 0.14);
-  --hairline-focus: rgba(229, 43, 47, 0.45);
+  --burnt-orange:   #ff9500;
+  --orange-dim:     rgba(255, 149, 0, 0.24);
+  --orange-bg:      rgba(255, 149, 0, 0.12);
+  --orange-bdr:     rgba(255, 149, 0, 0.38);
 
-  /* Typography Stacks */
+  --warm-white:     #ffffff;
+  --steel-grey:     rgba(255, 255, 255, 0.72);
+  --muted-grey:     rgba(255, 255, 255, 0.44);
+
+  --op-green:       #34c759;
+  --op-green-bg:    rgba(52, 199, 89, 0.12);
+  --op-green-bdr:   rgba(52, 199, 89, 0.38);
+
+  --intel-cyan:     #38bdf8;
+  --intel-cyan-bg:  rgba(56, 189, 248, 0.12);
+  --intel-cyan-bdr: rgba(56, 189, 248, 0.38);
+
+  /* Hairlines & Geometry */
+  --dark-border:    rgba(255, 255, 255, 0.10);
+  --hairline:       rgba(255, 255, 255, 0.08);
+  --hairline-hover: rgba(255, 255, 255, 0.18);
+  --hairline-focus: rgba(56, 189, 248, 0.70);
+
+  /* Apple SF Typography Stacks */
   --font-serif:     'DM Serif Display', Georgia, serif;
-  --font-sans:      'Inter', 'Onest', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono:      'JetBrains Mono', monospace;
+  --font-sans:      -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", "Onest", sans-serif;
+  --font-mono:      'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 
-  /* Universal Shadows & Transitions */
-  --shadow-obsidian: 0 4px 28px rgba(0, 0, 0, 0.75);
-  --shadow-card:     0 2px 10px rgba(0, 0, 0, 0.55);
-  --ease-editorial:  0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Universal Transitions & Easing */
+  --shadow-obsidian: var(--apple-shadow-sheet);
+  --shadow-card:     var(--apple-shadow-sm);
+  --ease-editorial:  0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-apple:      0.24s cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Backwards-compatibility aliases for existing JS & CSS */
-  --ink:            var(--obsidian);
-  --ink-2:          var(--deep-carbon);
+  /* Backwards-compatibility aliases for existing JS & HTML */
+  --obsidian:       var(--apple-canvas);
+  --deep-carbon:    var(--apple-glass-bg);
+  --graphite:       var(--apple-glass-elevated);
+  --elevated:       var(--apple-glass-elevated);
+  --surface-hover:  var(--apple-glass-hover);
+  --surface-active: var(--apple-glass-active);
+  --ink:            var(--apple-canvas);
+  --ink-2:          var(--apple-glass-bg);
   --bone:           var(--warm-white);
   --bone-dim:       var(--steel-grey);
   --muted:          var(--muted-grey);
@@ -3064,10 +3108,10 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   --line-soft:      var(--hairline);
   --vermilion:      var(--signal-red);
   --ember:          var(--burnt-orange);
-  --bg-base:        var(--obsidian);
-  --bg-surface:     var(--deep-carbon);
-  --bg-elevated:    var(--graphite);
-  --bg-card:        var(--deep-carbon);
+  --bg-base:        var(--apple-canvas);
+  --bg-surface:     var(--apple-glass-bg);
+  --bg-elevated:    var(--apple-glass-elevated);
+  --bg-card:        var(--apple-glass-bg);
   --red:            var(--signal-red);
   --cyan:           var(--intel-cyan);
   --green:          var(--op-green);
@@ -3075,38 +3119,46 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   --text-secondary: var(--steel-grey);
 }
 
-/* ── 02. TYPOGRAPHIC FOUNDATION & BASE ── */
+/* ── 02. APPLE TYPOGRAPHIC FOUNDATION & BASE ── */
 body {
-  background: var(--obsidian) !important;
+  background: var(--apple-canvas) !important;
   color: var(--warm-white) !important;
   font-family: var(--font-sans) !important;
   font-size: 13px !important;
   line-height: 1.55 !important;
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
+  letter-spacing: -0.011em !important;
 }
 
 ::selection {
-  background: var(--signal-red) !important;
+  background: rgba(255, 59, 48, 0.4) !important;
   color: #ffffff !important;
 }
 
-/* Refined responsive scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: rgba(5, 7, 10, 0.4); }
-::-webkit-scrollbar-thumb { background: rgba(146, 148, 154, 0.38); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--signal-red, #eb5e55); }
-* { scrollbar-width: thin; scrollbar-color: rgba(146, 148, 154, 0.38) rgba(5, 7, 10, 0.4); }
+/* Apple Smooth Capsule Scrollbars */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { 
+  background: rgba(255, 255, 255, 0.22); 
+  border-radius: var(--apple-radius-pill); 
+  border: 2px solid transparent; 
+  background-clip: padding-box; 
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
 
-/* ── 03. TOP COMMAND BAR (Obsidian Luxury) ── */
+/* ── 03. TOP COMMAND BAR (macOS / iOS Safari Frosted Glass Header) ── */
 .nav {
-  height: 54px !important;
-  background: rgba(8, 9, 11, 0.96) !important;
-  border-bottom: 1px solid var(--dark-border) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
+  height: 56px !important;
+  background: rgba(14, 19, 30, 0.72) !important;
+  border-bottom: 1px solid var(--apple-glass-border) !important;
+  backdrop-filter: var(--apple-blur-nav) !important;
+  -webkit-backdrop-filter: var(--apple-blur-nav) !important;
   padding: 0 20px !important;
-  box-shadow: 0 1px 0 rgba(240, 239, 236, 0.04), 0 8px 32px rgba(0, 0, 0, 0.7) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), var(--apple-glass-shine) !important;
+  transition: all var(--ease-apple) !important;
 }
 
 /* Brand Identity */
@@ -3114,17 +3166,21 @@ body {
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
+  transition: opacity var(--ease-apple) !important;
+}
+.brand:hover {
+  opacity: 0.88;
 }
 .brand svg {
   width: 28px !important;
   height: 28px !important;
-  opacity: 0.95 !important;
+  filter: drop-shadow(0 2px 8px rgba(255, 59, 48, 0.4));
 }
 .brand-tx b {
   font-family: var(--font-sans) !important;
   font-size: 13.5px !important;
   font-weight: 700 !important;
-  letter-spacing: 0.14em !important;
+  letter-spacing: 0.12em !important;
   color: var(--warm-white) !important;
 }
 .brand-tx i {
@@ -3137,115 +3193,134 @@ body {
   margin-top: 1px !important;
 }
 
-/* Sanctuary vs War Room Mode Switcher */
+/* Sanctuary vs War Room Mode Switcher (Apple Segmented Capsule) */
 .view-mode-pill {
-  background: var(--deep-carbon) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 4px !important;
-  padding: 2px !important;
-  gap: 2px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: var(--apple-radius-pill) !important;
+  padding: 3px !important;
+  gap: 3px !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3) !important;
 }
 .view-pill-btn {
-  border-radius: 3px !important;
+  border-radius: var(--apple-radius-pill) !important;
   font-family: var(--font-sans) !important;
   font-size: 11px !important;
-  letter-spacing: 0.06em !important;
+  letter-spacing: 0.03em !important;
   font-weight: 500 !important;
-  padding: 5px 12px !important;
-  color: var(--steel-grey) !important;
-  transition: all var(--ease-editorial) !important;
+  padding: 5px 14px !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+  transition: all var(--ease-apple) !important;
 }
 .view-pill-btn:hover {
-  color: var(--warm-white) !important;
-  background: var(--surface-hover) !important;
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 .view-pill-btn.active {
-  background: var(--signal-red-bg) !important;
-  color: var(--warm-white) !important;
-  border: 1px solid var(--signal-red-bdr) !important;
-  box-shadow: 0 0 16px var(--signal-red-dim) !important;
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.9) 0%, rgba(215, 30, 35, 0.95) 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  box-shadow: 0 2px 10px rgba(255, 59, 48, 0.45), var(--apple-glass-shine-intense) !important;
 }
 .live-dot-pulse {
-  background: var(--signal-red) !important;
-  box-shadow: 0 0 8px var(--signal-red) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8) !important;
 }
 
-/* Header Action Buttons */
+/* Header Action Buttons (Apple Frosted Glass Pills) */
 .kage-btn-pill {
-  background: var(--deep-carbon) !important;
-  border: 1px solid var(--hairline) !important;
-  color: var(--steel-grey) !important;
-  border-radius: 4px !important;
-  padding: 5px 12px !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-radius: var(--apple-radius-pill) !important;
+  padding: 5px 13px !important;
   font-size: 11px !important;
   font-family: var(--font-sans) !important;
-  letter-spacing: 0.04em !important;
-  transition: all var(--ease-editorial) !important;
+  letter-spacing: 0.02em !important;
+  box-shadow: var(--apple-glass-shine), 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+  transition: all var(--ease-apple) !important;
 }
 .kage-btn-pill:hover {
-  color: var(--warm-white) !important;
-  border-color: var(--hairline-hover) !important;
-  background: var(--surface-hover) !important;
+  color: #ffffff !important;
+  border-color: var(--apple-glass-border-bright) !important;
+  background: rgba(255, 255, 255, 0.13) !important;
+  box-shadow: var(--apple-glass-shine-intense), 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+  transform: translateY(-0.5px) !important;
+}
+.kage-btn-pill:active {
+  transform: scale(0.97) !important;
 }
 
-/* Active Operator Clearance Badge */
+/* Active Operator Clearance Badge (Apple Status Capsule) */
 .op-badge {
-  background: var(--deep-carbon) !important;
-  border: 1px solid var(--hairline) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid var(--apple-glass-border) !important;
   font-size: 10.5px !important;
-  color: var(--steel-grey) !important;
-  border-radius: 4px !important;
-  padding: 5px 11px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-radius: var(--apple-radius-pill) !important;
+  padding: 5px 13px !important;
   font-family: var(--font-mono) !important;
+  box-shadow: var(--apple-glass-shine) !important;
 }
 .op-badge .dot {
   background: var(--op-green) !important;
-  box-shadow: 0 0 8px rgba(56, 185, 140, 0.5) !important;
+  box-shadow: 0 0 10px rgba(52, 199, 89, 0.6) !important;
 }
 
-/* Tools Dropdown */
-#nav-tools-dropdown {
-  background: var(--deep-carbon) !important;
-  border: 1px solid var(--dark-border) !important;
-  border-radius: 6px !important;
-  box-shadow: var(--shadow-obsidian) !important;
-  padding: 6px !important;
+/* Tools Dropdown (visionOS Frosted Glass Popover) */
+#nav-tools-dropdown, .kage-nav-dropdown {
+  background: rgba(20, 26, 38, 0.85) !important;
+  backdrop-filter: var(--apple-blur-modal) !important;
+  -webkit-backdrop-filter: var(--apple-blur-modal) !important;
+  border: 1px solid var(--apple-glass-border-bright) !important;
+  border-radius: var(--apple-radius-lg) !important;
+  box-shadow: var(--apple-shadow-sheet) !important;
+  padding: 8px !important;
 }
 .kage-dropdown-item {
-  border-radius: 4px !important;
-  color: var(--steel-grey) !important;
+  border-radius: var(--apple-radius-sm) !important;
+  color: rgba(255, 255, 255, 0.82) !important;
   font-size: 11.5px !important;
-  padding: 7px 10px !important;
+  padding: 8px 12px !important;
   font-family: var(--font-sans) !important;
-  transition: all var(--ease-editorial) !important;
+  transition: all var(--ease-apple) !important;
 }
 .kage-dropdown-item:hover {
-  background: var(--surface-hover) !important;
-  color: var(--warm-white) !important;
+  background: rgba(255, 255, 255, 0.10) !important;
+  color: #ffffff !important;
   transform: none !important;
 }
 
-/* ── 04. WAR ROOM HUD STRUCTURE & PANELS ── */
+/* ── 04. WAR ROOM HUD STRUCTURE & PANELS (Apple Glass Window) ── */
 .war-room-hud {
-  background: var(--obsidian) !important;
+  background: transparent !important;
   backdrop-filter: none !important;
 }
 
 @media (min-width: 769px) {
   /* Top Ticker Bar */
   .hud-top-bar {
-    height: 38px !important;
-    flex: 0 0 38px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    background: var(--deep-carbon) !important;
-    border-bottom: 1px solid var(--dark-border) !important;
+    background: rgba(14, 18, 28, 0.65) !important;
+    backdrop-filter: var(--apple-blur-card) !important;
+    -webkit-backdrop-filter: var(--apple-blur-card) !important;
+    border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
     padding: 0 16px !important;
     font-size: 10.5px !important;
     font-family: var(--font-mono) !important;
     gap: 12px !important;
     overflow: hidden !important;
+    box-shadow: var(--apple-glass-shine) !important;
   }
   .hud-ticker-left {
     display: flex !important;
@@ -3274,7 +3349,7 @@ body {
     color: var(--warm-white) !important;
     font-size: 11px !important;
     font-weight: 500 !important;
-    letter-spacing: 0.04em !important;
+    letter-spacing: 0.03em !important;
   }
   .hud-ticker-right {
     display: flex !important;
@@ -3286,21 +3361,21 @@ body {
   }
   .hud-sys-tag {
     font-size: 9.5px !important;
-    letter-spacing: 0.16em !important;
+    letter-spacing: 0.14em !important;
     color: var(--signal-red) !important;
     font-weight: 600 !important;
   }
   .hud-status-live {
     color: var(--op-green) !important;
     font-size: 9.5px !important;
-    letter-spacing: 0.08em !important;
+    letter-spacing: 0.06em !important;
   }
   .hud-blink-dot {
     background: var(--op-green) !important;
-    box-shadow: 0 0 6px var(--op-green) !important;
+    box-shadow: 0 0 8px var(--op-green) !important;
   }
   .hud-divider {
-    color: var(--dark-border) !important;
+    color: var(--apple-glass-border-subtle) !important;
     opacity: 0.8 !important;
   }
   #hud-target-group-name {
@@ -3310,28 +3385,29 @@ body {
     letter-spacing: 0.02em !important;
   }
   .btn-xs-outline {
-    background: transparent !important;
-    border: 1px solid var(--hairline) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid var(--apple-glass-border) !important;
     color: var(--steel-grey) !important;
-    border-radius: 3px !important;
-    padding: 2px 7px !important;
+    border-radius: var(--apple-radius-pill) !important;
+    padding: 3px 9px !important;
     font-size: 9px !important;
     font-family: var(--font-mono) !important;
-    letter-spacing: 0.06em !important;
-    transition: all var(--ease-editorial) !important;
+    letter-spacing: 0.04em !important;
+    transition: all var(--ease-apple) !important;
+    box-shadow: var(--apple-glass-shine) !important;
   }
   .btn-xs-outline:hover, .btn-xs-outline.active {
     color: var(--warm-white) !important;
-    border-color: var(--hairline-hover) !important;
-    background: var(--surface-hover) !important;
+    border-color: var(--apple-glass-border-bright) !important;
+    background: rgba(255, 255, 255, 0.12) !important;
   }
 
   /* 2-Column Cockpit Grid (Maximized Live Intelligence Stage) */
   .hud-body {
     display: grid !important;
-    grid-template-columns: 295px minmax(0, 1fr) !important;
-    height: calc(100% - 38px) !important;
-    max-height: calc(100% - 38px) !important;
+    grid-template-columns: 300px minmax(0, 1fr) !important;
+    height: calc(100% - 40px) !important;
+    max-height: calc(100% - 40px) !important;
     overflow: hidden !important;
   }
   .hud-col {
@@ -3344,12 +3420,14 @@ body {
     position: relative !important;
   }
   .hud-col-left {
-    background: var(--deep-carbon) !important;
-    border-right: 1px solid var(--dark-border) !important;
+    background: rgba(14, 18, 28, 0.58) !important;
+    backdrop-filter: var(--apple-blur-nav) !important;
+    -webkit-backdrop-filter: var(--apple-blur-nav) !important;
+    border-right: 1px solid var(--apple-glass-border-subtle) !important;
     overflow-y: auto !important;
   }
   .hud-col-center {
-    background: var(--obsidian) !important;
+    background: transparent !important;
     padding: 0 !important;
     overflow: hidden !important;
     display: flex !important;
@@ -3364,10 +3442,10 @@ body {
 .hud-panel-title {
   font-family: var(--font-mono) !important;
   font-size: 9.5px !important;
-  letter-spacing: 0.16em !important;
+  letter-spacing: 0.14em !important;
   text-transform: uppercase !important;
   color: var(--steel-grey) !important;
-  border-bottom: 1px solid var(--hairline) !important;
+  border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
   margin-bottom: 12px !important;
   padding-bottom: 8px !important;
   font-weight: 500 !important;
@@ -3387,45 +3465,53 @@ body {
 .hud-label {
   font-family: var(--font-mono) !important;
   font-size: 9px !important;
-  letter-spacing: 0.16em !important;
+  letter-spacing: 0.14em !important;
   text-transform: uppercase !important;
   color: var(--steel-grey) !important;
   margin-bottom: 6px !important;
 }
 
-/* ── 05. LEFT RAIL: TARGET RECON & DEFCON ── */
-.kage-select, .kage-input {
-  background: var(--graphite) !important;
-  border: 1px solid var(--dark-border) !important;
+/* ── 05. LEFT RAIL: TARGET RECON & DEFCON (Apple Frosted Cards) ── */
+.kage-select, .kage-input, input[type="text"], input[type="password"], textarea {
+  background: rgba(12, 16, 26, 0.55) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid var(--apple-glass-border) !important;
   color: var(--warm-white) !important;
-  border-radius: 4px !important;
-  padding: 8px 11px !important;
+  border-radius: var(--apple-radius-sm) !important;
+  padding: 8px 12px !important;
   font-size: 11px !important;
   font-family: var(--font-mono) !important;
-  transition: border-color var(--ease-editorial) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+  transition: border-color var(--ease-apple), box-shadow var(--ease-apple) !important;
 }
-.kage-select:focus, .kage-input:focus {
+.kage-select:focus, .kage-input:focus, input:focus, textarea:focus {
   border-color: var(--hairline-focus) !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.35) !important;
   outline: none !important;
 }
 .hud-box {
-  background: var(--graphite) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 5px !important;
-  padding: 11px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: var(--apple-blur-card) !important;
+  -webkit-backdrop-filter: var(--apple-blur-card) !important;
+  border: 1px solid var(--apple-glass-border-subtle) !important;
+  border-radius: var(--apple-radius-md) !important;
+  padding: 12px !important;
+  box-shadow: var(--apple-glass-shine), var(--apple-shadow-xs) !important;
 }
 
-/* DEFCON Defense Posture Matrix */
+/* DEFCON Defense Posture Matrix (Apple Squircle Tiles) */
 .hud-defcon-grid {
-  gap: 4px !important;
+  gap: 5px !important;
 }
 .hud-defcon-btn {
-  background: var(--deep-carbon) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 4px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  border-radius: var(--apple-radius-sm) !important;
   color: var(--steel-grey) !important;
   padding: 8px 4px !important;
-  transition: all var(--ease-editorial) !important;
+  box-shadow: var(--apple-glass-shine) !important;
+  transition: all var(--ease-apple) !important;
 }
 .hud-defcon-btn b {
   font-family: var(--font-serif) !important;
@@ -3442,14 +3528,16 @@ body {
   margin-top: 3px !important;
 }
 .hud-defcon-btn:hover {
-  border-color: var(--hairline-hover) !important;
+  border-color: var(--apple-glass-border-bright) !important;
   color: var(--warm-white) !important;
-  background: var(--surface-hover) !important;
+  background: rgba(255, 255, 255, 0.10) !important;
+  transform: translateY(-1px) !important;
 }
 .hud-defcon-btn.active {
-  background: rgba(240, 239, 236, 0.08) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
   border-color: var(--warm-white) !important;
   color: var(--warm-white) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), var(--apple-glass-shine-intense) !important;
 }
 #hud-defcon-4.active {
   background: var(--orange-bg) !important;
@@ -3457,7 +3545,7 @@ body {
   color: var(--burnt-orange) !important;
 }
 #hud-defcon-3.active {
-  background: rgba(245, 158, 11, 0.08) !important;
+  background: rgba(245, 158, 11, 0.14) !important;
   border-color: #F59E0B !important;
   color: #F59E0B !important;
 }
@@ -3467,45 +3555,46 @@ body {
   color: var(--signal-red) !important;
 }
 #hud-defcon-1.active, .hud-defcon-btn.defcon-nuclear.active {
-  background: rgba(229, 43, 47, 0.22) !important;
+  background: linear-gradient(180deg, rgba(255, 59, 48, 0.3) 0%, rgba(215, 30, 35, 0.45) 100%) !important;
   border-color: var(--signal-red) !important;
   color: #ffffff !important;
-  box-shadow: 0 0 24px var(--signal-red-dim) !important;
+  box-shadow: 0 0 24px var(--signal-red-dim), var(--apple-glass-shine-intense) !important;
 }
 
 /* Tactical Strikes List */
 .hud-action-list {
-  gap: 2px !important;
+  gap: 3px !important;
 }
 .hud-action-btn {
-  background: transparent !important;
-  border: 1px solid transparent !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
   border-left: 2px solid transparent !important;
-  border-radius: 4px !important;
+  border-radius: var(--apple-radius-sm) !important;
   color: var(--steel-grey) !important;
   font-size: 11.5px !important;
-  padding: 7px 10px !important;
+  padding: 8px 11px !important;
   gap: 10px !important;
   font-family: var(--font-sans) !important;
-  transition: all var(--ease-editorial) !important;
+  transition: all var(--ease-apple) !important;
 }
 .hud-action-btn i {
   color: var(--muted-grey) !important;
   flex-shrink: 0 !important;
-  transition: color var(--ease-editorial) !important;
+  transition: color var(--ease-apple) !important;
 }
 .hud-action-btn:hover {
-  background: var(--surface-hover) !important;
-  border-color: var(--hairline) !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: var(--apple-glass-border) !important;
   border-left-color: var(--signal-red) !important;
   color: var(--warm-white) !important;
   transform: translateX(2px) !important;
+  box-shadow: var(--apple-glass-shine) !important;
 }
 .hud-action-btn:hover i {
   color: var(--signal-red) !important;
 }
 .hud-action-btn.danger {
-  border-color: rgba(229, 43, 47, 0.15) !important;
+  border-color: rgba(255, 59, 48, 0.18) !important;
 }
 .hud-action-btn.danger:hover {
   background: var(--signal-red-bg) !important;
@@ -3516,12 +3605,12 @@ body {
 .hud-tag-pill {
   font-family: var(--font-mono) !important;
   font-size: 8px !important;
-  letter-spacing: 0.1em !important;
+  letter-spacing: 0.08em !important;
   color: var(--steel-grey) !important;
-  border: 1px solid var(--hairline) !important;
-  background: transparent !important;
-  padding: 1px 5px !important;
-  border-radius: 2px !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  padding: 2px 6px !important;
+  border-radius: var(--apple-radius-pill) !important;
 }
 .hud-action-btn:hover .hud-tag-pill {
   border-color: var(--signal-red-bdr) !important;
@@ -3530,15 +3619,18 @@ body {
 
 /* Bottom Stats Grid */
 .hud-stat-grid {
-  border-top: 1px solid var(--dark-border) !important;
+  border-top: 1px solid var(--apple-glass-border-subtle) !important;
   padding-top: 12px !important;
   gap: 6px !important;
 }
 .hud-stat-cell {
-  background: var(--graphite) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 4px !important;
-  padding: 9px 6px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: var(--apple-blur-card) !important;
+  -webkit-backdrop-filter: var(--apple-blur-card) !important;
+  border: 1px solid var(--apple-glass-border-subtle) !important;
+  border-radius: var(--apple-radius-sm) !important;
+  padding: 9px 8px !important;
+  box-shadow: var(--apple-glass-shine) !important;
 }
 .hud-stat-cell b {
   font-family: var(--font-mono) !important;
@@ -3550,27 +3642,34 @@ body {
   font-family: var(--font-mono) !important;
   font-size: 8px !important;
   color: var(--steel-grey) !important;
-  letter-spacing: 0.14em !important;
+  letter-spacing: 0.12em !important;
 }
 #hud-stat-threats {
   color: var(--signal-red) !important;
 }
 
-/* ── 06. CENTRAL STAGE: SIGNAL WIRE & INTELLIGENCE SUITE ── */
+/* ── 06. CENTRAL STAGE: SIGNAL WIRE & TABS (Apple Segmented Bar) ── */
 .hud-tabs-bar {
-  background: var(--deep-carbon) !important;
-  border-bottom: 1px solid var(--hairline) !important;
+  background: rgba(14, 18, 28, 0.6) !important;
+  backdrop-filter: var(--apple-blur-card) !important;
+  -webkit-backdrop-filter: var(--apple-blur-card) !important;
+  border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
   width: 100% !important;
   flex-shrink: 0 !important;
+  padding: 6px 14px !important;
 }
 .kage-hud-tabs {
   display: flex !important;
   width: 100% !important;
-  gap: 0 !important;
+  gap: 3px !important;
   border-bottom: none !important;
-  background: transparent !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid var(--apple-glass-border-subtle) !important;
+  border-radius: var(--apple-radius-pill) !important;
+  padding: 3px !important;
   overflow-x: auto !important;
   scrollbar-width: none !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
 }
 .kage-hud-tabs::-webkit-scrollbar {
   display: none !important;
@@ -3579,22 +3678,23 @@ body {
   flex: 1 1 0 !important;
   min-width: 125px !important;
   justify-content: center !important;
-  padding: 12px 14px !important;
-  border-bottom: 2px solid transparent !important;
-  border-radius: 0 !important;
+  padding: 8px 14px !important;
+  border-bottom: none !important;
+  border-radius: var(--apple-radius-pill) !important;
   color: var(--steel-grey) !important;
   font-size: 11.5px !important;
-  gap: 9px !important;
-  transition: all var(--ease-editorial) !important;
+  gap: 8px !important;
+  transition: all var(--ease-apple) !important;
   white-space: nowrap !important;
 }
 .kage-hud-tab:hover {
-  background: var(--surface-hover) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
   color: var(--warm-white) !important;
 }
 .kage-hud-tab.active {
-  background: rgba(229, 43, 47, 0.05) !important;
-  border-bottom-color: var(--signal-red) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), var(--apple-glass-shine-intense) !important;
   color: var(--warm-white) !important;
 }
 .kage-tab-num {
@@ -3610,23 +3710,25 @@ body {
   font-family: var(--font-sans) !important;
   font-size: 11.5px !important;
   font-weight: 500 !important;
-  letter-spacing: 0.04em !important;
+  letter-spacing: 0.03em !important;
 }
 .kage-tab-jp {
   font-family: 'Noto Sans JP', sans-serif !important;
   font-size: 8.5px !important;
   color: var(--steel-grey) !important;
-  letter-spacing: 0.14em !important;
+  letter-spacing: 0.12em !important;
 }
 
-/* Stream sub-controls bar */
+/* Stream Sub-Controls Bar */
 .wiretap-sub-header {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  padding: 10px 16px 8px 16px !important;
-  background: var(--deep-carbon) !important;
-  border-bottom: 1px solid var(--dark-border) !important;
+  padding: 8px 16px !important;
+  background: rgba(14, 18, 28, 0.5) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
   flex-wrap: wrap !important;
   gap: 8px !important;
 }
@@ -3636,26 +3738,29 @@ body {
   gap: 8px !important;
 }
 .hud-filter-toggle {
-  background: var(--graphite) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 4px !important;
-  padding: 2px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  border-radius: var(--apple-radius-pill) !important;
+  padding: 3px !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
 }
 .flt-btn {
-  font-family: var(--font-mono) !important;
-  font-size: 9px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 10px !important;
   color: var(--steel-grey) !important;
-  border-radius: 2px !important;
-  padding: 3px 8px !important;
-  letter-spacing: 0.06em !important;
-  transition: all var(--ease-editorial) !important;
+  border-radius: var(--apple-radius-pill) !important;
+  padding: 4px 10px !important;
+  letter-spacing: 0.03em !important;
+  transition: all var(--ease-apple) !important;
 }
 .flt-btn.active {
-  background: rgba(240, 239, 236, 0.09) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
   color: var(--warm-white) !important;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3), var(--apple-glass-shine) !important;
 }
 .flt-btn.danger.active {
   background: var(--signal-red-bg) !important;
+  border: 1px solid var(--signal-red-bdr) !important;
   color: var(--signal-red) !important;
 }
 
@@ -3670,7 +3775,7 @@ body {
   display: none !important;
 }
 
-/* Wiretap Stream Layout & Cards */
+/* Wiretap Stream Layout & Liquid Glass Cards */
 .wiretap-stream-wrap {
   flex: 1 1 0% !important;
   height: auto !important;
@@ -3683,11 +3788,6 @@ body {
   gap: 0 !important;
   box-sizing: border-box !important;
 }
-.wiretap-sub-header {
-  flex: 0 0 auto !important;
-  background: var(--deep-carbon) !important;
-  border-bottom: 1px solid var(--hairline) !important;
-}
 #wiretap-stream {
   flex: 1 1 0% !important;
   min-height: 0 !important;
@@ -3697,8 +3797,8 @@ body {
   overflow-x: hidden !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 8px !important;
-  padding: 12px 16px 24px 16px !important;
+  gap: 10px !important;
+  padding: 14px 18px 28px 18px !important;
   scroll-behavior: auto !important;
   box-sizing: border-box !important;
 }
@@ -3713,42 +3813,51 @@ body {
   overflow-y: auto !important;
   overflow-x: hidden !important;
   box-sizing: border-box !important;
+  padding: 14px 18px 28px 18px !important;
 }
+
+/* Apple Liquid Glass Cards */
 .wiretap-card {
-  background: var(--deep-carbon) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 5px !important;
-  padding: 11px 14px !important;
-  transition: background var(--ease-editorial), border-color var(--ease-editorial) !important;
-  animation: slideInMsg 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  background: var(--apple-glass-bg) !important;
+  backdrop-filter: var(--apple-blur-card) !important;
+  -webkit-backdrop-filter: var(--apple-blur-card) !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  border-radius: var(--apple-radius-md) !important;
+  padding: 13px 16px !important;
+  box-shadow: var(--apple-shadow-xs), var(--apple-glass-shine) !important;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease !important;
   contain: layout style !important;
   transform: translateZ(0) !important;
   will-change: transform, opacity !important;
 }
 .wiretap-card:hover {
-  background: var(--graphite) !important;
-  border-color: var(--hairline-hover) !important;
+  background: var(--apple-glass-elevated) !important;
+  border-color: var(--apple-glass-border-bright) !important;
+  box-shadow: var(--apple-shadow-md), var(--apple-glass-shine-intense) !important;
+  transform: translateY(-1px) !important;
 }
 .wiretap-card.threat-card {
-  background: rgba(22, 7, 8, 0.75) !important;
+  background: rgba(45, 14, 22, 0.62) !important;
   border-color: var(--signal-red-bdr) !important;
   border-left: 3px solid var(--signal-red) !important;
+  box-shadow: 0 4px 20px rgba(255, 59, 48, 0.22), var(--apple-glass-shine) !important;
 }
 .wiretap-card.action-card {
-  background: transparent !important;
-  border-color: var(--hairline) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: var(--apple-glass-border-subtle) !important;
   border-style: dashed !important;
 }
 
 /* Avatar Pill */
 .wiretap-avatar-pill {
-  width: 27px !important;
-  height: 27px !important;
-  border-radius: 50% !important;
-  border: 1px solid rgba(240, 239, 236, 0.12) !important;
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: var(--apple-radius-pill) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
   font-family: var(--font-sans) !important;
   font-size: 11px !important;
   font-weight: 600 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Sender Typography */
@@ -3757,7 +3866,7 @@ body {
   font-size: 12.5px !important;
   font-weight: 600 !important;
   color: var(--warm-white) !important;
-  letter-spacing: 0.01em !important;
+  letter-spacing: -0.01em !important;
 }
 .wiretap-sender-handle {
   font-family: var(--font-mono) !important;
@@ -3768,7 +3877,7 @@ body {
   font-family: var(--font-mono) !important;
   font-size: 9.5px !important;
   color: var(--steel-grey) !important;
-  opacity: 0.75 !important;
+  opacity: 0.8 !important;
 }
 
 /* Message Text */
@@ -3777,29 +3886,34 @@ body {
   font-size: 13px !important;
   line-height: 1.55 !important;
   color: var(--warm-white) !important;
-  opacity: 0.93 !important;
+  opacity: 0.95 !important;
 }
 
-/* Reply Bar */
+/* Reply Bar (Frosted Tinted Glass) */
 .wiretap-reply-bar {
   border-left: 2px solid var(--intel-cyan) !important;
   background: var(--intel-cyan-bg) !important;
-  border-radius: 0 3px 3px 0 !important;
-  padding: 4px 10px !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-radius: 0 var(--apple-radius-sm) var(--apple-radius-sm) 0 !important;
+  padding: 5px 12px !important;
   font-family: var(--font-sans) !important;
 }
 
-/* Reaction Count Pill */
+/* Reaction Count Pill (Apple Glass Bead) */
 .reaction-count-pill {
-  background: var(--graphite) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 100px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  border-radius: var(--apple-radius-pill) !important;
   font-size: 10px !important;
-  padding: 2px 8px !important;
+  padding: 3px 9px !important;
   color: var(--steel-grey) !important;
+  box-shadow: var(--apple-glass-shine) !important;
+  transition: all var(--ease-apple) !important;
 }
 .reaction-count-pill:hover {
-  border-color: var(--hairline-hover) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: var(--apple-glass-border-bright) !important;
   color: var(--warm-white) !important;
 }
 
@@ -3815,30 +3929,17 @@ body {
   font-size: 12.5px !important;
   line-height: 1.45 !important;
 }
-.density-compact .wiretap-card .wiretap-card-toolbar {
-  max-height: 0 !important;
-  opacity: 0 !important;
-  overflow: hidden !important;
-  transition: max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease !important;
-  pointer-events: none !important;
-}
-.density-compact .wiretap-card:hover .wiretap-card-toolbar,
-.density-compact .wiretap-card.toolbar-active .wiretap-card-toolbar {
-  max-height: 110px !important;
-  opacity: 1 !important;
-  margin-top: 5px !important;
-  border-top: 1px solid var(--hairline) !important;
-  pointer-events: auto !important;
-}
 
-/* ── 07. RIGHT NEURAL CORE: AI COPILOT & THREAT LOG ── */
+/* ── 07. NEURAL TERMINAL & THREAT LOG (Apple Frosted Cockpit) ── */
 .copilot-terminal-card {
-  background: var(--graphite) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 6px !important;
+  background: var(--apple-glass-elevated) !important;
+  backdrop-filter: var(--apple-blur-card) !important;
+  -webkit-backdrop-filter: var(--apple-blur-card) !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  border-radius: var(--apple-radius-md) !important;
   overflow: hidden !important;
   height: 350px !important;
-  box-shadow: var(--shadow-card) !important;
+  box-shadow: var(--apple-shadow-sm), var(--apple-glass-shine) !important;
 }
 .copilot-log-window {
   padding: 12px !important;
@@ -3847,13 +3948,14 @@ body {
   font-size: 11px !important;
 }
 .copilot-msg-text {
-  background: var(--deep-carbon) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 4px !important;
+  background: var(--apple-glass-bg) !important;
+  border: 1px solid var(--apple-glass-border-subtle) !important;
+  border-radius: var(--apple-radius-sm) !important;
   color: var(--warm-white) !important;
   font-size: 11px !important;
   line-height: 1.55 !important;
-  padding: 8px 11px !important;
+  padding: 8px 12px !important;
+  box-shadow: var(--apple-glass-shine) !important;
 }
 .copilot-msg.user .copilot-msg-text {
   background: var(--intel-cyan-bg) !important;
@@ -3863,37 +3965,40 @@ body {
 .copilot-msg.user .badge-tag {
   background: var(--intel-cyan-bg) !important;
   color: var(--intel-cyan) !important;
+  border-radius: var(--apple-radius-pill) !important;
 }
 .copilot-msg.bot .badge-tag {
   background: var(--signal-red-bg) !important;
   color: var(--signal-red) !important;
+  border-radius: var(--apple-radius-pill) !important;
 }
 
-/* Prompt chips & input */
+/* Prompt Chips & Input */
 .copilot-quick-chips {
-  background: var(--deep-carbon) !important;
-  border-top: 1px solid var(--hairline) !important;
-  gap: 4px !important;
-  padding: 6px 10px !important;
+  background: rgba(14, 18, 28, 0.6) !important;
+  border-top: 1px solid var(--apple-glass-border-subtle) !important;
+  gap: 5px !important;
+  padding: 7px 12px !important;
 }
 .copilot-quick-chips button {
-  background: var(--graphite) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 3px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  border-radius: var(--apple-radius-pill) !important;
   color: var(--steel-grey) !important;
   font-family: var(--font-mono) !important;
   font-size: 9px !important;
-  padding: 3px 8px !important;
-  transition: all var(--ease-editorial) !important;
+  padding: 4px 9px !important;
+  transition: all var(--ease-apple) !important;
+  box-shadow: var(--apple-glass-shine) !important;
 }
 .copilot-quick-chips button:hover {
-  border-color: var(--hairline-hover) !important;
+  border-color: var(--apple-glass-border-bright) !important;
   color: var(--warm-white) !important;
-  background: var(--surface-hover) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
 }
 .copilot-input-form {
-  background: var(--deep-carbon) !important;
-  border-top: 1px solid var(--dark-border) !important;
+  background: rgba(14, 18, 28, 0.75) !important;
+  border-top: 1px solid var(--apple-glass-border) !important;
 }
 .copilot-prompt-sym {
   color: var(--signal-red) !important;
@@ -3906,29 +4011,28 @@ body {
   font-size: 11px !important;
   color: var(--warm-white) !important;
 }
-.copilot-text-input::placeholder {
-  color: var(--muted-grey) !important;
-}
 
 /* Intercepted Threats Feed */
 .neural-threats-list {
-  gap: 5px !important;
+  gap: 6px !important;
 }
 .threat-empty-state {
-  border: 1px dashed var(--dark-border) !important;
-  border-radius: 5px !important;
+  border: 1px dashed var(--apple-glass-border) !important;
+  border-radius: var(--apple-radius-md) !important;
   color: var(--steel-grey) !important;
   font-size: 11px !important;
-  padding: 22px 14px !important;
+  padding: 24px 14px !important;
   text-align: center !important;
 }
 .threat-feed-card {
-  background: rgba(22, 7, 8, 0.6) !important;
+  background: rgba(45, 14, 22, 0.5) !important;
+  backdrop-filter: blur(10px) !important;
   border: 1px solid var(--signal-red-bdr) !important;
-  border-left: 2px solid var(--signal-red) !important;
-  border-radius: 4px !important;
-  padding: 8px 10px !important;
-  transition: border-color var(--ease-editorial) !important;
+  border-left: 3px solid var(--signal-red) !important;
+  border-radius: var(--apple-radius-sm) !important;
+  padding: 9px 12px !important;
+  box-shadow: var(--apple-glass-shine) !important;
+  transition: border-color var(--ease-apple) !important;
 }
 .threat-feed-card:hover {
   border-color: var(--signal-red) !important;
@@ -3943,9 +4047,9 @@ body {
 .threat-feed-action {
   background: var(--signal-red-bg) !important;
   color: var(--signal-red) !important;
-  border-radius: 2px !important;
+  border-radius: var(--apple-radius-pill) !important;
   font-size: 8.5px !important;
-  padding: 1px 5px !important;
+  padding: 2px 7px !important;
 }
 .threat-feed-body {
   font-family: var(--font-sans) !important;
@@ -3954,72 +4058,86 @@ body {
   line-height: 1.4 !important;
 }
 
-/* ── 08. MEMBER RECON TABLE / CARDS ── */
+/* ── 08. MEMBER RECON TABLE (Apple Translucent Data Sheet) ── */
 .recon-table th, table[class="recon-table"] th {
-  background: var(--graphite) !important;
+  background: rgba(20, 26, 40, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
   color: var(--steel-grey) !important;
-  border-bottom: 1px solid var(--dark-border) !important;
+  border-bottom: 1px solid var(--apple-glass-border) !important;
   font-family: var(--font-mono) !important;
   font-size: 9px !important;
-  letter-spacing: 0.16em !important;
-  padding: 10px 12px !important;
+  letter-spacing: 0.14em !important;
+  padding: 11px 14px !important;
   position: sticky !important;
   top: 0 !important;
   z-index: 10 !important;
-  box-shadow: 0 1px 0 var(--hairline, rgba(255,255,255,0.08)) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 .recon-table td, table[class="recon-table"] td {
-  border-bottom: 1px solid var(--hairline) !important;
+  border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
   font-size: 11px !important;
-  padding: 10px 12px !important;
+  padding: 10px 14px !important;
   color: var(--warm-white) !important;
 }
 .recon-table tr:hover td {
-  background: var(--surface-hover) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 
-/* ── 09. PRIMARY & SECONDARY BUTTONS ── */
-.kage-action-btn {
-  background: var(--signal-red) !important;
-  border: 1px solid var(--signal-red) !important;
-  border-radius: 4px !important;
-  font-family: var(--font-mono) !important;
-  font-size: 11px !important;
-  letter-spacing: 0.1em !important;
+/* ── 09. PRIMARY & SECONDARY BUTTONS (Apple Vibrant Glass) ── */
+.kage-action-btn, .kage-btn {
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.9) 0%, rgba(215, 30, 35, 0.95) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  border-radius: var(--apple-radius-sm) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0.03em !important;
   font-weight: 600 !important;
-  padding: 8px 16px !important;
+  padding: 9px 18px !important;
   color: #ffffff !important;
-  transition: all var(--ease-editorial) !important;
+  box-shadow: 0 4px 16px rgba(255, 59, 48, 0.4), var(--apple-glass-shine-intense) !important;
+  transition: all var(--ease-apple) !important;
 }
-.kage-action-btn:hover {
-  background: #ff3b40 !important;
-  border-color: #ff3b40 !important;
+.kage-action-btn:hover, .kage-btn:hover {
+  background: linear-gradient(180deg, rgba(255, 85, 75, 0.96) 0%, rgba(230, 40, 45, 1) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: 0 6px 22px rgba(255, 59, 48, 0.55), var(--apple-glass-shine-intense) !important;
   transform: translateY(-1px) !important;
+}
+.kage-action-btn:active, .kage-btn:active {
+  transform: scale(0.97) !important;
 }
 
 .kage-sub-btn {
-  background: var(--graphite) !important;
-  border: 1px solid var(--hairline) !important;
-  border-radius: 4px !important;
-  color: var(--steel-grey) !important;
-  font-family: var(--font-mono) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  border-radius: var(--apple-radius-sm) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-family: var(--font-sans) !important;
   font-size: 11px !important;
-  letter-spacing: 0.04em !important;
-  transition: all var(--ease-editorial) !important;
+  box-shadow: var(--apple-glass-shine) !important;
+  transition: all var(--ease-apple) !important;
 }
 .kage-sub-btn:hover {
-  border-color: var(--hairline-hover) !important;
+  border-color: var(--apple-glass-border-bright) !important;
   color: var(--warm-white) !important;
-  background: var(--surface-hover) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: var(--apple-glass-shine-intense) !important;
+}
+.kage-sub-btn:active {
+  transform: scale(0.97) !important;
 }
 
-/* Badge semantic colors */
+/* Badges Semantic Colors (Apple Glass Pills) */
 .badge {
   font-family: var(--font-mono) !important;
   font-size: 9px !important;
-  letter-spacing: 0.1em !important;
-  border-radius: 3px !important;
-  padding: 2px 7px !important;
+  letter-spacing: 0.08em !important;
+  border-radius: var(--apple-radius-pill) !important;
+  padding: 3px 8px !important;
+  box-shadow: var(--apple-glass-shine) !important;
 }
 .badge-vermilion {
   background: var(--signal-red-bg) !important;
@@ -4032,9 +4150,9 @@ body {
   border: 1px solid var(--op-green-bdr) !important;
 }
 .badge-muted {
-  background: var(--graphite) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
   color: var(--steel-grey) !important;
-  border: 1px solid var(--hairline) !important;
+  border: 1px solid var(--apple-glass-border) !important;
 }
 .badge-amber {
   background: var(--orange-bg) !important;
@@ -4042,33 +4160,53 @@ body {
   border: 1px solid var(--orange-bdr) !important;
 }
 
-/* ── 10. MODALS & TOAST NOTIFICATIONS ── */
+/* ── 10. MODALS & TOAST NOTIFICATIONS (visionOS Floating Glass Sheets) ── */
 .kage-modal-overlay {
-  background: rgba(8, 9, 11, 0.92) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  background: rgba(6, 9, 15, 0.60) !important;
+  backdrop-filter: var(--apple-blur-nav) !important;
+  -webkit-backdrop-filter: var(--apple-blur-nav) !important;
 }
 .kage-modal {
-  background: var(--deep-carbon) !important;
-  border: 1px solid var(--dark-border) !important;
-  border-radius: 8px !important;
-  box-shadow: var(--shadow-obsidian) !important;
+  background: rgba(18, 24, 38, 0.84) !important;
+  backdrop-filter: var(--apple-blur-modal) !important;
+  -webkit-backdrop-filter: var(--apple-blur-modal) !important;
+  border: 1px solid var(--apple-glass-border-bright) !important;
+  border-radius: var(--apple-radius-xl) !important;
+  box-shadow: var(--apple-shadow-sheet) !important;
+}
+.kage-modal-close-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid var(--apple-glass-border) !important;
+  border-radius: var(--apple-radius-pill) !important;
+  color: var(--steel-grey) !important;
+  transition: all var(--ease-apple) !important;
+  box-shadow: var(--apple-glass-shine) !important;
+}
+.kage-modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: var(--apple-glass-border-bright) !important;
+  color: #ffffff !important;
+  transform: scale(1.02) !important;
 }
 .toast {
-  background: var(--deep-carbon) !important;
-  border: 1px solid var(--dark-border) !important;
+  background: rgba(20, 26, 40, 0.88) !important;
+  backdrop-filter: var(--apple-blur-nav) !important;
+  -webkit-backdrop-filter: var(--apple-blur-nav) !important;
+  border: 1px solid var(--apple-glass-border-bright) !important;
   border-left: 3px solid var(--signal-red) !important;
-  border-radius: 5px !important;
+  border-radius: var(--apple-radius-md) !important;
   color: var(--warm-white) !important;
-  font-family: var(--font-mono) !important;
-  font-size: 11px !important;
-  box-shadow: var(--shadow-obsidian) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  box-shadow: var(--apple-shadow-md), var(--apple-glass-shine) !important;
 }
 
 /* Micro-animations */
 @keyframes slideInMsg {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-4px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4079,22 +4217,21 @@ body {
   }
 }
 
-/* ── 11. DEFINITIVE MOBILE OPTIMIZATION (PHONES & TALL VIEWPORTS) ── */
+/* ── 11. MOBILE GLASS COCKPIT (iOS 18 Floating Island & Sheets) ── */
 @media (max-width: 768px), (max-aspect-ratio: 9/10) and (max-width: 920px), (pointer: coarse) and (max-width: 820px) {
   html, body {
     overflow-x: hidden !important;
     max-width: 100vw !important;
   }
 
-  /* Reclaim vertical real estate: Hide desktop-only ticker */
   .hud-top-bar {
     display: none !important;
   }
   
   /* War Room HUD Viewport Fill */
   .war-room-hud {
-    height: calc(100dvh - var(--nav-h, 50px) - 56px - env(safe-area-inset-bottom, 0px)) !important;
-    max-height: calc(100dvh - var(--nav-h, 50px) - 56px - env(safe-area-inset-bottom, 0px)) !important;
+    height: calc(100dvh - var(--nav-h, 50px) - 76px - env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(100dvh - var(--nav-h, 50px) - 76px - env(safe-area-inset-bottom, 0px)) !important;
     position: relative !important;
     overflow: hidden !important;
     border: none !important;
@@ -4136,7 +4273,9 @@ body {
 
   /* Sentinel / Left Rail Mobile Full-Width Experience */
   .hud-col-left.mobile-active {
-    background: var(--deep-carbon) !important;
+    background: rgba(14, 18, 28, 0.6) !important;
+    backdrop-filter: var(--apple-blur-nav) !important;
+    -webkit-backdrop-filter: var(--apple-blur-nav) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     padding: 14px 14px calc(28px + env(safe-area-inset-bottom, 0px)) 14px !important;
@@ -4159,44 +4298,51 @@ body {
     gap: 5px !important;
   }
   .hud-col-left .hud-action-btn {
-    min-height: 42px !important;
+    min-height: 44px !important;
     padding: 10px 12px !important;
     font-size: 12px !important;
     display: flex !important;
     align-items: center !important;
     box-sizing: border-box !important;
-    background: var(--graphite) !important;
-    border: 1px solid var(--hairline) !important;
-    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid var(--apple-glass-border) !important;
+    border-radius: var(--apple-radius-sm) !important;
+    box-shadow: var(--apple-glass-shine) !important;
   }
   .hud-col-left .hud-action-btn:active {
-    background: var(--surface-hover) !important;
+    background: rgba(255, 255, 255, 0.12) !important;
     border-color: var(--signal-red) !important;
   }
 
   /* Center Column Mobile Layout */
   .hud-col-center.mobile-active {
-    background: var(--obsidian) !important;
+    background: transparent !important;
     padding: 0 !important;
     overflow: hidden !important;
   }
 
   /* Center Tabs Bar: Sleek Horizontal Scroll Strip */
   .hud-tabs-bar {
-    height: 38px !important;
-    flex: 0 0 38px !important;
-    border-bottom: 1px solid var(--hairline) !important;
-    background: var(--deep-carbon) !important;
+    height: 42px !important;
+    flex: 0 0 42px !important;
+    border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
+    background: rgba(14, 18, 28, 0.6) !important;
+    backdrop-filter: var(--apple-blur-card) !important;
+    -webkit-backdrop-filter: var(--apple-blur-card) !important;
     overflow: hidden !important;
+    padding: 4px 8px !important;
   }
   .kage-hud-tabs {
     display: flex !important;
     width: 100% !important;
-    height: 38px !important;
+    height: 34px !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     scrollbar-width: none !important;
-    background: transparent !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-radius: var(--apple-radius-pill) !important;
+    padding: 2px !important;
+    border: 1px solid var(--apple-glass-border-subtle) !important;
   }
   .kage-hud-tabs::-webkit-scrollbar {
     display: none !important;
@@ -4205,19 +4351,19 @@ body {
     flex: 0 0 auto !important;
     min-width: auto !important;
     padding: 0 13px !important;
-    height: 38px !important;
+    height: 28px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 6px !important;
-    border-bottom: 2px solid transparent !important;
-    border-radius: 0 !important;
+    border-radius: var(--apple-radius-pill) !important;
     white-space: nowrap !important;
     font-size: 11px !important;
   }
   .kage-hud-tab.active {
-    border-bottom-color: var(--signal-red) !important;
-    background: rgba(229, 43, 47, 0.08) !important;
+    background: rgba(255, 255, 255, 0.16) !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), var(--apple-glass-shine) !important;
     color: var(--warm-white) !important;
   }
   .kage-tab-num {
@@ -4251,8 +4397,10 @@ body {
     width: 100% !important;
     max-width: 100vw !important;
     padding: 6px 8px !important;
-    background: var(--deep-carbon) !important;
-    border-bottom: 1px solid var(--hairline) !important;
+    background: rgba(14, 18, 28, 0.5) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
     flex: 0 0 auto !important;
@@ -4290,22 +4438,22 @@ body {
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
     padding: 2px !important;
-    background: var(--graphite) !important;
-    border: 1px solid var(--hairline) !important;
-    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid var(--apple-glass-border) !important;
+    border-radius: var(--apple-radius-pill) !important;
     white-space: nowrap !important;
   }
   .flt-btn {
     font-size: 10px !important;
-    font-family: var(--font-mono) !important;
-    padding: 4px 8px !important;
-    height: 25px !important;
-    line-height: 17px !important;
+    font-family: var(--font-sans) !important;
+    padding: 4px 9px !important;
+    height: 26px !important;
+    line-height: 18px !important;
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    border-radius: 3px !important;
+    border-radius: var(--apple-radius-pill) !important;
     white-space: nowrap !important;
-    letter-spacing: 0.04em !important;
+    letter-spacing: 0.02em !important;
     display: inline-flex !important;
     align-items: center !important;
     gap: 4px !important;
@@ -4323,14 +4471,17 @@ body {
   }
   .mob-action-pill {
     padding: 4px 8px !important;
-    border-radius: 5px !important;
-    background: rgba(223, 231, 224, 0.06) !important;
-    border: 1px solid rgba(223, 231, 224, 0.12) !important;
+    border-radius: var(--apple-radius-pill) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid var(--apple-glass-border) !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    min-width: 28px !important;
-    height: 28px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    box-shadow: var(--apple-glass-shine) !important;
   }
 
   /* Chat Feed on Mobile */
@@ -4339,18 +4490,18 @@ body {
     min-height: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 8px 8px calc(24px + env(safe-area-inset-bottom, 0px)) 8px !important;
-    gap: 6px !important;
+    padding: 10px 10px calc(28px + env(safe-area-inset-bottom, 0px)) 10px !important;
+    gap: 8px !important;
     box-sizing: border-box !important;
     width: 100% !important;
   }
   .wiretap-card {
-    padding: 9px 11px !important;
-    border-radius: 6px !important;
+    padding: 11px 13px !important;
+    border-radius: var(--apple-radius-md) !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    background: var(--deep-carbon) !important;
-    border: 1px solid var(--hairline) !important;
+    background: var(--apple-glass-bg) !important;
+    border: 1px solid var(--apple-glass-border) !important;
   }
   .wiretap-header {
     gap: 6px !important;
@@ -4369,13 +4520,13 @@ body {
   }
   .wiretap-msg-tx {
     font-size: 12.5px !important;
-    line-height: 1.4 !important;
+    line-height: 1.45 !important;
     word-break: break-word !important;
     overflow-wrap: break-word !important;
   }
   .wiretap-reply {
     font-size: 10.5px !important;
-    padding: 4px 7px !important;
+    padding: 4px 8px !important;
     width: 100% !important;
     box-sizing: border-box !important;
   }
@@ -4383,7 +4534,7 @@ body {
     max-width: 100% !important;
     max-height: 240px !important;
     height: auto !important;
-    border-radius: 4px !important;
+    border-radius: var(--apple-radius-sm) !important;
     object-fit: contain !important;
   }
 
@@ -4408,26 +4559,27 @@ body {
     -webkit-overflow-scrolling: touch !important;
   }
   .recon-table th, .recon-table td {
-    padding: 8px 9px !important;
+    padding: 8px 10px !important;
     font-size: 10px !important;
     white-space: nowrap !important;
   }
 
-  /* Bottom Command Dock */
+  /* Apple iOS 18 Floating Island Dock */
   #kage-mobile-dock {
     display: flex !important;
     position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-    background: rgba(9, 11, 14, 0.98) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-    border-top: 1px solid var(--dark-border) !important;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6) !important;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 14px !important;
+    right: 14px !important;
+    width: auto !important;
+    height: 58px !important;
+    padding: 0 6px !important;
+    background: rgba(20, 26, 40, 0.82) !important;
+    backdrop-filter: var(--apple-blur-dock) !important;
+    -webkit-backdrop-filter: var(--apple-blur-dock) !important;
+    border: 1px solid var(--apple-glass-border-bright) !important;
+    border-radius: var(--apple-radius-pill) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), var(--apple-glass-shine-intense) !important;
     z-index: 9999 !important;
     align-items: center !important;
     justify-content: space-around !important;
@@ -4439,7 +4591,8 @@ body {
     justify-content: center !important;
     gap: 3px !important;
     flex: 1 1 0 !important;
-    height: 100% !important;
+    height: 48px !important;
+    border-radius: var(--apple-radius-pill) !important;
     color: var(--steel-grey) !important;
     font-size: 10px !important;
     font-family: var(--font-sans) !important;
@@ -4449,6 +4602,7 @@ body {
     touch-action: manipulation !important;
     padding: 4px 0 !important;
     -webkit-tap-highlight-color: transparent !important;
+    transition: all var(--ease-apple) !important;
   }
   .kage-dock-item i, .kage-dock-item svg {
     width: 19px !important;
@@ -4457,15 +4611,17 @@ body {
     transition: transform 0.15s ease, stroke 0.15s ease !important;
   }
   .kage-dock-item.active {
+    background: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: var(--apple-glass-shine) !important;
     color: var(--warm-white) !important;
     font-weight: 600 !important;
   }
   .kage-dock-item.active i, .kage-dock-item.active svg {
     stroke: var(--signal-red) !important;
-    transform: translateY(-1px) !important;
+    transform: translateY(-1px) scale(1.05) !important;
   }
 
-  /* ── MOBILE MODALS & BOTTOM SHEETS OVERLAY DOCK (Z-INDEX 10050) ── */
+  /* Apple iOS Frosted Bottom Sheet Modals */
   .kage-modal-overlay {
     position: fixed !important;
     inset: 0 !important;
@@ -4473,28 +4629,39 @@ body {
     align-items: flex-end !important;
     justify-content: center !important;
     z-index: 10050 !important;
-    background: rgba(2, 4, 6, 0.4) !important;
-    backdrop-filter: blur(4px) !important;
-    -webkit-backdrop-filter: blur(4px) !important;
+    background: rgba(4, 6, 12, 0.55) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
   }
   .kage-modal {
     width: 100vw !important;
     max-width: 100vw !important;
     max-height: 85vh !important;
-    border-radius: 20px 20px 0 0 !important;
-    padding: 16px 16px calc(28px + env(safe-area-inset-bottom, 16px)) 16px !important;
-    border-top: 1px solid rgba(229, 43, 47, 0.35) !important;
+    border-radius: 28px 28px 0 0 !important;
+    padding: 16px 18px calc(30px + env(safe-area-inset-bottom, 16px)) 18px !important;
+    background: rgba(18, 24, 38, 0.90) !important;
+    backdrop-filter: var(--apple-blur-modal) !important;
+    -webkit-backdrop-filter: var(--apple-blur-modal) !important;
+    border-top: 1px solid var(--apple-glass-border-bright) !important;
     border-bottom: none !important;
     border-left: none !important;
     border-right: none !important;
     margin: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.85) !important;
+    box-shadow: 0 -16px 50px rgba(0, 0, 0, 0.8), var(--apple-glass-shine-intense) !important;
     box-sizing: border-box !important;
   }
+  .mob-sheet-handle {
+    width: 38px !important;
+    height: 5px !important;
+    border-radius: var(--apple-radius-pill) !important;
+    background: rgba(255, 255, 255, 0.35) !important;
+    margin: 0 auto 14px auto !important;
+    cursor: pointer !important;
+  }
 
-  /* ── 10. ADVANCED RESPONSIVE MODAL COCKPITS (MOBILE VIEWPORT) ── */
+  /* Advanced Responsive Modal Cockpits */
   .graph-modal-cockpit,
   .siphon-modal-cockpit,
   .surveillance-modal-cockpit {
@@ -4517,6 +4684,8 @@ body {
     width: 100% !important;
     flex: 0 0 270px !important;
     box-sizing: border-box !important;
+    border-radius: var(--apple-radius-md) !important;
+    overflow: hidden !important;
   }
   #social-graph-canvas {
     touch-action: none !important;
@@ -4538,12 +4707,14 @@ body {
     max-height: 320px !important;
     box-sizing: border-box !important;
     flex: 1 1 auto !important;
+    border-radius: var(--apple-radius-md) !important;
   }
   .siphon-arm-bar,
   .surveillance-arm-bar {
     padding: 10px !important;
     width: 100% !important;
     box-sizing: border-box !important;
+    border-radius: var(--apple-radius-md) !important;
   }
   .siphon-arm-inputs {
     display: flex !important;
@@ -4571,72 +4742,71 @@ body {
     box-sizing: border-box !important;
   }
 }
-
 </style>
 </head>
 
 <body>
 <!-- OWNER SECURITY CLEARANCE GATEKEEPER LOCKSCREEN -->
-<div id="owner-lockscreen" style="position: fixed; inset: 0; z-index: 999999; background: radial-gradient(circle at center, #0a0e14 0%, #020406 100%); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);">
-  <div style="max-width: 440px; width: 90%; background: rgba(10, 14, 20, 0.85); border: 1px solid rgba(224, 35, 28, 0.35); box-shadow: 0 25px 70px rgba(0, 0, 0, 0.95), 0 0 40px rgba(224, 35, 28, 0.15); border-radius: 8px; padding: 36px 32px; font-family: 'JetBrains Mono', monospace; text-align: center; position: relative; overflow: hidden;">
+<div id="owner-lockscreen" style="position: fixed; inset: 0; z-index: 999999; background: rgba(5, 7, 12, 0.75); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);">
+  <div style="max-width: 440px; width: 90%; background: rgba(18, 24, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.25); border-radius: 24px; padding: 36px 32px; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif; text-align: center; position: relative; overflow: hidden; backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);">
     
-    <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #e0231c, #34d399, transparent);"></div>
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #ff3b30, #34c759, transparent);"></div>
 
-    <div style="width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; background: rgba(224, 35, 28, 0.1); border: 1px solid rgba(224, 35, 28, 0.4); display: grid; place-items: center;">
-      <i data-lucide="shield-alert" style="width: 26px; height: 26px; color: #e0231c;"></i>
+    <div style="width: 58px; height: 58px; margin: 0 auto 16px; border-radius: 50%; background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 59, 48, 0.4); display: grid; place-items: center; box-shadow: 0 4px 16px rgba(255, 59, 48, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);">
+      <i data-lucide="shield-alert" style="width: 26px; height: 26px; color: #ff3b30;"></i>
     </div>
 
-    <div style="font-size: 10px; letter-spacing: 0.25em; color: #e0231c; text-transform: uppercase; margin-bottom: 6px;">
+    <div style="font-size: 10px; letter-spacing: 0.2em; color: #ff3b30; text-transform: uppercase; margin-bottom: 6px; font-weight: 600;">
       ● RESTRICTED WAR ROOM ACCESS
     </div>
-    <h2 id="owner-gate-title" style="font-size: 20px; font-weight: 700; color: #dfe7e0; margin-bottom: 8px; letter-spacing: -0.02em;">
+    <h2 id="owner-gate-title" style="font-size: 21px; font-weight: 700; color: #ffffff; margin-bottom: 8px; letter-spacing: -0.02em;">
       CLEARANCE GATEWAY
     </h2>
-    <p id="owner-gate-desc" style="font-size: 12px; color: #78837c; line-height: 1.6; margin-bottom: 20px; font-family: 'Onest', sans-serif;">
+    <p id="owner-gate-desc" style="font-size: 12px; color: rgba(255, 255, 255, 0.6); line-height: 1.6; margin-bottom: 22px;">
       Provide your registered Telegram username and assigned 4-digit code to unlock mission control.
     </p>
 
     <div id="owner-pin-container">
       <!-- Telegram Username Input -->
       <div style="margin-bottom: 14px; text-align: left;">
-        <label style="font-size: 10px; color: #78837c; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 5px; font-weight: 600;">Telegram Username</label>
+        <label style="font-size: 10px; color: rgba(255, 255, 255, 0.55); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 6px; font-weight: 600;">Telegram Username</label>
         <div style="position: relative; display: flex; align-items: center;">
-          <span style="position: absolute; left: 14px; color: #78837c; font-size: 14px; font-weight: bold;">@</span>
+          <span style="position: absolute; left: 14px; color: rgba(255, 255, 255, 0.4); font-size: 14px; font-weight: bold;">@</span>
           <input type="text" id="owner-username-input" placeholder="username" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus
-            style="width: 100%; font-size: 13px; background: #030609; border: 1px solid rgba(223, 231, 224, 0.15); border-radius: 6px; padding: 12px 14px 12px 32px; color: #dfe7e0; outline: none; transition: border-color 0.2s;"
-            onfocus="this.style.borderColor='#38bdf8'"
-            onblur="this.style.borderColor='rgba(223, 231, 224, 0.15)'"
+            style="width: 100%; font-size: 13px; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; padding: 12px 14px 12px 34px; color: #ffffff; outline: none; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); transition: border-color 0.2s, box-shadow 0.2s;"
+            onfocus="this.style.borderColor='#38bdf8'; this.style.boxShadow='0 0 0 3px rgba(56, 189, 248, 0.25), inset 0 1px 2px rgba(0,0,0,0.35)'"
+            onblur="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.boxShadow='inset 0 1px 2px rgba(0,0,0,0.35)'"
             onkeydown="if(event.key==='Enter') document.getElementById('owner-pin-input').focus()"
           />
         </div>
       </div>
 
       <!-- Assigned 4-Digit Code Input -->
-      <div style="margin-bottom: 20px; text-align: left;">
-        <label style="font-size: 10px; color: #78837c; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 5px; font-weight: 600;">Assigned 4-Digit Code</label>
+      <div style="margin-bottom: 22px; text-align: left;">
+        <label style="font-size: 10px; color: rgba(255, 255, 255, 0.55); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 6px; font-weight: 600;">Assigned 4-Digit Code</label>
         <div style="position: relative; display: flex; align-items: center;">
           <input type="password" id="owner-pin-input" placeholder="••••" maxlength="8"
-            style="width: 100%; text-align: center; font-size: 20px; letter-spacing: 8px; background: #030609; border: 1px solid rgba(223, 231, 224, 0.15); border-radius: 6px; padding: 12px 44px 12px 14px; color: #34d399; outline: none; transition: border-color 0.2s;"
-            onfocus="this.style.borderColor='#34d399'"
-            onblur="this.style.borderColor='rgba(223, 231, 224, 0.15)'"
+            style="width: 100%; text-align: center; font-size: 20px; letter-spacing: 8px; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; padding: 12px 44px 12px 14px; color: #34c759; outline: none; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); transition: border-color 0.2s, box-shadow 0.2s;"
+            onfocus="this.style.borderColor='#34c759'; this.style.boxShadow='0 0 0 3px rgba(52, 199, 89, 0.25), inset 0 1px 2px rgba(0,0,0,0.35)'"
+            onblur="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.boxShadow='inset 0 1px 2px rgba(0,0,0,0.35)'"
             onkeydown="if(event.key==='Enter') submitOwnerPin()"
           />
           <button type="button" onclick="toggleOwnerPinVisibility()" title="Toggle PIN visibility"
-            style="position: absolute; right: 12px; background: transparent; border: none; color: #78837c; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center;">
+            style="position: absolute; right: 12px; background: transparent; border: none; color: rgba(255, 255, 255, 0.5); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center;">
             <i id="owner-pin-eye-icon" data-lucide="eye" style="width: 18px; height: 18px;"></i>
           </button>
         </div>
       </div>
 
       <button id="owner-unlock-btn" onclick="submitOwnerPin()" class="kage-btn"
-        style="width: 100%; padding: 14px 20px; font-size: 12px; justify-content: center; background: #e0231c; border-color: #e0231c; font-weight: 700;">
-        <i data-lucide="shield-check" style="width: 14px; height: 14px;"></i> 🔓 UNLOCK CLEARANCE
+        style="width: 100%; padding: 14px 20px; font-size: 12.5px; justify-content: center; background: linear-gradient(180deg, #ff3b30 0%, #d71e23 100%); border: 1px solid rgba(255,255,255,0.28); border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(255, 59, 48, 0.4), inset 0 1px 0 rgba(255,255,255,0.35);">
+        <i data-lucide="shield-check" style="width: 15px; height: 15px;"></i> 🔓 UNLOCK CLEARANCE
       </button>
 
-      <div id="owner-error-msg" style="color: #e0231c; font-size: 11px; margin-top: 14px; display: none; line-height: 1.5; background: rgba(224, 35, 28, 0.08); padding: 8px; border-radius: 4px;"></div>
+      <div id="owner-error-msg" style="color: #ff3b30; font-size: 11px; margin-top: 14px; display: none; line-height: 1.5; background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 59, 48, 0.3); padding: 9px; border-radius: 10px;"></div>
     </div>
 
-    <div style="margin-top: 24px; font-size: 9px; color: #404843; letter-spacing: 0.1em; text-transform: uppercase;">
+    <div style="margin-top: 24px; font-size: 9px; color: rgba(255, 255, 255, 0.35); letter-spacing: 0.1em; text-transform: uppercase;">
       SUPERBAN OS // SOVEREIGN APEX SECURITY SHIELD
     </div>
   </div>
@@ -5781,63 +5951,63 @@ body {
 
       <!-- STEP 1: PHONE DISPLAY & SEND CODE BUTTON -->
       <div id="auth-step-1">
-        <div style="background: #05070a; border: 1px solid var(--line); padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;">
-          <div style="font-size: 10px; color: var(--muted); margin-bottom: 4px; letter-spacing: 0.05em;">TARGET TELEGRAM PHONE</div>
-          <div id="auth-phone-display" style="color: #34d399; font-size: 15px; font-weight: 600;">+263 78 831 1244</div>
+        <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); padding: 14px 18px; border-radius: 14px; margin-bottom: 18px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);">
+          <div style="font-size: 10px; color: rgba(255, 255, 255, 0.6); margin-bottom: 4px; letter-spacing: 0.06em; font-weight: 600;">TARGET TELEGRAM PHONE</div>
+          <div id="auth-phone-display" style="color: #34c759; font-size: 16px; font-weight: 600; letter-spacing: 0.02em;">+263 78 831 1244</div>
         </div>
 
-        <button id="auth-send-code-btn" onclick="sendAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12px; justify-content: center; min-height: 46px; border-radius: 6px;">
-          <i data-lucide="send" style="width: 14px; height: 14px;"></i> 📨 Send Telegram Verification Code
+        <button id="auth-send-code-btn" onclick="sendAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12.5px; justify-content: center; min-height: 48px; border-radius: 12px;">
+          <i data-lucide="send" style="width: 15px; height: 15px;"></i> 📨 Send Telegram Verification Code
         </button>
 
-        <button type="button" onclick="goToAuthStep2('Enter the 5-digit login code received in your Telegram app:')" class="kage-modal-close-btn" style="width: 100%; text-align: center; justify-content: center; font-size: 11px; min-height: 38px; margin-top: 10px; border: 1px dashed var(--line-soft); color: var(--intel-cyan);">
+        <button type="button" onclick="goToAuthStep2('Enter the 5-digit login code received in your Telegram app:')" class="kage-modal-close-btn" style="width: 100%; text-align: center; justify-content: center; font-size: 11px; min-height: 40px; margin-top: 12px; border: 1px dashed rgba(56, 189, 248, 0.4); color: #38bdf8; border-radius: 12px;">
           Already received code in Telegram? Enter it here →
         </button>
 
-        <div id="auth-send-error" style="color: var(--vermilion); font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 8px; border-radius: 4px;"></div>
+        <div id="auth-send-error" style="color: #ff3b30; font-size: 11px; margin-top: 12px; display: none; line-height: 1.5; background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 59, 48, 0.3); padding: 10px; border-radius: 10px;"></div>
       </div>
 
       <!-- STEP 2: ENTER CODE & 2FA -->
       <div id="auth-step-2" style="display: none;">
-        <div style="margin-bottom: 14px;">
-          <label style="font-size: 10px; color: var(--muted); display: block; margin-bottom: 6px;">ENTER 5-DIGIT TELEGRAM CODE</label>
-          <input type="text" id="auth-code-input" placeholder="12345" style="width: 100%; background: #05070a; border: 1px solid var(--line); color: var(--bone); padding: 10px 14px; font-size: 16px; border-radius: 6px; letter-spacing: 4px; text-align: center;" />
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 10px; color: rgba(255, 255, 255, 0.6); display: block; margin-bottom: 6px; font-weight: 600;">ENTER 5-DIGIT TELEGRAM CODE</label>
+          <input type="text" id="auth-code-input" placeholder="12345" style="width: 100%; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.14); color: #ffffff; padding: 12px 14px; font-size: 18px; border-radius: 12px; letter-spacing: 6px; text-align: center; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);" />
         </div>
 
         <div id="auth-password-group" style="margin-bottom: 16px; display: none;">
-          <label style="font-size: 10px; color: var(--muted); display: block; margin-bottom: 6px;">TWO-STEP VERIFICATION (2FA) PASSWORD</label>
-          <input type="password" id="auth-password-input" placeholder="Enter 2FA password" style="width: 100%; background: #05070a; border: 1px solid var(--line); color: var(--bone); padding: 10px 14px; font-size: 14px; border-radius: 6px;" />
+          <label style="font-size: 10px; color: rgba(255, 255, 255, 0.6); display: block; margin-bottom: 6px; font-weight: 600;">TWO-STEP VERIFICATION (2FA) PASSWORD</label>
+          <input type="password" id="auth-password-input" placeholder="Enter 2FA password" style="width: 100%; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.14); color: #ffffff; padding: 12px 14px; font-size: 14px; border-radius: 12px; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);" />
         </div>
 
-        <button id="auth-verify-btn" onclick="verifyAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12px; margin-bottom: 10px; justify-content: center; min-height: 46px; border-radius: 6px;">
-          <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i> ⚡ Verify &amp; Authorize Cloud Instance
+        <button id="auth-verify-btn" onclick="verifyAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12.5px; margin-bottom: 10px; justify-content: center; min-height: 48px; border-radius: 12px;">
+          <i data-lucide="check-circle" style="width: 15px; height: 15px;"></i> ⚡ Verify &amp; Authorize Cloud Instance
         </button>
 
         <div style="display: flex; gap: 8px;">
-          <button type="button" onclick="document.getElementById('auth-step-2').style.display='none'; document.getElementById('auth-step-1').style.display='block';" class="kage-modal-close-btn" style="flex: 1; text-align: center; justify-content: center; font-size: 11px; min-height: 40px;">
+          <button type="button" onclick="document.getElementById('auth-step-2').style.display='none'; document.getElementById('auth-step-1').style.display='block';" class="kage-modal-close-btn" style="flex: 1; text-align: center; justify-content: center; font-size: 11px; min-height: 40px; border-radius: 12px;">
             ← Back
           </button>
-          <button type="button" onclick="sendAuthCode(true)" class="kage-modal-close-btn" style="flex: 1; text-align: center; justify-content: center; font-size: 11px; min-height: 40px; color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">
+          <button type="button" onclick="sendAuthCode(true)" class="kage-modal-close-btn" style="flex: 1; text-align: center; justify-content: center; font-size: 11px; min-height: 40px; color: #ff9500; border-color: rgba(255, 149, 0, 0.35); border-radius: 12px;">
             🔄 Request New Code
           </button>
         </div>
-        <div id="auth-verify-error" style="color: var(--vermilion); font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 8px; border-radius: 4px;"></div>
+        <div id="auth-verify-error" style="color: #ff3b30; font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 59, 48, 0.3); padding: 10px; border-radius: 10px;"></div>
       </div>
     </div>
 
     <!-- TAB 2: DIRECT STRING SESSION IMPORT -->
     <div id="auth-tab-content-string" style="display: none;">
-      <p style="font-size: 12px; color: var(--bone-dim); font-family: 'Onest', sans-serif; line-height: 1.6; margin-bottom: 14px;">
+      <p style="font-size: 12px; color: rgba(255, 255, 255, 0.65); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; line-height: 1.6; margin-bottom: 14px;">
         If you already have a Telethon string session, paste it below to link your Telegram session instantly without waiting for an SMS:
       </p>
 
-      <textarea id="auth-string-session-input" rows="4" placeholder="Paste 1BJWap1sBu6f4gzV..." style="width: 100%; background: #05070a; border: 1px solid var(--line); color: #34d399; font-size: 11px; padding: 10px 12px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; resize: vertical; margin-bottom: 14px;"></textarea>
+      <textarea id="auth-string-session-input" rows="4" placeholder="Paste 1BJWap1sBu6f4gzV..." style="width: 100%; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.14); color: #34c759; font-size: 11px; padding: 12px; border-radius: 12px; font-family: 'SF Mono', 'JetBrains Mono', monospace; resize: vertical; margin-bottom: 14px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);"></textarea>
 
-      <button id="auth-import-string-btn" onclick="submitImportSessionString()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12px; justify-content: center; background: #38bdf8; border-color: #38bdf8; color: #020406; min-height: 46px; border-radius: 6px;">
-        <i data-lucide="key" style="width: 14px; height: 14px;"></i> ⚡ Connect Instantly via String Session
+      <button id="auth-import-string-btn" onclick="submitImportSessionString()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12.5px; justify-content: center; background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%); border-color: rgba(255, 255, 255, 0.28); color: #ffffff; min-height: 48px; border-radius: 12px; box-shadow: 0 4px 16px rgba(56, 189, 248, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35);">
+        <i data-lucide="key" style="width: 15px; height: 15px;"></i> ⚡ Connect Instantly via String Session
       </button>
 
-      <div id="auth-string-error" style="color: var(--vermilion); font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(224, 86, 36, 0.1); padding: 8px; border-radius: 4px;"></div>
+      <div id="auth-string-error" style="color: #ff3b30; font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 59, 48, 0.3); padding: 10px; border-radius: 10px;"></div>
     </div>
 
   </div>
