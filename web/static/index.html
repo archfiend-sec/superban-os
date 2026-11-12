@@ -1180,8 +1180,11 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 #tab-content-alpha {
   flex: 1 1 0% !important;
   min-height: 0 !important;
-  height: 100% !important;
+  height: auto !important;
+  max-height: 100% !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
 }
 .wiretap-init-state {
   display: flex;
@@ -3088,12 +3091,12 @@ body {
   color: #ffffff !important;
 }
 
-/* Minimal bespoke scrollbar */
-::-webkit-scrollbar { width: 3px; height: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(146, 148, 154, 0.22); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--signal-red); }
-* { scrollbar-width: thin; scrollbar-color: rgba(146, 148, 154, 0.22) transparent; }
+/* Refined responsive scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(5, 7, 10, 0.4); }
+::-webkit-scrollbar-thumb { background: rgba(146, 148, 154, 0.38); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--signal-red, #eb5e55); }
+* { scrollbar-width: thin; scrollbar-color: rgba(146, 148, 154, 0.38) rgba(5, 7, 10, 0.4); }
 
 /* ── 03. TOP COMMAND BAR (Obsidian Luxury) ── */
 .nav {
@@ -3670,13 +3673,15 @@ body {
 /* Wiretap Stream Layout & Cards */
 .wiretap-stream-wrap {
   flex: 1 1 0% !important;
-  height: 100% !important;
+  height: auto !important;
+  max-height: 100% !important;
   min-height: 0 !important;
   display: flex;
   flex-direction: column !important;
   overflow: hidden !important;
   padding: 0 !important;
   gap: 0 !important;
+  box-sizing: border-box !important;
 }
 .wiretap-sub-header {
   flex: 0 0 auto !important;
@@ -3686,16 +3691,16 @@ body {
 #wiretap-stream {
   flex: 1 1 0% !important;
   min-height: 0 !important;
+  height: auto !important;
+  max-height: 100% !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 8px !important;
   padding: 12px 16px 24px 16px !important;
   scroll-behavior: auto !important;
-  transform: translateZ(0) !important;
-  will-change: scroll-position !important;
-  -webkit-overflow-scrolling: touch !important;
-  overscroll-behavior-y: contain !important;
+  box-sizing: border-box !important;
 }
 #tab-content-intel,
 #tab-content-ghost,
@@ -3703,11 +3708,11 @@ body {
 #tab-content-alpha {
   flex: 1 1 0% !important;
   min-height: 0 !important;
-  height: 100% !important;
+  height: auto !important;
+  max-height: 100% !important;
   overflow-y: auto !important;
-  transform: translateZ(0) !important;
-  -webkit-overflow-scrolling: touch !important;
-  overscroll-behavior-y: contain !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
 }
 .wiretap-card {
   background: var(--deep-carbon) !important;
@@ -3958,6 +3963,10 @@ body {
   font-size: 9px !important;
   letter-spacing: 0.16em !important;
   padding: 10px 12px !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  box-shadow: 0 1px 0 var(--hairline, rgba(255,255,255,0.08)) !important;
 }
 .recon-table td, table[class="recon-table"] td {
   border-bottom: 1px solid var(--hairline) !important;
@@ -5081,7 +5090,7 @@ body {
       </div>
 
       <!-- TAB 2: AI CHAT INTEL SYNTHESIZER CONTAINER -->
-      <div id="tab-content-intel" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-intel" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>02</b> — TACTICAL AI INTEL SYNTHESIS</span>
           <span class="rule"></span>
@@ -5115,7 +5124,7 @@ body {
       </div>
 
       <!-- TAB 3: GHOST VAULT CONTAINER (ANTI-DELETE & ANTI-EDIT) -->
-      <div id="tab-content-ghost" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-ghost" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>03</b> — GHOST VAULT SURVEILLANCE ARCHIVE</span>
           <span class="rule"></span>
@@ -5150,7 +5159,7 @@ body {
       </div>
 
       <!-- TAB 4: MEMBER RECON MATRIX CONTAINER -->
-      <div id="tab-content-recon" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-recon" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>04</b> — MEMBER RECONNAISSANCE GRID</span>
           <span class="rule"></span>
@@ -5225,7 +5234,7 @@ body {
       </div>
 
       <!-- TAB 5: ALPHA & SIGNAL RADAR CONTAINER (WITH DEXSCREENER) -->
-      <div id="tab-content-alpha" style="display: none; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-alpha" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>05</b> — ALPHA &amp; SIGNAL HARVESTER</span>
           <span class="rule"></span>
@@ -10493,6 +10502,8 @@ body {
   let lastWiretapScrollTop = 0;
 
   function scrollWiretapToBottom(force = false) {
+    if (typeof activeCenterTab !== 'undefined' && activeCenterTab !== 'wiretap') return;
+
     const stream = document.getElementById('wiretap-stream');
     if (!stream) return;
 
@@ -10507,21 +10518,14 @@ body {
     if (force || (wiretapAutoScroll && !userScrolledUpWiretap)) {
       isProgrammaticScroll = true;
 
-      // 1. Instant synchronous scroll to maximum bottom
+      // 1. Instant synchronous scroll to maximum bottom (no scrollIntoView side-effects on ancestors)
       stream.scrollTop = stream.scrollHeight + 10000;
-      const lastChild = stream.lastElementChild;
-      if (lastChild && typeof lastChild.scrollIntoView === 'function') {
-        lastChild.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'instant' });
-      }
 
       // 2. Next animation frame to ensure layout reflow adheres to bottom
       if (wiretapScrollRaf) cancelAnimationFrame(wiretapScrollRaf);
       wiretapScrollRaf = requestAnimationFrame(() => {
         wiretapScrollRaf = null;
         stream.scrollTop = stream.scrollHeight + 10000;
-        if (lastChild && typeof lastChild.scrollIntoView === 'function') {
-          lastChild.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'instant' });
-        }
         if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
         programmaticScrollTimer = setTimeout(() => {
           isProgrammaticScroll = false;
@@ -10532,6 +10536,7 @@ body {
 
   let mediaScrollRaf = null;
   function onWiretapMediaLoaded() {
+    if (typeof activeCenterTab !== 'undefined' && activeCenterTab !== 'wiretap') return;
     if (wiretapAutoScroll && !userScrolledUpWiretap) {
       if (mediaScrollRaf) return;
       mediaScrollRaf = requestAnimationFrame(() => {
@@ -10546,22 +10551,23 @@ body {
     if (el.scrollHeight <= el.clientHeight + 10) return;
 
     const currentScrollTop = el.scrollTop;
-    const isScrollingUpwards = currentScrollTop < (lastWiretapScrollTop - 8);
+    const isScrollingUpwards = currentScrollTop < (lastWiretapScrollTop - 4);
+    const isScrollingDownwards = currentScrollTop > (lastWiretapScrollTop + 4);
     lastWiretapScrollTop = currentScrollTop;
 
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
 
-    // If near bottom (within 100px), always re-lock autoscroll
-    if (distFromBottom <= 100) {
-      userScrolledUpWiretap = false;
-      if (wiretapAutoScroll) {
-        updateWiretapScrollButtons(true, 'SCROLL: AUTO');
-      }
-    } else if (isUserInteractingWithWiretap && isScrollingUpwards && distFromBottom > 240) {
-      // ONLY pause if user is actively touching/dragging UPWARDS away from the bottom!
+    // Upward scroll detection: if moving upwards and not at the very bottom
+    if (isScrollingUpwards && distFromBottom > 20) {
       userScrolledUpWiretap = true;
       if (wiretapAutoScroll) {
         updateWiretapScrollButtons(false, 'SCROLL: PAUSED (RESUME ↓)');
+      }
+    } else if (distFromBottom <= 25 && (!isScrollingUpwards || isScrollingDownwards)) {
+      // Reached within 25px of the bottom: automatically re-lock autoscroll
+      userScrolledUpWiretap = false;
+      if (wiretapAutoScroll) {
+        updateWiretapScrollButtons(true, 'SCROLL: AUTO');
       }
     }
   }
@@ -10582,17 +10588,37 @@ body {
       wiretapTouchTimer = setTimeout(() => {
         isUserInteractingWithWiretap = false;
         checkWiretapScrollPosition(stream);
-      }, 600);
+      }, 500);
     };
 
     stream.addEventListener('touchstart', onInteractionStart, { passive: true });
     stream.addEventListener('touchmove', onInteractionStart, { passive: true });
     stream.addEventListener('touchend', onInteractionEnd, { passive: true });
     stream.addEventListener('touchcancel', onInteractionEnd, { passive: true });
-    stream.addEventListener('wheel', () => {
+
+    // Wheel event listener for desktop mouse and trackpad
+    stream.addEventListener('wheel', (e) => {
       onInteractionStart();
+      if (e.deltaY < 0) {
+        // Direct upward wheel scroll
+        userScrolledUpWiretap = true;
+        isProgrammaticScroll = false;
+        if (wiretapAutoScroll) {
+          updateWiretapScrollButtons(false, 'SCROLL: PAUSED (RESUME ↓)');
+        }
+      } else if (e.deltaY > 0) {
+        // Downward wheel scroll - check if near bottom
+        const dist = stream.scrollHeight - stream.scrollTop - stream.clientHeight;
+        if (dist <= 30) {
+          userScrolledUpWiretap = false;
+          if (wiretapAutoScroll) {
+            updateWiretapScrollButtons(true, 'SCROLL: AUTO');
+          }
+        }
+      }
       onInteractionEnd();
     }, { passive: true });
+
     stream.addEventListener('mousedown', onInteractionStart, { passive: true });
     stream.addEventListener('mouseup', onInteractionEnd, { passive: true });
 
@@ -11793,7 +11819,7 @@ body {
       if (btn) {
         if (t === tab) {
           btn.classList.add('active');
-          if (typeof btn.scrollIntoView === 'function') {
+          if (window.innerWidth < 900 && typeof btn.scrollIntoView === 'function') {
             btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
           }
         } else {
