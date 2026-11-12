@@ -2966,14 +2966,23 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     height: 100dvh !important;
     padding: 0 !important;
     margin: 0 !important;
-    display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
     justify-content: flex-start !important;
     z-index: 10050 !important;
-    background: rgba(0, 0, 0, 0.25) !important;
+    background: rgba(0, 0, 0, 0.45) !important;
     backdrop-filter: blur(24px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  }
+  .kage-modal-overlay[style*="display: none"],
+  .kage-modal-overlay[style*="display:none"],
+  .kage-modal-overlay[hidden] {
+    display: none !important;
+  }
+  .kage-modal-overlay[style*="display: flex"],
+  .kage-modal-overlay[style*="display:flex"],
+  .kage-modal-overlay.active {
+    display: flex !important;
   }
   .kage-modal {
     width: 100vw !important;
@@ -3583,7 +3592,7 @@ html, body {
 }
 
 /* ── 05. LEFT RAIL: TARGET RECON & DEFCON (Transparent Glass Cards) ── */
-.kage-select, .kage-input, input[type="text"], input[type="password"], textarea {
+.kage-select, .kage-input, .hud-col input[type="text"], .hud-col input[type="password"], .hud-box input, .hud-box select, .hud-col textarea {
   background: rgba(12, 16, 26, 0.45) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
@@ -3596,7 +3605,7 @@ html, body {
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
   transition: border-color var(--ease-apple), box-shadow var(--ease-apple) !important;
 }
-.kage-select:focus, .kage-input:focus, input:focus, textarea:focus {
+.kage-select:focus, .kage-input:focus, .hud-col input:focus, .hud-box input:focus, .hud-col textarea:focus {
   border-color: var(--hairline-focus) !important;
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
   outline: none !important;
@@ -4743,15 +4752,24 @@ html, body {
     height: 100dvh !important;
     padding: 0 !important;
     margin: 0 !important;
-    display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
     justify-content: flex-start !important;
     z-index: 10050 !important;
-    background: rgba(0, 0, 0, 0.25) !important;
+    background: rgba(0, 0, 0, 0.45) !important;
     backdrop-filter: blur(28px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
     overflow: hidden !important;
+  }
+  .kage-modal-overlay[style*="display: none"],
+  .kage-modal-overlay[style*="display:none"],
+  .kage-modal-overlay[hidden] {
+    display: none !important;
+  }
+  .kage-modal-overlay[style*="display: flex"],
+  .kage-modal-overlay[style*="display:flex"],
+  .kage-modal-overlay.active {
+    display: flex !important;
   }
   .kage-modal {
     width: 100vw !important;
@@ -4903,71 +4921,294 @@ html, body {
   }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   OWNER CLEARANCE GATEKEEPER LOCKSCREEN (BULLETPROOF & ELEGANT)
+   ═══════════════════════════════════════════════════════════════════ */
+.owner-lockscreen-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  z-index: 999999 !important;
+  background: rgba(4, 7, 12, 0.92) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  display: flex;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.owner-lockscreen-overlay[style*="display: none"],
+.owner-lockscreen-overlay[style*="display:none"],
+.owner-lockscreen-overlay[hidden] {
+  display: none !important;
+}
+.owner-lockscreen-card {
+  width: 100% !important;
+  max-width: 400px !important;
+  box-sizing: border-box !important;
+  background: #0d121c !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 20px !important;
+  padding: 30px 24px 26px 24px !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+  position: relative !important;
+  text-align: center !important;
+  overflow: hidden !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif !important;
+}
+.owner-lockscreen-top-bar {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 3px !important;
+  background: linear-gradient(90deg, transparent, #ff3b30, #34c759, transparent) !important;
+}
+.owner-lockscreen-icon-wrap {
+  width: 56px !important;
+  height: 56px !important;
+  margin: 0 auto 14px auto !important;
+  border-radius: 50% !important;
+  background: rgba(255, 59, 48, 0.12) !important;
+  border: 1px solid rgba(255, 59, 48, 0.35) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 16px rgba(255, 59, 48, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+.owner-lockscreen-restricted-tag {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", monospace !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  color: #ff3b30 !important;
+  text-transform: uppercase !important;
+  margin-bottom: 6px !important;
+  white-space: nowrap !important;
+  display: block !important;
+}
+.owner-lockscreen-title {
+  font-size: 21px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 6px 0 !important;
+  letter-spacing: -0.02em !important;
+  display: block !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif !important;
+}
+.owner-lockscreen-desc {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+  line-height: 1.55 !important;
+  margin: 0 0 20px 0 !important;
+  display: block !important;
+}
+.owner-input-group {
+  margin-bottom: 14px !important;
+  text-align: left !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+.owner-input-label {
+  font-size: 10.5px !important;
+  color: #94a3b8 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  font-weight: 600 !important;
+  display: block !important;
+  margin-bottom: 6px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", monospace !important;
+}
+.owner-input-wrapper {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+.owner-at-symbol {
+  position: absolute !important;
+  left: 14px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: #64748b !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+}
+.owner-text-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  font-size: 13.5px !important;
+  background: rgba(6, 9, 15, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 12px !important;
+  padding: 12px 14px 12px 34px !important;
+  color: #ffffff !important;
+  outline: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.4) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+.owner-text-input:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25), inset 0 1px 2px rgba(0,0,0,0.4) !important;
+}
+.owner-pin-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  text-align: center !important;
+  font-size: 20px !important;
+  letter-spacing: 6px !important;
+  background: rgba(6, 9, 15, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 12px !important;
+  padding: 11px 44px 11px 14px !important;
+  color: #34c759 !important;
+  outline: none !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.4) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+.owner-pin-input:focus {
+  border-color: #34c759 !important;
+  box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.25), inset 0 1px 2px rgba(0,0,0,0.4) !important;
+}
+.owner-pin-toggle-btn {
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  background: transparent !important;
+  border: none !important;
+  color: #64748b !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2 !important;
+}
+.owner-pin-toggle-btn:hover {
+  color: #ffffff !important;
+}
+.owner-unlock-button {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 48px !important;
+  padding: 13px 20px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: linear-gradient(180deg, #ff3b30 0%, #d71e23 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 16px rgba(255, 59, 48, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  transition: transform 0.15s ease, filter 0.15s ease !important;
+}
+.owner-unlock-button:hover {
+  filter: brightness(1.1) !important;
+  transform: translateY(-1px) !important;
+}
+.owner-unlock-button:active {
+  transform: scale(0.98) !important;
+}
+.owner-error-box {
+  color: #ff3b30 !important;
+  font-size: 11.5px !important;
+  margin-top: 12px !important;
+  display: none !important;
+  line-height: 1.5 !important;
+  background: rgba(255, 59, 48, 0.12) !important;
+  border: 1px solid rgba(255, 59, 48, 0.3) !important;
+  padding: 9px !important;
+  border-radius: 10px !important;
+  box-sizing: border-box !important;
+}
+.owner-lockscreen-footer {
+  margin-top: 20px !important;
+  font-size: 9px !important;
+  color: #64748b !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", monospace !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
 </style>
 </head>
 
 <body>
 <!-- OWNER SECURITY CLEARANCE GATEKEEPER LOCKSCREEN -->
-<div id="owner-lockscreen" style="position: fixed; inset: 0; z-index: 999999; background: rgba(5, 7, 12, 0.75); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);">
-  <div style="max-width: 440px; width: 90%; background: rgba(18, 24, 38, 0.85); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.25); border-radius: 24px; padding: 36px 32px; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif; text-align: center; position: relative; overflow: hidden; backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);">
-    
-    <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #ff3b30, #34c759, transparent);"></div>
+<div id="owner-lockscreen" class="owner-lockscreen-overlay">
+  <div class="owner-lockscreen-card">
+    <div class="owner-lockscreen-top-bar"></div>
 
-    <div style="width: 58px; height: 58px; margin: 0 auto 16px; border-radius: 50%; background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 59, 48, 0.4); display: grid; place-items: center; box-shadow: 0 4px 16px rgba(255, 59, 48, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);">
+    <div class="owner-lockscreen-icon-wrap">
       <i data-lucide="shield-alert" style="width: 26px; height: 26px; color: #ff3b30;"></i>
     </div>
 
-    <div style="font-size: 10px; letter-spacing: 0.2em; color: #ff3b30; text-transform: uppercase; margin-bottom: 6px; font-weight: 600;">
+    <div class="owner-lockscreen-restricted-tag">
       ● RESTRICTED WAR ROOM ACCESS
     </div>
-    <h2 id="owner-gate-title" style="font-size: 21px; font-weight: 700; color: #ffffff; margin-bottom: 8px; letter-spacing: -0.02em;">
+    <h2 id="owner-gate-title" class="owner-lockscreen-title">
       CLEARANCE GATEWAY
     </h2>
-    <p id="owner-gate-desc" style="font-size: 12px; color: rgba(255, 255, 255, 0.6); line-height: 1.6; margin-bottom: 22px;">
+    <p id="owner-gate-desc" class="owner-lockscreen-desc">
       Provide your registered Telegram username and assigned 4-digit code to unlock mission control.
     </p>
 
     <div id="owner-pin-container">
       <!-- Telegram Username Input -->
-      <div style="margin-bottom: 14px; text-align: left;">
-        <label style="font-size: 10px; color: rgba(255, 255, 255, 0.55); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 6px; font-weight: 600;">Telegram Username</label>
-        <div style="position: relative; display: flex; align-items: center;">
-          <span style="position: absolute; left: 14px; color: rgba(255, 255, 255, 0.4); font-size: 14px; font-weight: bold;">@</span>
-          <input type="text" id="owner-username-input" placeholder="username" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus
-            style="width: 100%; font-size: 13px; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; padding: 12px 14px 12px 34px; color: #ffffff; outline: none; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); transition: border-color 0.2s, box-shadow 0.2s;"
-            onfocus="this.style.borderColor='#38bdf8'; this.style.boxShadow='0 0 0 3px rgba(56, 189, 248, 0.25), inset 0 1px 2px rgba(0,0,0,0.35)'"
-            onblur="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.boxShadow='inset 0 1px 2px rgba(0,0,0,0.35)'"
+      <div class="owner-input-group">
+        <label class="owner-input-label">Telegram Username</label>
+        <div class="owner-input-wrapper">
+          <span class="owner-at-symbol">@</span>
+          <input type="text" id="owner-username-input" class="owner-text-input" placeholder="username" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus
             onkeydown="if(event.key==='Enter') document.getElementById('owner-pin-input').focus()"
           />
         </div>
       </div>
 
       <!-- Assigned 4-Digit Code Input -->
-      <div style="margin-bottom: 22px; text-align: left;">
-        <label style="font-size: 10px; color: rgba(255, 255, 255, 0.55); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 6px; font-weight: 600;">Assigned 4-Digit Code</label>
-        <div style="position: relative; display: flex; align-items: center;">
-          <input type="password" id="owner-pin-input" placeholder="••••" maxlength="8"
-            style="width: 100%; text-align: center; font-size: 20px; letter-spacing: 8px; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; padding: 12px 44px 12px 14px; color: #34c759; outline: none; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); transition: border-color 0.2s, box-shadow 0.2s;"
-            onfocus="this.style.borderColor='#34c759'; this.style.boxShadow='0 0 0 3px rgba(52, 199, 89, 0.25), inset 0 1px 2px rgba(0,0,0,0.35)'"
-            onblur="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.boxShadow='inset 0 1px 2px rgba(0,0,0,0.35)'"
+      <div class="owner-input-group">
+        <label class="owner-input-label">Assigned 4-Digit Code</label>
+        <div class="owner-input-wrapper">
+          <input type="password" id="owner-pin-input" class="owner-pin-input" placeholder="••••" maxlength="8"
             onkeydown="if(event.key==='Enter') submitOwnerPin()"
           />
-          <button type="button" onclick="toggleOwnerPinVisibility()" title="Toggle PIN visibility"
-            style="position: absolute; right: 12px; background: transparent; border: none; color: rgba(255, 255, 255, 0.5); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center;">
+          <button type="button" onclick="toggleOwnerPinVisibility()" class="owner-pin-toggle-btn" title="Toggle PIN visibility">
             <i id="owner-pin-eye-icon" data-lucide="eye" style="width: 18px; height: 18px;"></i>
           </button>
         </div>
       </div>
 
-      <button id="owner-unlock-btn" onclick="submitOwnerPin()" class="kage-btn"
-        style="width: 100%; padding: 14px 20px; font-size: 12.5px; justify-content: center; background: linear-gradient(180deg, #ff3b30 0%, #d71e23 100%); border: 1px solid rgba(255,255,255,0.28); border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(255, 59, 48, 0.4), inset 0 1px 0 rgba(255,255,255,0.35);">
-        <i data-lucide="shield-check" style="width: 15px; height: 15px;"></i> 🔓 UNLOCK CLEARANCE
+      <button id="owner-unlock-btn" onclick="submitOwnerPin()" class="owner-unlock-button">
+        <i data-lucide="shield-check" style="width: 16px; height: 16px;"></i> 🔓 UNLOCK CLEARANCE
       </button>
 
-      <div id="owner-error-msg" style="color: #ff3b30; font-size: 11px; margin-top: 14px; display: none; line-height: 1.5; background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 59, 48, 0.3); padding: 9px; border-radius: 10px;"></div>
+      <div id="owner-error-msg" class="owner-error-box"></div>
     </div>
 
-    <div style="margin-top: 24px; font-size: 9px; color: rgba(255, 255, 255, 0.35); letter-spacing: 0.1em; text-transform: uppercase;">
+    <div class="owner-lockscreen-footer">
       SUPERBAN OS // SOVEREIGN APEX SECURITY SHIELD
     </div>
   </div>
@@ -6039,7 +6280,7 @@ html, body {
 </div>
 
 <!-- MODAL: OPTION 1 - TERMINAL METHOD -->
-<div id="terminal-modal" class="kage-modal-overlay" onclick="closeTerminalModal(event)">
+<div id="terminal-modal" class="kage-modal-overlay" style="display: none;" onclick="closeTerminalModal(event)">
   <div class="kage-modal font-mono" style="padding: 30px;">
     <div class="mob-sheet-handle" onclick="document.getElementById('terminal-modal').style.display = 'none'" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
@@ -6082,7 +6323,7 @@ html, body {
 </div>
 
 <!-- MODAL: TELEGRAM ACCOUNT AUTHENTICATION / LINK -->
-<div id="auth-modal" class="kage-modal-overlay" onclick="closeAuthModalBackdrop(event)">
+<div id="auth-modal" class="kage-modal-overlay" style="display: none;" onclick="closeAuthModalBackdrop(event)">
   <div class="kage-modal font-mono" style="padding: 26px 28px; max-width: 540px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); border: 1px solid rgba(224, 86, 36, 0.4);">
     <div class="mob-sheet-handle" onclick="closeAuthModal()" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 18px;">
@@ -6175,7 +6416,7 @@ html, body {
 </div>
 
 <!-- MODAL: PARTICIPANT DOSSIER -->
-<div id="dossier-modal" class="kage-modal-overlay" onclick="closeDossierModal(event)">
+<div id="dossier-modal" class="kage-modal-overlay" style="display: none;" onclick="closeDossierModal(event)">
   <div class="kage-modal font-mono" style="padding: 30px;">
     <div class="mob-sheet-handle" onclick="document.getElementById('dossier-modal').style.display = 'none'" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
@@ -6225,7 +6466,7 @@ html, body {
 </div>
 
 <!-- MODAL: SENTINEL WORKBENCH & FEED -->
-<div id="sentinel-modal" class="kage-modal-overlay" onclick="closeSentinelModal(event)">
+<div id="sentinel-modal" class="kage-modal-overlay" style="display: none;" onclick="closeSentinelModal(event)">
   <div class="kage-modal font-mono" style="padding: 30px;">
     <div class="mob-sheet-handle" onclick="closeSentinelModal()" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
@@ -6266,7 +6507,7 @@ html, body {
 </div>
 
 <!-- MODAL: COMMUNITY PILLARS (CHATTER SPY) -->
-<div id="pillars-modal" class="kage-modal-overlay" onclick="closePillarsModal(event)">
+<div id="pillars-modal" class="kage-modal-overlay" style="display: none;" onclick="closePillarsModal(event)">
   <div class="kage-modal font-mono" style="padding: 30px; max-width: 760px;">
     <div class="mob-sheet-handle" onclick="closePillarsModal()" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
@@ -6311,7 +6552,7 @@ html, body {
 </div>
 
 <!-- MODAL: SERVICE SWEEPER -->
-<div id="sweeper-modal" class="kage-modal-overlay" onclick="closeSweeperModal(event)">
+<div id="sweeper-modal" class="kage-modal-overlay" style="display: none;" onclick="closeSweeperModal(event)">
   <div class="kage-modal font-mono" style="padding: 30px;">
     <div class="mob-sheet-handle" onclick="closeSweeperModal()" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
@@ -6354,7 +6595,7 @@ html, body {
 </div>
 
 <!-- MODAL: HIGH-VALUE LEADS EXTRACTION -->
-<div id="leads-modal" class="kage-modal-overlay" onclick="closeLeadsModal(event)">
+<div id="leads-modal" class="kage-modal-overlay" style="display: none;" onclick="closeLeadsModal(event)">
   <div class="kage-modal font-mono" style="padding: 30px; max-width: 780px;">
     <div class="mob-sheet-handle" onclick="closeLeadsModal()" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
@@ -6411,7 +6652,7 @@ html, body {
 
 
 <!-- MODAL: COMMUNITY ACTIVITY HEATMAP MATRIX -->
-<div id="heatmap-modal" class="kage-modal-overlay" onclick="closeHeatmapModal(event)">
+<div id="heatmap-modal" class="kage-modal-overlay" style="display: none;" onclick="closeHeatmapModal(event)">
   <div class="kage-modal font-mono" style="padding: 30px; max-width: 820px;">
     <div class="mob-sheet-handle" onclick="closeHeatmapModal()" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
@@ -6449,7 +6690,7 @@ html, body {
 </div>
 
 <!-- MODAL: HIGH-VELOCITY DRIP BROADCAST SUITE -->
-<div id="broadcast-modal" class="kage-modal-overlay" onclick="closeBroadcastModal(event)">
+<div id="broadcast-modal" class="kage-modal-overlay" style="display: none;" onclick="closeBroadcastModal(event)">
   <div class="kage-modal font-mono" style="padding: 30px; max-width: 720px;">
     <div class="mob-sheet-handle" onclick="closeBroadcastModal()" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
@@ -6502,7 +6743,7 @@ html, body {
 </div>
 
 <!-- MODAL: VOICE CHAMBER APEX COMMAND SUITE -->
-<div id="vc-modal" class="kage-modal-overlay" onclick="closeVCModal(event)">
+<div id="vc-modal" class="kage-modal-overlay" style="display: none;" onclick="closeVCModal(event)">
   <div class="kage-modal font-mono" style="padding: 26px; max-width: 980px; width: 95vw;">
     <div class="mob-sheet-handle" onclick="closeVCModal()" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
@@ -15778,6 +16019,7 @@ html, body {
     if (!lock) return;
 
     lock.style.display = 'flex';
+    lock.style.setProperty('display', 'flex', 'important');
     lock.style.opacity = '1';
     lock.style.pointerEvents = 'auto';
 
@@ -15790,7 +16032,7 @@ html, body {
       } else if (pinInput) {
         pinInput.focus();
       }
-      if (window.lucide) window.lucide.createIcons();
+      safeCreateIcons(lock);
     }, 150);
   }
 
@@ -15801,7 +16043,10 @@ html, body {
     if (lock) {
       lock.style.opacity = '0';
       lock.style.pointerEvents = 'none';
-      setTimeout(() => { lock.style.display = 'none'; }, 400);
+      setTimeout(() => {
+        lock.style.display = 'none';
+        lock.style.setProperty('display', 'none', 'important');
+      }, 400);
     }
   }
 
