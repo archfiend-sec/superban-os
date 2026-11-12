@@ -96,16 +96,17 @@ input, select, textarea { font-family: 'JetBrains Mono', 'Onest', sans-serif; }
   contain: strict;
 }
 #vignette {
-  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;
   background: 
-    radial-gradient(ellipse 70% 55% at 12% 15%, rgba(235, 59, 50, 0.13) 0%, transparent 60%),
-    radial-gradient(ellipse 65% 50% at 88% 18%, rgba(56, 189, 248, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 85% 65% at 50% 48%, rgba(99, 102, 241, 0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 65% 55% at 85% 82%, rgba(52, 211, 153, 0.09) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 15% 85%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
-    radial-gradient(125% 95% at 50% 42%, transparent 35%, rgba(6, 9, 15, 0.78) 100%);
+    radial-gradient(ellipse 70% 55% at 10% 12%, rgba(255, 59, 48, 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 65% 50% at 90% 15%, rgba(56, 189, 248, 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 85% 65% at 50% 50%, rgba(99, 102, 241, 0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 65% 55% at 88% 85%, rgba(52, 211, 153, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 12% 88%, rgba(255, 149, 0, 0.18) 0%, transparent 60%),
+    radial-gradient(125% 95% at 50% 42%, transparent 25%, rgba(6, 9, 15, 0.45) 100%);
   transform: translateZ(0);
   pointer-events: none;
+  display: block !important;
 }
 .page {
   position: relative;
@@ -2856,42 +2857,45 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     padding: 8px 12px !important;
   }
 
-  /* ── 9. MOBILE MODALS & BOTTOM SHEETS ── */
+  /* ── 9. MOBILE FULL DISPLAY TRANSPARENT MODALS ── */
   .kage-modal-overlay {
     position: fixed !important;
     inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
     padding: 0 !important;
-    align-items: flex-end !important;
-    justify-content: center !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
     z-index: 10050 !important;
-    background: rgba(2, 4, 6, 0.4) !important;
-    backdrop-filter: blur(4px) !important;
-    -webkit-backdrop-filter: blur(4px) !important;
+    background: rgba(0, 0, 0, 0.25) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
   }
   .kage-modal {
     width: 100vw !important;
     max-width: 100vw !important;
-    max-height: 85vh !important;
-    border-radius: 20px 20px 0 0 !important;
-    padding: 16px 16px calc(28px + env(safe-area-inset-bottom, 16px)) 16px !important;
-    border-top: 1px solid rgba(229, 43, 47, 0.35) !important;
-    border-bottom: none !important;
-    border-left: none !important;
-    border-right: none !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(28px + env(safe-area-inset-bottom, 16px)) 16px !important;
+    border: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.18) !important;
     margin: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.85) !important;
+    background: rgba(12, 16, 26, 0.32) !important;
+    backdrop-filter: blur(36px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
     box-sizing: border-box !important;
+    flex: 1 1 100% !important;
   }
   .mob-sheet-handle {
-    display: block !important;
-    width: 40px !important;
-    height: 4px !important;
-    background: rgba(223, 231, 224, 0.25) !important;
-    border-radius: 2px !important;
-    margin: 0 auto 14px auto !important;
-    cursor: grab !important;
+    display: none !important;
   }
   .kage-modal-close-btn,
   .kage-modal .kage-btn-pill {
@@ -3009,33 +3013,33 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 }
 
 /* ╔══════════════════════════════════════════════════════════════════════════╗
-   ║  KAGE — APPLE LIQUID GLASS & GLASSMORPHISM INTELLIGENCE                ║
-   ║  macOS Sonoma / Sequoia · visionOS · iOS 18 Frosted Glass Luxury       ║
-   ║  "Optical depth, translucent materials, and precision tactile design."  ║
+   ║  KAGE — FULLY TRANSPARENT LIQUID GLASS UI (FULL DISPLAY IMMERSION)     ║
+   ║  macOS Sonoma / Sequoia · visionOS · iOS 18 Ultra-Sheer Glass Luxury   ║
+   ║  "100% edge-to-edge full display coverage with crystalline depth."      ║
    ╚══════════════════════════════════════════════════════════════════════════╝ */
 
-/* ── 01. THE APPLE LIQUID GLASS MATERIAL SYSTEM ── */
+/* ── 01. FULLY TRANSPARENT MATERIAL SYSTEM ── */
 :root {
-  /* Apple Glass Foundations (Translucent Frosted Materials) */
-  --apple-canvas:            #07090e;
-  --apple-glass-bg:          rgba(16, 22, 34, 0.65);
-  --apple-glass-subtle:      rgba(255, 255, 255, 0.045);
-  --apple-glass-elevated:    rgba(24, 32, 48, 0.76);
-  --apple-glass-hover:       rgba(255, 255, 255, 0.085);
-  --apple-glass-active:      rgba(255, 255, 255, 0.14);
+  /* Ultra-Transparent Glass Foundations */
+  --apple-canvas:            transparent;
+  --apple-glass-bg:          rgba(14, 18, 28, 0.28);
+  --apple-glass-subtle:      rgba(255, 255, 255, 0.04);
+  --apple-glass-elevated:    rgba(20, 26, 40, 0.38);
+  --apple-glass-hover:       rgba(255, 255, 255, 0.09);
+  --apple-glass-active:      rgba(255, 255, 255, 0.15);
 
   /* Specular Rim & Edge Reflections */
-  --apple-glass-border:        rgba(255, 255, 255, 0.12);
-  --apple-glass-border-subtle: rgba(255, 255, 255, 0.07);
-  --apple-glass-border-bright: rgba(255, 255, 255, 0.24);
-  --apple-glass-shine:         inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
-  --apple-glass-shine-intense: inset 0 1px 0 0 rgba(255, 255, 255, 0.32);
+  --apple-glass-border:        rgba(255, 255, 255, 0.14);
+  --apple-glass-border-subtle: rgba(255, 255, 255, 0.08);
+  --apple-glass-border-bright: rgba(255, 255, 255, 0.28);
+  --apple-glass-shine:         inset 0 1px 0 0 rgba(255, 255, 255, 0.22);
+  --apple-glass-shine-intense: inset 0 1px 0 0 rgba(255, 255, 255, 0.38);
 
   /* Optical Glass Blurs */
-  --apple-blur-nav:   blur(28px) saturate(190%);
-  --apple-blur-modal: blur(48px) saturate(210%);
-  --apple-blur-card:  blur(16px) saturate(180%);
-  --apple-blur-dock:  blur(36px) saturate(200%);
+  --apple-blur-nav:   blur(24px) saturate(190%);
+  --apple-blur-modal: blur(36px) saturate(200%);
+  --apple-blur-card:  blur(14px) saturate(180%);
+  --apple-blur-dock:  blur(32px) saturate(200%);
 
   /* Apple Radiuses (Smooth Organic Squircles & Pills) */
   --apple-radius-xs:   6px;
@@ -3046,40 +3050,40 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   --apple-radius-pill: 9999px;
 
   /* Apple System Shadows */
-  --apple-shadow-xs:    0 2px 6px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  --apple-shadow-sm:    0 4px 14px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  --apple-shadow-md:    0 10px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  --apple-shadow-lg:    0 20px 50px rgba(0, 0, 0, 0.60), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  --apple-shadow-sheet: 0 32px 80px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  --apple-shadow-xs:    0 2px 6px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --apple-shadow-sm:    0 4px 14px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --apple-shadow-md:    0 10px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  --apple-shadow-lg:    0 20px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  --apple-shadow-sheet: 0 30px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.28);
 
   /* Apple Vibrant Semantic Accents */
   --signal-red:     #ff3b30;
   --signal-red-dim: rgba(255, 59, 48, 0.24);
-  --signal-red-bg:  rgba(255, 59, 48, 0.12);
-  --signal-red-bdr: rgba(255, 59, 48, 0.42);
+  --signal-red-bg:  rgba(255, 59, 48, 0.14);
+  --signal-red-bdr: rgba(255, 59, 48, 0.45);
 
   --burnt-orange:   #ff9500;
   --orange-dim:     rgba(255, 149, 0, 0.24);
-  --orange-bg:      rgba(255, 149, 0, 0.12);
-  --orange-bdr:     rgba(255, 149, 0, 0.38);
+  --orange-bg:      rgba(255, 149, 0, 0.14);
+  --orange-bdr:     rgba(255, 149, 0, 0.40);
 
   --warm-white:     #ffffff;
-  --steel-grey:     rgba(255, 255, 255, 0.72);
-  --muted-grey:     rgba(255, 255, 255, 0.44);
+  --steel-grey:     rgba(255, 255, 255, 0.75);
+  --muted-grey:     rgba(255, 255, 255, 0.48);
 
   --op-green:       #34c759;
-  --op-green-bg:    rgba(52, 199, 89, 0.12);
-  --op-green-bdr:   rgba(52, 199, 89, 0.38);
+  --op-green-bg:    rgba(52, 199, 89, 0.14);
+  --op-green-bdr:   rgba(52, 199, 89, 0.40);
 
   --intel-cyan:     #38bdf8;
-  --intel-cyan-bg:  rgba(56, 189, 248, 0.12);
-  --intel-cyan-bdr: rgba(56, 189, 248, 0.38);
+  --intel-cyan-bg:  rgba(56, 189, 248, 0.14);
+  --intel-cyan-bdr: rgba(56, 189, 248, 0.40);
 
   /* Hairlines & Geometry */
-  --dark-border:    rgba(255, 255, 255, 0.10);
+  --dark-border:    rgba(255, 255, 255, 0.12);
   --hairline:       rgba(255, 255, 255, 0.08);
-  --hairline-hover: rgba(255, 255, 255, 0.18);
-  --hairline-focus: rgba(56, 189, 248, 0.70);
+  --hairline-hover: rgba(255, 255, 255, 0.20);
+  --hairline-focus: rgba(56, 189, 248, 0.75);
 
   /* Apple SF Typography Stacks */
   --font-serif:     'DM Serif Display', Georgia, serif;
@@ -3093,13 +3097,13 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   --ease-apple:      0.24s cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Backwards-compatibility aliases for existing JS & HTML */
-  --obsidian:       var(--apple-canvas);
+  --obsidian:       transparent;
   --deep-carbon:    var(--apple-glass-bg);
   --graphite:       var(--apple-glass-elevated);
   --elevated:       var(--apple-glass-elevated);
   --surface-hover:  var(--apple-glass-hover);
   --surface-active: var(--apple-glass-active);
-  --ink:            var(--apple-canvas);
+  --ink:            #06080d;
   --ink-2:          var(--apple-glass-bg);
   --bone:           var(--warm-white);
   --bone-dim:       var(--steel-grey);
@@ -3108,7 +3112,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   --line-soft:      var(--hairline);
   --vermilion:      var(--signal-red);
   --ember:          var(--burnt-orange);
-  --bg-base:        var(--apple-canvas);
+  --bg-base:        transparent;
   --bg-surface:     var(--apple-glass-bg);
   --bg-elevated:    var(--apple-glass-elevated);
   --bg-card:        var(--apple-glass-bg);
@@ -3119,9 +3123,9 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   --text-secondary: var(--steel-grey);
 }
 
-/* ── 02. APPLE TYPOGRAPHIC FOUNDATION & BASE ── */
-body {
-  background: var(--apple-canvas) !important;
+/* ── 02. BASE BODY & FULL DISPLAY ROOTS ── */
+html, body {
+  background: #06080d !important;
   color: var(--warm-white) !important;
   font-family: var(--font-sans) !important;
   font-size: 13px !important;
@@ -3129,6 +3133,8 @@ body {
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
   letter-spacing: -0.011em !important;
+  min-height: 100dvh !important;
+  width: 100% !important;
 }
 
 ::selection {
@@ -3146,18 +3152,18 @@ body {
   background-clip: padding-box; 
   transition: background 0.2s ease;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.45); }
 * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
 
-/* ── 03. TOP COMMAND BAR (macOS / iOS Safari Frosted Glass Header) ── */
+/* ── 03. TOP COMMAND BAR (Ultra-Sheer Frosted Glass Navigation) ── */
 .nav {
   height: 56px !important;
-  background: rgba(14, 19, 30, 0.72) !important;
+  background: rgba(10, 14, 22, 0.35) !important;
   border-bottom: 1px solid var(--apple-glass-border) !important;
   backdrop-filter: var(--apple-blur-nav) !important;
   -webkit-backdrop-filter: var(--apple-blur-nav) !important;
   padding: 0 20px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), var(--apple-glass-shine) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), var(--apple-glass-shine) !important;
   transition: all var(--ease-apple) !important;
 }
 
@@ -3196,13 +3202,13 @@ body {
 /* Sanctuary vs War Room Mode Switcher (Apple Segmented Capsule) */
 .view-mode-pill {
   background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: var(--apple-radius-pill) !important;
   padding: 3px !important;
   gap: 3px !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
 }
 .view-pill-btn {
   border-radius: var(--apple-radius-pill) !important;
@@ -3211,7 +3217,7 @@ body {
   letter-spacing: 0.03em !important;
   font-weight: 500 !important;
   padding: 5px 14px !important;
-  color: rgba(255, 255, 255, 0.72) !important;
+  color: rgba(255, 255, 255, 0.75) !important;
   transition: all var(--ease-apple) !important;
 }
 .view-pill-btn:hover {
@@ -3229,7 +3235,7 @@ body {
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.8) !important;
 }
 
-/* Header Action Buttons (Apple Frosted Glass Pills) */
+/* Header Action Buttons (Frosted Transparent Pills) */
 .kage-btn-pill {
   background: rgba(255, 255, 255, 0.07) !important;
   backdrop-filter: blur(16px) !important;
@@ -3241,14 +3247,14 @@ body {
   font-size: 11px !important;
   font-family: var(--font-sans) !important;
   letter-spacing: 0.02em !important;
-  box-shadow: var(--apple-glass-shine), 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: var(--apple-glass-shine), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
   transition: all var(--ease-apple) !important;
 }
 .kage-btn-pill:hover {
   color: #ffffff !important;
   border-color: var(--apple-glass-border-bright) !important;
-  background: rgba(255, 255, 255, 0.13) !important;
-  box-shadow: var(--apple-glass-shine-intense), 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: var(--apple-glass-shine-intense), 0 4px 14px rgba(0, 0, 0, 0.25) !important;
   transform: translateY(-0.5px) !important;
 }
 .kage-btn-pill:active {
@@ -3275,7 +3281,7 @@ body {
 
 /* Tools Dropdown (visionOS Frosted Glass Popover) */
 #nav-tools-dropdown, .kage-nav-dropdown {
-  background: rgba(20, 26, 38, 0.85) !important;
+  background: rgba(14, 18, 28, 0.55) !important;
   backdrop-filter: var(--apple-blur-modal) !important;
   -webkit-backdrop-filter: var(--apple-blur-modal) !important;
   border: 1px solid var(--apple-glass-border-bright) !important;
@@ -3292,15 +3298,19 @@ body {
   transition: all var(--ease-apple) !important;
 }
 .kage-dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.10) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
   color: #ffffff !important;
-  transform: none !important;
 }
 
-/* ── 04. WAR ROOM HUD STRUCTURE & PANELS (Apple Glass Window) ── */
+/* ── 04. WAR ROOM HUD STRUCTURE & FULL DISPLAY COCKPIT ── */
 .war-room-hud {
   background: transparent !important;
   backdrop-filter: none !important;
+  min-height: calc(100dvh - var(--nav-h, 56px)) !important;
+  height: calc(100dvh - var(--nav-h, 56px)) !important;
+  max-height: calc(100dvh - var(--nav-h, 56px)) !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
 }
 
 @media (min-width: 769px) {
@@ -3311,7 +3321,7 @@ body {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    background: rgba(14, 18, 28, 0.65) !important;
+    background: rgba(10, 14, 22, 0.28) !important;
     backdrop-filter: var(--apple-blur-card) !important;
     -webkit-backdrop-filter: var(--apple-blur-card) !important;
     border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
@@ -3420,7 +3430,7 @@ body {
     position: relative !important;
   }
   .hud-col-left {
-    background: rgba(14, 18, 28, 0.58) !important;
+    background: rgba(10, 14, 22, 0.28) !important;
     backdrop-filter: var(--apple-blur-nav) !important;
     -webkit-backdrop-filter: var(--apple-blur-nav) !important;
     border-right: 1px solid var(--apple-glass-border-subtle) !important;
@@ -3471,9 +3481,9 @@ body {
   margin-bottom: 6px !important;
 }
 
-/* ── 05. LEFT RAIL: TARGET RECON & DEFCON (Apple Frosted Cards) ── */
+/* ── 05. LEFT RAIL: TARGET RECON & DEFCON (Transparent Glass Cards) ── */
 .kage-select, .kage-input, input[type="text"], input[type="password"], textarea {
-  background: rgba(12, 16, 26, 0.55) !important;
+  background: rgba(12, 16, 26, 0.45) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
   border: 1px solid var(--apple-glass-border) !important;
@@ -3482,16 +3492,16 @@ body {
   padding: 8px 12px !important;
   font-size: 11px !important;
   font-family: var(--font-mono) !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
   transition: border-color var(--ease-apple), box-shadow var(--ease-apple) !important;
 }
 .kage-select:focus, .kage-input:focus, input:focus, textarea:focus {
   border-color: var(--hairline-focus) !important;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
   outline: none !important;
 }
 .hud-box {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
   backdrop-filter: var(--apple-blur-card) !important;
   -webkit-backdrop-filter: var(--apple-blur-card) !important;
   border: 1px solid var(--apple-glass-border-subtle) !important;
@@ -3505,7 +3515,7 @@ body {
   gap: 5px !important;
 }
 .hud-defcon-btn {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
   border: 1px solid var(--apple-glass-border) !important;
   border-radius: var(--apple-radius-sm) !important;
   color: var(--steel-grey) !important;
@@ -3537,7 +3547,7 @@ body {
   background: rgba(255, 255, 255, 0.16) !important;
   border-color: var(--warm-white) !important;
   color: var(--warm-white) !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), var(--apple-glass-shine-intense) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2), var(--apple-glass-shine-intense) !important;
 }
 #hud-defcon-4.active {
   background: var(--orange-bg) !important;
@@ -3648,9 +3658,9 @@ body {
   color: var(--signal-red) !important;
 }
 
-/* ── 06. CENTRAL STAGE: SIGNAL WIRE & TABS (Apple Segmented Bar) ── */
+/* ── 06. CENTRAL STAGE: SIGNAL WIRE & TABS (Transparent Segmented Bar) ── */
 .hud-tabs-bar {
-  background: rgba(14, 18, 28, 0.6) !important;
+  background: rgba(10, 14, 22, 0.22) !important;
   backdrop-filter: var(--apple-blur-card) !important;
   -webkit-backdrop-filter: var(--apple-blur-card) !important;
   border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
@@ -3669,7 +3679,7 @@ body {
   padding: 3px !important;
   overflow-x: auto !important;
   scrollbar-width: none !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15) !important;
 }
 .kage-hud-tabs::-webkit-scrollbar {
   display: none !important;
@@ -3694,7 +3704,7 @@ body {
 .kage-hud-tab.active {
   background: rgba(255, 255, 255, 0.14) !important;
   border: 1px solid rgba(255, 255, 255, 0.22) !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), var(--apple-glass-shine-intense) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2), var(--apple-glass-shine-intense) !important;
   color: var(--warm-white) !important;
 }
 .kage-tab-num {
@@ -3725,7 +3735,7 @@ body {
   align-items: center !important;
   justify-content: space-between !important;
   padding: 8px 16px !important;
-  background: rgba(14, 18, 28, 0.5) !important;
+  background: rgba(10, 14, 22, 0.18) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
   border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
@@ -3742,7 +3752,7 @@ body {
   border: 1px solid var(--apple-glass-border) !important;
   border-radius: var(--apple-radius-pill) !important;
   padding: 3px !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15) !important;
 }
 .flt-btn {
   font-family: var(--font-sans) !important;
@@ -3756,7 +3766,7 @@ body {
 .flt-btn.active {
   background: rgba(255, 255, 255, 0.16) !important;
   color: var(--warm-white) !important;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3), var(--apple-glass-shine) !important;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2), var(--apple-glass-shine) !important;
 }
 .flt-btn.danger.active {
   background: var(--signal-red-bg) !important;
@@ -3816,7 +3826,7 @@ body {
   padding: 14px 18px 28px 18px !important;
 }
 
-/* Apple Liquid Glass Cards */
+/* Transparent Liquid Glass Cards */
 .wiretap-card {
   background: var(--apple-glass-bg) !important;
   backdrop-filter: var(--apple-blur-card) !important;
@@ -3837,10 +3847,10 @@ body {
   transform: translateY(-1px) !important;
 }
 .wiretap-card.threat-card {
-  background: rgba(45, 14, 22, 0.62) !important;
+  background: rgba(45, 14, 22, 0.35) !important;
   border-color: var(--signal-red-bdr) !important;
   border-left: 3px solid var(--signal-red) !important;
-  box-shadow: 0 4px 20px rgba(255, 59, 48, 0.22), var(--apple-glass-shine) !important;
+  box-shadow: 0 4px 20px rgba(255, 59, 48, 0.18), var(--apple-glass-shine) !important;
 }
 .wiretap-card.action-card {
   background: rgba(255, 255, 255, 0.02) !important;
@@ -3857,7 +3867,7 @@ body {
   font-family: var(--font-sans) !important;
   font-size: 11px !important;
   font-weight: 600 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* Sender Typography */
@@ -3930,7 +3940,7 @@ body {
   line-height: 1.45 !important;
 }
 
-/* ── 07. NEURAL TERMINAL & THREAT LOG (Apple Frosted Cockpit) ── */
+/* ── 07. NEURAL TERMINAL & THREAT LOG ── */
 .copilot-terminal-card {
   background: var(--apple-glass-elevated) !important;
   backdrop-filter: var(--apple-blur-card) !important;
@@ -3975,7 +3985,7 @@ body {
 
 /* Prompt Chips & Input */
 .copilot-quick-chips {
-  background: rgba(14, 18, 28, 0.6) !important;
+  background: rgba(10, 14, 22, 0.3) !important;
   border-top: 1px solid var(--apple-glass-border-subtle) !important;
   gap: 5px !important;
   padding: 7px 12px !important;
@@ -3997,7 +4007,7 @@ body {
   background: rgba(255, 255, 255, 0.12) !important;
 }
 .copilot-input-form {
-  background: rgba(14, 18, 28, 0.75) !important;
+  background: rgba(10, 14, 22, 0.45) !important;
   border-top: 1px solid var(--apple-glass-border) !important;
 }
 .copilot-prompt-sym {
@@ -4025,7 +4035,7 @@ body {
   text-align: center !important;
 }
 .threat-feed-card {
-  background: rgba(45, 14, 22, 0.5) !important;
+  background: rgba(45, 14, 22, 0.35) !important;
   backdrop-filter: blur(10px) !important;
   border: 1px solid var(--signal-red-bdr) !important;
   border-left: 3px solid var(--signal-red) !important;
@@ -4058,9 +4068,9 @@ body {
   line-height: 1.4 !important;
 }
 
-/* ── 08. MEMBER RECON TABLE (Apple Translucent Data Sheet) ── */
+/* ── 08. MEMBER RECON TABLE (Transparent Data Sheet) ── */
 .recon-table th, table[class="recon-table"] th {
-  background: rgba(20, 26, 40, 0.85) !important;
+  background: rgba(14, 18, 28, 0.65) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   color: var(--steel-grey) !important;
@@ -4081,10 +4091,10 @@ body {
   color: var(--warm-white) !important;
 }
 .recon-table tr:hover td {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
 }
 
-/* ── 09. PRIMARY & SECONDARY BUTTONS (Apple Vibrant Glass) ── */
+/* ── 09. PRIMARY & SECONDARY BUTTONS ── */
 .kage-action-btn, .kage-btn {
   background: linear-gradient(180deg, rgba(255, 69, 58, 0.9) 0%, rgba(215, 30, 35, 0.95) 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.28) !important;
@@ -4130,7 +4140,7 @@ body {
   transform: scale(0.97) !important;
 }
 
-/* Badges Semantic Colors (Apple Glass Pills) */
+/* Badges Semantic Colors */
 .badge {
   font-family: var(--font-mono) !important;
   font-size: 9px !important;
@@ -4160,14 +4170,14 @@ body {
   border: 1px solid var(--orange-bdr) !important;
 }
 
-/* ── 10. MODALS & TOAST NOTIFICATIONS (visionOS Floating Glass Sheets) ── */
+/* ── 10. MODALS & TOAST NOTIFICATIONS (Transparent Glass Sheets) ── */
 .kage-modal-overlay {
-  background: rgba(6, 9, 15, 0.60) !important;
+  background: rgba(0, 0, 0, 0.3) !important;
   backdrop-filter: var(--apple-blur-nav) !important;
   -webkit-backdrop-filter: var(--apple-blur-nav) !important;
 }
 .kage-modal {
-  background: rgba(18, 24, 38, 0.84) !important;
+  background: rgba(14, 18, 28, 0.38) !important;
   backdrop-filter: var(--apple-blur-modal) !important;
   -webkit-backdrop-filter: var(--apple-blur-modal) !important;
   border: 1px solid var(--apple-glass-border-bright) !important;
@@ -4191,7 +4201,7 @@ body {
   transform: scale(1.02) !important;
 }
 .toast {
-  background: rgba(20, 26, 40, 0.88) !important;
+  background: rgba(16, 22, 34, 0.6) !important;
   backdrop-filter: var(--apple-blur-nav) !important;
   -webkit-backdrop-filter: var(--apple-blur-nav) !important;
   border: 1px solid var(--apple-glass-border-bright) !important;
@@ -4217,21 +4227,24 @@ body {
   }
 }
 
-/* ── 11. MOBILE GLASS COCKPIT (iOS 18 Floating Island & Sheets) ── */
+/* ── 11. DEFINITIVE MOBILE IMMERSION: FULL DISPLAY COVERAGE & TRANSPARENCY ── */
 @media (max-width: 768px), (max-aspect-ratio: 9/10) and (max-width: 920px), (pointer: coarse) and (max-width: 820px) {
   html, body {
     overflow-x: hidden !important;
     max-width: 100vw !important;
+    min-height: 100dvh !important;
+    height: 100% !important;
   }
 
   .hud-top-bar {
     display: none !important;
   }
   
-  /* War Room HUD Viewport Fill */
+  /* War Room HUD Viewport Fill - Edge to Edge */
   .war-room-hud {
-    height: calc(100dvh - var(--nav-h, 50px) - 76px - env(safe-area-inset-bottom, 0px)) !important;
-    max-height: calc(100dvh - var(--nav-h, 50px) - 76px - env(safe-area-inset-bottom, 0px)) !important;
+    height: calc(100dvh - var(--nav-h, 50px)) !important;
+    max-height: calc(100dvh - var(--nav-h, 50px)) !important;
+    min-height: calc(100dvh - var(--nav-h, 50px)) !important;
     position: relative !important;
     overflow: hidden !important;
     border: none !important;
@@ -4273,12 +4286,12 @@ body {
 
   /* Sentinel / Left Rail Mobile Full-Width Experience */
   .hud-col-left.mobile-active {
-    background: rgba(14, 18, 28, 0.6) !important;
+    background: rgba(10, 14, 22, 0.3) !important;
     backdrop-filter: var(--apple-blur-nav) !important;
     -webkit-backdrop-filter: var(--apple-blur-nav) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 14px 14px calc(28px + env(safe-area-inset-bottom, 0px)) 14px !important;
+    padding: 14px 14px calc(76px + env(safe-area-inset-bottom, 0px)) 14px !important;
     box-sizing: border-box !important;
   }
   .hud-col-left .hud-panel-title {
@@ -4326,7 +4339,7 @@ body {
     height: 42px !important;
     flex: 0 0 42px !important;
     border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
-    background: rgba(14, 18, 28, 0.6) !important;
+    background: rgba(10, 14, 22, 0.25) !important;
     backdrop-filter: var(--apple-blur-card) !important;
     -webkit-backdrop-filter: var(--apple-blur-card) !important;
     overflow: hidden !important;
@@ -4363,7 +4376,7 @@ body {
   .kage-hud-tab.active {
     background: rgba(255, 255, 255, 0.16) !important;
     border: 1px solid rgba(255, 255, 255, 0.22) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), var(--apple-glass-shine) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), var(--apple-glass-shine) !important;
     color: var(--warm-white) !important;
   }
   .kage-tab-num {
@@ -4397,7 +4410,7 @@ body {
     width: 100% !important;
     max-width: 100vw !important;
     padding: 6px 8px !important;
-    background: rgba(14, 18, 28, 0.5) !important;
+    background: rgba(10, 14, 22, 0.2) !important;
     backdrop-filter: blur(14px) !important;
     -webkit-backdrop-filter: blur(14px) !important;
     border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
@@ -4484,13 +4497,13 @@ body {
     box-shadow: var(--apple-glass-shine) !important;
   }
 
-  /* Chat Feed on Mobile */
+  /* Chat Feed on Mobile - Smooth edge to edge behind floating island */
   #wiretap-stream {
     flex: 1 1 0% !important;
     min-height: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 10px 10px calc(28px + env(safe-area-inset-bottom, 0px)) 10px !important;
+    padding: 10px 10px calc(76px + env(safe-area-inset-bottom, 0px)) 10px !important;
     gap: 8px !important;
     box-sizing: border-box !important;
     width: 100% !important;
@@ -4548,7 +4561,7 @@ body {
     height: 100% !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 10px 10px calc(24px + env(safe-area-inset-bottom, 0px)) 10px !important;
+    padding: 10px 10px calc(76px + env(safe-area-inset-bottom, 0px)) 10px !important;
     box-sizing: border-box !important;
     width: 100% !important;
   }
@@ -4574,12 +4587,12 @@ body {
     width: auto !important;
     height: 58px !important;
     padding: 0 6px !important;
-    background: rgba(20, 26, 40, 0.82) !important;
+    background: rgba(16, 22, 34, 0.45) !important;
     backdrop-filter: var(--apple-blur-dock) !important;
     -webkit-backdrop-filter: var(--apple-blur-dock) !important;
     border: 1px solid var(--apple-glass-border-bright) !important;
     border-radius: var(--apple-radius-pill) !important;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), var(--apple-glass-shine-intense) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), var(--apple-glass-shine-intense) !important;
     z-index: 9999 !important;
     align-items: center !important;
     justify-content: space-around !important;
@@ -4621,44 +4634,48 @@ body {
     transform: translateY(-1px) scale(1.05) !important;
   }
 
-  /* Apple iOS Frosted Bottom Sheet Modals */
+  /* ── FULL DISPLAY COVERAGE & TRANSPARENT MODALS ON MOBILE ── */
   .kage-modal-overlay {
     position: fixed !important;
     inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
     padding: 0 !important;
-    align-items: flex-end !important;
-    justify-content: center !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
     z-index: 10050 !important;
-    background: rgba(4, 6, 12, 0.55) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
+    background: rgba(0, 0, 0, 0.25) !important;
+    backdrop-filter: blur(28px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+    overflow: hidden !important;
   }
   .kage-modal {
     width: 100vw !important;
     max-width: 100vw !important;
-    max-height: 85vh !important;
-    border-radius: 28px 28px 0 0 !important;
-    padding: 16px 18px calc(30px + env(safe-area-inset-bottom, 16px)) 18px !important;
-    background: rgba(18, 24, 38, 0.90) !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    border-top: 1px solid var(--apple-glass-border-bright) !important;
+    padding: calc(18px + env(safe-area-inset-top, 0px)) 18px calc(30px + env(safe-area-inset-bottom, 16px)) 18px !important;
+    background: rgba(12, 16, 26, 0.35) !important;
     backdrop-filter: var(--apple-blur-modal) !important;
     -webkit-backdrop-filter: var(--apple-blur-modal) !important;
-    border-top: 1px solid var(--apple-glass-border-bright) !important;
-    border-bottom: none !important;
-    border-left: none !important;
-    border-right: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
     margin: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    box-shadow: 0 -16px 50px rgba(0, 0, 0, 0.8), var(--apple-glass-shine-intense) !important;
+    display: flex !important;
+    flex-direction: column !important;
     box-sizing: border-box !important;
+    flex: 1 1 100% !important;
   }
   .mob-sheet-handle {
-    width: 38px !important;
-    height: 5px !important;
-    border-radius: var(--apple-radius-pill) !important;
-    background: rgba(255, 255, 255, 0.35) !important;
-    margin: 0 auto 14px auto !important;
-    cursor: pointer !important;
+    display: none !important;
   }
 
   /* Advanced Responsive Modal Cockpits */
@@ -4741,7 +4758,50 @@ body {
     width: 100% !important;
     box-sizing: border-box !important;
   }
+
+  /* Full Display Mobile Tools Sheet & Group Picker */
+  .mobile-tools-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    overflow-y: auto !important;
+    max-height: none !important;
+    flex: 1 1 auto !important;
+    padding-bottom: calc(30px + env(safe-area-inset-bottom, 16px)) !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .mobile-tool-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 13px 15px !important;
+    background: var(--apple-glass-bg) !important;
+    backdrop-filter: var(--apple-blur-card) !important;
+    -webkit-backdrop-filter: var(--apple-blur-card) !important;
+    border: 1px solid var(--apple-glass-border) !important;
+    box-shadow: var(--apple-shadow-xs) !important;
+    border-radius: var(--apple-radius-md) !important;
+    color: var(--warm-white) !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    transition: all var(--ease-apple) !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  .mobile-tool-card:active {
+    background: var(--apple-glass-active) !important;
+    transform: scale(0.97) !important;
+  }
+  #mob-group-picker-list > div {
+    background: var(--apple-glass-bg) !important;
+    backdrop-filter: var(--apple-blur-card) !important;
+    -webkit-backdrop-filter: var(--apple-blur-card) !important;
+    border: 1px solid var(--apple-glass-border) !important;
+    border-radius: var(--apple-radius-md) !important;
+    box-shadow: var(--apple-shadow-xs) !important;
+  }
 }
+
 </style>
 </head>
 
@@ -10895,7 +10955,7 @@ body {
 
     if (mode === 'warroom') {
       if (glCanvas) glCanvas.style.display = 'none';
-      if (vignette) vignette.style.display = 'none';
+      if (vignette) vignette.style.display = 'block';
       if (sanctuaryView) sanctuaryView.style.display = 'none';
       if (warRoomView) warRoomView.style.display = 'flex';
       if (sanctuaryBtn) sanctuaryBtn.classList.remove('active');
