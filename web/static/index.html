@@ -1675,11 +1675,18 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 }
 /* Existing Message Reactions Row & Badges */
 .wiretap-reactions-row {
-  display: flex;
   align-items: center;
   gap: 6px;
   margin-top: 6px;
   flex-wrap: wrap;
+}
+.wiretap-reactions-row.has-reactions {
+  display: flex !important;
+}
+.wiretap-reactions-row:not(.has-reactions),
+.wiretap-reactions-row[style*="display: none"],
+.wiretap-reactions-row[style*="display:none"] {
+  display: none !important;
 }
 .wiretap-reactions-badges {
   display: inline-flex;
@@ -2433,7 +2440,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   /* Left & Right HUD Columns (Smooth Touch Pane with Clean Padding) */
   .hud-body .hud-col-left,
   .hud-body .hud-col-right {
-    display: none;
+    display: none !important;
     width: 100% !important;
     height: 100% !important;
     flex: 1 1 0% !important;
@@ -2455,7 +2462,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
   /* Center HUD Column */
   .hud-body .hud-col-center {
-    display: none;
+    display: none !important;
     width: 100% !important;
     height: 100% !important;
     flex: 1 1 0% !important;
@@ -2754,9 +2761,16 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   .wiretap-reactions-row {
     margin-top: 4px !important;
     gap: 5px !important;
-    display: flex !important;
     flex-wrap: wrap !important;
     align-items: center !important;
+  }
+  .wiretap-reactions-row.has-reactions {
+    display: flex !important;
+  }
+  .wiretap-reactions-row:not(.has-reactions),
+  .wiretap-reactions-row[style*="display: none"],
+  .wiretap-reactions-row[style*="display:none"] {
+    display: none !important;
   }
   .reaction-count-pill {
     padding: 3px 8px !important;
@@ -11977,15 +11991,18 @@ html, body {
 
   function renderWiretapReactionsRowHtml(reactions, groupId, messageId) {
     const hasReactions = Array.isArray(reactions) && reactions.length > 0;
-    const badgesHtml = hasReactions ? reactions.map(r => `
+    if (!hasReactions) {
+      return `<div class="wiretap-reactions-row" id="wiretap-reactions-${messageId}" style="display: none !important;"></div>`;
+    }
+    const badgesHtml = reactions.map(r => `
       <button type="button" class="reaction-count-pill" onclick="openMessageReactorsModal(${groupId}, ${messageId})" title="View who dropped ${escapeHtml(r.emoji)}">
         <span>${escapeHtml(r.emoji)}</span>
         <span class="rx-num">${r.count}</span>
       </button>
-    `).join('') : '';
+    `).join('');
 
     return `
-      <div class="wiretap-reactions-row" id="wiretap-reactions-${messageId}" style="${hasReactions ? 'display: flex;' : 'display: none;'}">
+      <div class="wiretap-reactions-row has-reactions" id="wiretap-reactions-${messageId}" style="display: flex !important;">
         <div class="wiretap-reactions-badges">${badgesHtml}</div>
         <button type="button" class="reaction-view-btn" onclick="openMessageReactorsModal(${groupId}, ${messageId})" title="Inspect who reacted to this message">
           <i data-lucide="eye" style="width: 10px; height: 10px;"></i>
@@ -12018,10 +12035,12 @@ html, body {
             <span>Who Reacted</span>
           </button>
         `;
-        container.style.display = 'flex';
+        container.classList.add('has-reactions');
+        container.style.setProperty('display', 'flex', 'important');
         safeCreateIcons();
       } else {
-        container.style.display = 'none';
+        container.classList.remove('has-reactions');
+        container.style.setProperty('display', 'none', 'important');
         container.innerHTML = '';
       }
     }
