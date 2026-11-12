@@ -776,17 +776,20 @@ def create_app(engine: SuperBanEngine):
                 await engine.client.connect()
             is_auth = await engine.client.is_user_authorized()
             me = await engine.client.get_me() if is_auth else None
+            if me:
+                engine._me_id = me.id
+            raw_phone = creds["phone"] if creds and creds.get("phone") else ""
+            masked_phone = f"+{raw_phone[:3]} ••• ••• {raw_phone[-2:]}" if len(raw_phone) > 6 else (raw_phone[:3] + "•••" if raw_phone else "")
             return {
                 "authorized": is_auth,
-                "phone": creds["phone"] if creds else "",
+                "phone": masked_phone,
                 "user": {
                     "id": me.id if me else None,
-                    "first_name": me.first_name if me else "",
-                    "username": me.username if me else ""
+                    "status_label": "STEALTH SENSOR ONLINE" if is_auth else "OFFLINE"
                 } if me else None
             }
         except Exception as e:
-            return {"authorized": False, "error": str(e), "phone": creds["phone"] if creds else ""}
+            return {"authorized": False, "error": str(e), "phone": ""}
 
     class SendCodeReq(BaseModel):
         force_new: Optional[bool] = False
@@ -1129,9 +1132,13 @@ def create_app(engine: SuperBanEngine):
         if not engine.db or not hasattr(engine.db, "get_group_members_ranked"):
             return []
         norm_gid = getattr(engine, "normalize_gid", lambda g: abs(int(str(g).replace("-100", "").replace("-", "") or 0)))(group_id)
-        return await engine.db.get_group_members_ranked(
+        members = await engine.db.get_group_members_ranked(
             norm_gid, sort_by=sort_by, filter_mode=filter_mode, limit=limit, offset=offset, query=query
         )
+        my_id = getattr(engine, '_me_id', None)
+        if my_id and members:
+            members = [m for m in members if m.get("user_id") != my_id]
+        return members
 
     @app.get("/api/members/summary")
     async def get_members_summary(group_id: int):
@@ -2332,7 +2339,15 @@ def create_app(engine: SuperBanEngine):
     async def get_social_graph(group_id: Optional[int] = None, limit: int = 150):
         if not engine.db:
             return {"nodes": [], "links": [], "top_influencers": [], "edge_count": 0, "node_count": 0}
-        return await engine.db.get_social_graph(group_id=group_id, limit=limit)
+        graph = await engine.db.get_social_graph(group_id=group_id, limit=limit)
+        my_id = getattr(engine, '_me_id', None)
+        if my_id and graph:
+            graph["nodes"] = [n for n in graph.get("nodes", []) if n.get("id") != my_id]
+            graph["links"] = [l for l in graph.get("links", []) if l.get("source") != my_id and l.get("target") != my_id]
+            graph["top_influencers"] = [i for i in graph.get("top_influencers", []) if i.get("user_id") != my_id]
+            graph["node_count"] = len(graph["nodes"])
+            graph["edge_count"] = len(graph["links"])
+        return graph
 
     # =========================================================================
     #  AUTONOMOUS SIGNAL SIPHON & FORWARDING ENDPOINTS

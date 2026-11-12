@@ -442,6 +442,74 @@ class TestWiretapRichMedia(unittest.TestCase):
         asyncio.run(run_test())
         print("  ✅ PASS: /api/message/reactions endpoint returns who reacted with status 200 and Yami 🔥 details.")
 
+    def test_09_userbot_opsec_masking(self):
+        """Verify get_recent_messages strictly masks own userbot identity from wiretap for OPSEC."""
+        async def run_test():
+            self.engine._me_id = 999888777
+            
+            # Message from userbot (out=True)
+            msg_self = MagicMock()
+            msg_self.id = 901
+            msg_self.out = True
+            msg_self.text = "Makes sense"
+            msg_self.media = None
+            msg_self.sticker = False
+            msg_self.gif = False
+            msg_self.photo = False
+            msg_self.video = False
+            msg_self.video_note = False
+            msg_self.voice = False
+            msg_self.audio = False
+            msg_self.file = None
+            msg_self.get_sender = AsyncMock(return_value=MagicMock(first_name="THE SG", last_name="", username="Thesg88", id=999888777))
+            msg_self.date = MagicMock()
+            msg_self.date.strftime.return_value = "12:15:53"
+            msg_self.date.timestamp.return_value = 1700000000.0
+
+            # Message from regular target member
+            msg_target = MagicMock()
+            msg_target.id = 902
+            msg_target.out = False
+            msg_target.text = "Umm its on Drug Abuse"
+            msg_target.media = None
+            msg_target.sticker = False
+            msg_target.gif = False
+            msg_target.photo = False
+            msg_target.video = False
+            msg_target.video_note = False
+            msg_target.voice = False
+            msg_target.audio = False
+            msg_target.file = None
+            msg_target.get_sender = AsyncMock(return_value=MagicMock(first_name="Aradhya", last_name="Venayak", username="Aradhyahere", id=111222333))
+            msg_target.date = MagicMock()
+            msg_target.date.strftime.return_value = "12:15:50"
+            msg_target.date.timestamp.return_value = 1700000001.0
+
+            self.mock_client.get_messages = AsyncMock(return_value=[msg_target, msg_self])
+
+            res = await self.engine.get_recent_messages(MagicMock(id=123456), limit=10)
+            self.assertEqual(len(res), 2)
+
+            # Userbot card MUST be strictly masked for OPSEC
+            self_card = res[0]
+            self.assertEqual(self_card["message_id"], 901)
+            self.assertTrue(self_card.get("is_self", False))
+            self.assertEqual(self_card["full_name"], "🛡️ [STEALTH SENSOR]")
+            self.assertEqual(self_card["username"], "PROTECTED")
+            self.assertEqual(self_card["trust_score"], 100)
+            self.assertEqual(self_card["trust_level"], "IMMUNE SENSOR")
+            self.assertEqual(self_card["trust_color"], "#10b981")
+
+            # Target card should have normal name
+            target_card = res[1]
+            self.assertEqual(target_card["message_id"], 902)
+            self.assertEqual(target_card["full_name"], "Aradhya Venayak")
+            self.assertEqual(target_card["username"], "Aradhyahere")
+            self.assertFalse(target_card.get("is_self", False))
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: Own userbot identity strictly masked to '🛡️ [STEALTH SENSOR]' for OPSEC!")
+
 if __name__ == "__main__":
     print("=" * 70)
     print("🛰️  WIRETAP AUTOSCROLL & RICH MEDIA PREVIEW VERIFICATION SUITE")

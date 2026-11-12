@@ -548,6 +548,28 @@ class SentinelShield:
             is_premium = False
             is_verified = False
 
+            # Retrieve userbot ID for stealth self-masking
+            my_id = None
+            try:
+                if self.engine and hasattr(self.engine, '_me_id') and isinstance(self.engine._me_id, int):
+                    my_id = self.engine._me_id
+                elif hasattr(self, '_me_id') and isinstance(self._me_id, int):
+                    my_id = self._me_id
+                elif self.client and hasattr(self.client, 'is_connected') and self.client.is_connected():
+                    if hasattr(self.client, 'is_user_authorized') and await self.client.is_user_authorized():
+                        me = await self.client.get_me()
+                        if me and isinstance(getattr(me, 'id', None), int):
+                            self._me_id = me.id
+                            my_id = me.id
+            except Exception:
+                pass
+
+            is_self = bool(
+                getattr(event, 'out', None) is True or
+                getattr(getattr(event, 'message', None), 'out', None) is True or
+                (isinstance(my_id, int) and isinstance(sender_id, int) and my_id > 0 and sender_id == my_id)
+            )
+
             if sender:
                 first_name = getattr(sender, 'first_name', '') or ''
                 last_name = getattr(sender, 'last_name', '') or ''
@@ -594,6 +616,10 @@ class SentinelShield:
                         "is_premium": is_premium,
                         "is_verified": is_verified
                     }
+
+            if is_self:
+                full_name = "🛡️ [STEALTH SENSOR]"
+                username = "PROTECTED"
 
             if is_bot:
                 return
@@ -717,8 +743,8 @@ class SentinelShield:
 
             reactions_info = extract_reactions_info(getattr(event, 'message', None) or event)
 
-            # Background OSINT & Intelligence tracking tasks
-            if self.db:
+            # Background OSINT & Intelligence tracking tasks (STRICT OPSEC: Skip userbot)
+            if self.db and not is_self:
                 asyncio.create_task(self.db.update_user_cross_profile(
                     sender_id or 0, full_name, username, group_id, group_title,
                     is_premium, is_verified
@@ -786,6 +812,7 @@ class SentinelShield:
                 "group_id": group_id,
                 "group_title": group_title,
                 "user_id": effective_uid,
+                "is_self": is_self,
                 "full_name": full_name,
                 "username": username,
                 "text": display_text,
@@ -796,10 +823,10 @@ class SentinelShield:
                 "threat_type": threat_type,
                 "confidence": confidence,
                 "reason": trigger_reason,
-                "message_count": member_rep.get("message_count", 1) if member_rep else 1,
-                "trust_score": user_profile.get("trust_score", 70),
-                "trust_level": user_profile.get("trust_level", "NEUTRAL CITIZEN"),
-                "trust_color": user_profile.get("trust_color", "#38bdf8"),
+                "message_count": 0 if is_self else (member_rep.get("message_count", 1) if member_rep else 1),
+                "trust_score": 100 if is_self else user_profile.get("trust_score", 70),
+                "trust_level": "IMMUNE SENSOR" if is_self else user_profile.get("trust_level", "NEUTRAL CITIZEN"),
+                "trust_color": "#10b981" if is_self else user_profile.get("trust_color", "#38bdf8"),
                 "vintage": user_profile.get("vintage", ""),
                 "is_premium": is_premium,
                 "is_verified": is_verified,

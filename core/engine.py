@@ -401,6 +401,13 @@ class SuperBanEngine:
                 sender = getattr(msg, 'sender', None)
                 sender_id = getattr(msg, 'sender_id', 0) or getattr(sender, 'id', 0)
 
+                # STRICT OPSEC: Never profile, score, or link userbot in member surveillance or social graph
+                if sender_id and (
+                    getattr(msg, 'out', None) is True or
+                    (isinstance(getattr(self, '_me_id', None), int) and isinstance(sender_id, int) and sender_id == self._me_id)
+                ):
+                    continue
+
                 if sender_id:
                     m = member_aggregates.get(sender_id)
                     fn = getattr(sender, 'first_name', '') or ''
@@ -1331,6 +1338,19 @@ class SuperBanEngine:
         """Retrieve recent neural threat neutralization logs."""
         return await self.db.get_ai_threat_logs(group_id, limit)
 
+    async def get_me_id(self) -> Optional[int]:
+        """Retrieve and cache the authorized userbot account ID for strict OPSEC self-masking."""
+        if not hasattr(self, '_me_id') or not self._me_id:
+            try:
+                if self.client and hasattr(self.client, 'is_connected') and self.client.is_connected():
+                    if hasattr(self.client, 'is_user_authorized') and await self.client.is_user_authorized():
+                        me = await self.client.get_me()
+                        if me and isinstance(getattr(me, 'id', None), int):
+                            self._me_id = me.id
+            except Exception:
+                pass
+        return getattr(self, '_me_id', None) if isinstance(getattr(self, '_me_id', None), int) else None
+
     async def get_recent_messages(self, group_entity, limit: int = 30) -> List[Dict[str, Any]]:
         """Retrieve recent messages for live surveillance wiretap (including stickers, gifs, photos, videos, voice, tagged replies)."""
         res = []
@@ -1339,6 +1359,7 @@ class SuperBanEngine:
             gid = getattr(group_entity, 'id', 0)
             if not gid and isinstance(group_entity, int):
                 gid = group_entity
+            my_id = await self.get_me_id()
             msg_map = {m.id: m for m in messages if m}
             for msg in reversed(messages):
                 if not msg:
@@ -1355,11 +1376,21 @@ class SuperBanEngine:
                         sender = None
                 elif hasattr(msg, 'sender'):
                     sender = getattr(msg, 'sender', None)
-                first_name = getattr(sender, 'first_name', '') or ''
-                last_name = getattr(sender, 'last_name', '') or ''
-                full_name = f"{first_name} {last_name}".strip() or getattr(sender, 'title', '') or "Anonymous"
-                username = getattr(sender, 'username', '') or ''
                 sender_id = getattr(sender, 'id', 0) if sender else 0
+
+                # STRICT OPSEC: Mask own userbot identity from wiretap surveillance
+                is_self = bool(
+                    getattr(msg, 'out', None) is True or
+                    (isinstance(my_id, int) and isinstance(sender_id, int) and my_id > 0 and sender_id == my_id)
+                )
+                if is_self:
+                    full_name = "🛡️ [STEALTH SENSOR]"
+                    username = "PROTECTED"
+                else:
+                    first_name = getattr(sender, 'first_name', '') or ''
+                    last_name = getattr(sender, 'last_name', '') or ''
+                    full_name = f"{first_name} {last_name}".strip() or getattr(sender, 'title', '') or "Anonymous"
+                    username = getattr(sender, 'username', '') or ''
                 
                 media_info = extract_media_info(msg, group_id=gid)
                 msg_raw = getattr(msg, 'raw_text', None)
@@ -1375,6 +1406,7 @@ class SuperBanEngine:
                 res.append({
                     "message_id": msg.id,
                     "user_id": sender_id,
+                    "is_self": is_self,
                     "full_name": full_name,
                     "username": username,
                     "text": display_text,
@@ -1413,6 +1445,12 @@ class SuperBanEngine:
                     logger.debug(f"Reputation lookup bypass: {e}")
 
             for item in res:
+                if item.get("is_self"):
+                    item["trust_score"] = 100
+                    item["trust_level"] = "IMMUNE SENSOR"
+                    item["trust_color"] = "#10b981"
+                    item["message_count"] = 0
+                    continue
                 uid = item.get("user_id")
                 rep = rep_map.get(uid)
                 if rep:

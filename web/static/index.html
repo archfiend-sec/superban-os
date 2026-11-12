@@ -5153,6 +5153,15 @@ html, body {
   text-overflow: ellipsis !important;
 }
 
+
+.wiretap-self-card {
+  border-left: 2px solid #10b981 !important;
+  background: rgba(16, 185, 129, 0.04) !important;
+}
+.hide-sensor-messages .wiretap-self-card {
+  display: none !important;
+}
+
 </style>
 </head>
 
@@ -5331,10 +5340,10 @@ html, body {
       </div>
     </div>
 
-    <!-- Active Operator Badge -->
-    <div class="op-badge">
+    <!-- Active Operator Badge (OPSEC PROTECTED: Userbot identity never exposed) -->
+    <div class="op-badge" title="Stealth MTProto Sensor Node Active & Encrypted">
       <span class="dot"></span>
-      <span id="user-display">@archfynd (+263 78 831 1244)</span>
+      <span id="user-display">STEALTH SENSOR ONLINE</span>
     </div>
 
     <!-- Master Owner Clearance Controls (Shown only to @archfiend000) -->
@@ -5646,6 +5655,11 @@ html, body {
             </div>
             <div class="hud-filter-toggle">
               <button type="button" onclick="toggleWiretapDensity()" id="wiretap-density-btn" class="flt-btn active" title="Toggle Compact Density (Maximum messages visible on screen) vs Comfort (Expanded buttons)">≡ COMPACT</button>
+            </div>
+            <div class="hud-filter-toggle">
+              <button type="button" onclick="toggleWiretapSensorMessages()" id="wiretap-sensor-btn" class="flt-btn" title="Toggle visibility of your stealth userbot messages in wiretap" style="border-color: rgba(16, 185, 129, 0.35); color: #34c759;">
+                <span id="wiretap-sensor-btn-txt">🛡️ SENSOR: SHOWN</span>
+              </button>
             </div>
             <div class="hud-filter-toggle">
               <button type="button" onclick="clearWiretapFeed()" class="flt-btn" title="Clear local message stream buffer">🗑️ CLEAR</button>
@@ -6354,8 +6368,8 @@ html, body {
       <!-- STEP 1: PHONE DISPLAY & SEND CODE BUTTON -->
       <div id="auth-step-1">
         <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); padding: 14px 18px; border-radius: 14px; margin-bottom: 18px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);">
-          <div style="font-size: 10px; color: rgba(255, 255, 255, 0.6); margin-bottom: 4px; letter-spacing: 0.06em; font-weight: 600;">TARGET TELEGRAM PHONE</div>
-          <div id="auth-phone-display" style="color: #34c759; font-size: 16px; font-weight: 600; letter-spacing: 0.02em;">+263 78 831 1244</div>
+          <div style="font-size: 10px; color: rgba(255, 255, 255, 0.6); margin-bottom: 4px; letter-spacing: 0.06em; font-weight: 600;">TARGET TELEGRAM PHONE [OPSEC MASKED]</div>
+          <div id="auth-phone-display" style="color: #34c759; font-size: 16px; font-weight: 600; letter-spacing: 0.02em;">+263 ••• ••• 1244</div>
         </div>
 
         <button id="auth-send-code-btn" onclick="sendAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12.5px; justify-content: center; min-height: 48px; border-radius: 12px;">
@@ -8264,9 +8278,8 @@ html, body {
           }
           const desc = document.getElementById('auth-status-desc');
           if (desc) {
-            if (data && data.authorized && data.user) {
-              const label = data.user.username ? `@${data.user.username}` : (data.user.first_name || 'Operator');
-              desc.innerHTML = `<span style="color: #34d399; font-weight: 600;">● Active Userbot Session: ${label}</span><br><span style="color: var(--muted); font-size: 11px;">You are already authorized. Re-authorizing will issue a fresh session for this cloud instance.</span>`;
+            if (data && data.authorized) {
+              desc.innerHTML = `<span style="color: #34d399; font-weight: 600;">● Active MTProto Stealth Session</span><br><span style="color: var(--muted); font-size: 11px;">Cloud userbot node authorized & operational. Re-authorizing will issue a fresh session.</span>`;
             } else {
               desc.innerText = 'Send a verification code to your phone or Telegram app to authorize this cloud instance.';
             }
@@ -8360,10 +8373,11 @@ html, body {
       const userDisp = document.getElementById('user-display');
       const modal = document.getElementById('auth-modal');
 
-      if (data.authorized && data.user) {
-        const label = data.user.username ? `@${data.user.username}` : (data.user.first_name || 'Operator');
-        const phone = data.phone || '+263 78 831 1244';
-        if (userDisp) userDisp.innerText = `${label} (${phone})`;
+      if (data.authorized) {
+        if (userDisp) {
+          const opLabel = currentOperatorUser ? `@${escapeHtml(currentOperatorUser)}` : 'WAR ROOM';
+          userDisp.innerHTML = `<span style="color: #38bdf8; font-weight: 600;">🛡️ ${opLabel}</span> <span style="color: #34c759; margin-left: 6px;">● SENSOR ONLINE</span>`;
+        }
         if (modal) modal.style.display = 'none';
         showTelegramLinkBanner(false);
       } else {
@@ -11819,13 +11833,22 @@ html, body {
 
     const isDeleted = !!data.is_deleted;
     const isEdited = !!data.is_edited && !isDeleted;
+    const isSelf = Boolean(
+      data.is_self ||
+      data.is_userbot ||
+      (data.full_name && data.full_name.includes('STEALTH SENSOR')) ||
+      (data.username && (data.username === 'PROTECTED' || data.username === 'PROTECTED_SENSOR'))
+    );
+
     const card = document.createElement('div');
-    card.className = `wiretap-card ${data.is_threat ? 'threat-card' : ''} ${isDeleted ? 'ghost-deleted-card' : ''} ${isEdited ? 'ghost-edited-card' : ''}`;
+    card.className = `wiretap-card ${isSelf ? 'wiretap-self-card' : ''} ${data.is_threat ? 'threat-card' : ''} ${isDeleted ? 'ghost-deleted-card' : ''} ${isEdited ? 'ghost-edited-card' : ''}`;
     if (data.message_id) card.id = `wiretap-card-${data.message_id}`;
     card.setAttribute('onclick', 'handleWiretapCardClick(this, event)');
 
-    const senderInitial = (data.full_name || 'U').charAt(0).toUpperCase();
-    const usernameDisplay = data.username ? `@${data.username}` : `ID: ${data.user_id}`;
+    // OPSEC STEALTH SHIELD: If this message was sent by your own userbot/session, strictly mask its identity!
+    const effectiveFullName = isSelf ? '🛡️ [STEALTH SENSOR]' : (data.full_name || 'Anonymous');
+    const senderInitial = isSelf ? 'S' : (effectiveFullName || 'U').charAt(0).toUpperCase();
+    const usernameDisplay = isSelf ? '[OPSEC PROTECTED]' : (data.username ? `@${data.username}` : `ID: ${data.user_id}`);
 
     // Group Badge: ONLY displayed in GLOBAL mode ('all') when multiple groups interleave. In TARGET mode, it is hidden.
     const groupBadge = (wiretapScope === 'all' && data.group_title) ? `
@@ -11835,14 +11858,18 @@ html, body {
     const effectiveGid = data.group_id || activeGid;
 
     // Reputation Score Pill: Clean, single-line, readable sentence case
-    const tierColor = data.trust_color || '#38bdf8';
+    const tierColor = isSelf ? '#10b981' : (data.trust_color || '#38bdf8');
     const rawTier = data.trust_level ? data.trust_level.split(' ')[0] : '';
     const tierFormatted = rawTier ? (rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase()) : '';
-    const trustBadge = (data.trust_score !== undefined && data.trust_score !== null) ? `
+    const trustBadge = isSelf ? `
+      <span class="wiretap-reputation-pill" style="border-color: #10b981; color: #10b981; background: rgba(16, 185, 129, 0.15);" title="Your Stealth Userbot Sensor - Immune & Protected">
+        ● SENSOR NODE
+      </span>
+    ` : ((data.trust_score !== undefined && data.trust_score !== null) ? `
       <span class="wiretap-reputation-pill" style="border-color: ${tierColor}; color: ${tierColor}; background: ${tierColor}18;" onclick="openWiretapDossier(${data.user_id}, '${escapeQuote(data.full_name)}', '${data.username || ''}')" title="${data.trust_level || 'Reputation'}: ${data.trust_score}%${data.message_count ? ' (' + data.message_count + ' msgs)' : ''} • Click for Dossier">
         ${data.trust_score}% ${tierFormatted}
       </span>
-    ` : '';
+    ` : '');
 
     // Non-Admin Sovereign Radar: Detect Crypto Contract Addresses (CAs)
     const rawText = data.text || '';
@@ -11903,7 +11930,11 @@ html, body {
 
     const replyHtml = renderWiretapReplyHtml(data);
     const mediaHtml = renderWiretapMediaHtml(data);
-    const avatarHtml = renderWiretapAvatarHtml(data);
+    const avatarHtml = isSelf ? `
+      <div class="wiretap-avatar-pill" style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #10b981; display: grid; place-items: center;" title="Your Stealth Sensor (Protected)">
+        <i data-lucide="shield" style="width: 15px; height: 15px;"></i>
+      </div>
+    ` : renderWiretapAvatarHtml(data);
     const hasRichMedia = !!mediaHtml;
     const isFallbackText = (data.text || '').startsWith('[') && (data.text || '').endsWith(']');
     const rawTxt = data.raw_text !== undefined ? data.raw_text : data.text;
@@ -11953,7 +11984,7 @@ html, body {
           ${avatarHtml}
           <div class="wiretap-user-details">
             <div class="wiretap-user-top">
-              <span class="wiretap-sender-name" title="${escapeHtml(data.full_name || 'Anonymous')}">${escapeHtml(data.full_name || 'Anonymous')}</span>
+              <span class="wiretap-sender-name" style="${isSelf ? 'color: #34c759 !important; font-weight: 700;' : ''}" title="${escapeHtml(effectiveFullName)}">${escapeHtml(effectiveFullName)}</span>
             </div>
             <div class="wiretap-user-sub">
               <span class="wiretap-sender-handle">${usernameDisplay}</span>
@@ -13347,6 +13378,28 @@ html, body {
         btn.classList.remove('active');
         btn.title = 'Current: Comfort Density (Expanded buttons). Click for Compact view.';
       }
+    }
+  }
+
+  
+  let wiretapHideSensor = false;
+  function toggleWiretapSensorMessages() {
+    wiretapHideSensor = !wiretapHideSensor;
+    const stream = document.getElementById('wiretap-stream');
+    const btnTxt = document.getElementById('wiretap-sensor-btn-txt');
+    const btn = document.getElementById('wiretap-sensor-btn');
+    if (stream) {
+      stream.classList.toggle('hide-sensor-messages', wiretapHideSensor);
+    }
+    if (btnTxt) {
+      btnTxt.innerText = wiretapHideSensor ? '🛡️ SENSOR: HIDDEN' : '🛡️ SENSOR: SHOWN';
+    }
+    if (btn) {
+      btn.style.borderColor = wiretapHideSensor ? 'rgba(255, 59, 48, 0.4)' : 'rgba(16, 185, 129, 0.35)';
+      btn.style.color = wiretapHideSensor ? '#ff3b30' : '#34c759';
+    }
+    if (window.showToast) {
+      showToast(wiretapHideSensor ? 'Stealth Sensor messages hidden from feed' : 'Stealth Sensor messages shown in feed', 'info');
     }
   }
 
