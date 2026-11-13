@@ -40,6 +40,10 @@
     if (savedTheme === 'light') {
       document.documentElement.classList.add('theme-light');
     }
+    var savedMode = localStorage.getItem('kage_view_mode') || 'warroom';
+    if (savedMode === 'warroom') {
+      document.documentElement.classList.add('warroom-active');
+    }
     var w = window.innerWidth || screen.width;
     var h = window.innerHeight || screen.height;
     var ratio = w / h;
@@ -3903,7 +3907,8 @@ body.warroom-active {
   padding: 0 !important;
 }
 
-.war-room-hud {
+html.warroom-active .war-room-hud,
+body.warroom-active .war-room-hud {
   position: fixed !important;
   top: var(--nav-h, 50px) !important;
   left: 0 !important;
@@ -3927,6 +3932,32 @@ body.warroom-active {
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
   z-index: 10 !important;
+}
+
+/* Strict mutual exclusion: Sanctuary vs Cyber War Room HUD */
+html:not(.warroom-active) #war-room-view,
+body:not(.warroom-active) #war-room-view,
+#war-room-view.kage-view-hidden,
+#war-room-view[style*="display: none"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html.warroom-active #top,
+body.warroom-active #top,
+#top.kage-view-hidden,
+#top[style*="display: none"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html.warroom-active #gl,
+html.warroom-active #vignette {
+  display: none !important;
 }
 
 @media (min-width: 769px) {
@@ -4439,13 +4470,20 @@ body.warroom-active {
 
 .kage-tab-hidden,
 #tab-content-wiretap.kage-tab-hidden,
+#tab-content-wiretap[style*="display: none"],
 .wiretap-stream-wrap.kage-tab-hidden,
+.wiretap-stream-wrap[style*="display: none"],
 #tab-content-intel.kage-tab-hidden,
+#tab-content-intel[style*="display: none"],
 #tab-content-ghost.kage-tab-hidden,
+#tab-content-ghost[style*="display: none"],
 #tab-content-recon.kage-tab-hidden,
+#tab-content-recon[style*="display: none"],
 #tab-content-alpha.kage-tab-hidden,
+#tab-content-alpha[style*="display: none"],
 #wiretap-controls-sub.kage-tab-hidden {
   display: none !important;
+  visibility: hidden !important;
 }
 
 /* Wiretap Stream Layout & Liquid Glass Cards */
@@ -5892,7 +5930,7 @@ body.warroom-active {
 }
 
 @media (min-width: 901px) {
-  #tab-content-recon {
+  #tab-content-recon:not(.kage-tab-hidden):not([style*="display: none"]) {
     flex: 1 1 0% !important;
     height: 100% !important;
     max-height: 100% !important;
@@ -5929,7 +5967,7 @@ body.warroom-active {
 }
 
 @media (max-width: 900px) {
-  #tab-content-recon {
+  #tab-content-recon:not(.kage-tab-hidden):not([style*="display: none"]) {
     flex: 1 1 0% !important;
     height: 100% !important;
     min-height: 0 !important;
@@ -6202,7 +6240,7 @@ body.theme-light .kage-btn.secondary {
     </svg>
     <span class="brand-tx"><b style="letter-spacing: 0.14em; font-family: var(--font-sans);">KAGE</b><i style="letter-spacing: 0.22em; font-family: var(--font-mono); font-size: 8.5px; opacity: 0.75;">OBSIDIAN INTELLIGENCE</i></span>
   </a>
-  <nav class="nav-links" id="main-nav-links">
+  <nav class="nav-links" id="main-nav-links" style="display: none;">
     <a class="nav-link on" href="#gate">The Sanmon</a>
     <a class="nav-link" href="#pathways">Still Gardens</a>
     <a class="nav-link" href="#lessons">Sacred Craft</a>
@@ -6211,11 +6249,11 @@ body.theme-light .kage-btn.secondary {
 
   <!-- DUAL MODE SWITCHER: SANCTUARY vs CYBER WAR ROOM HUD -->
   <div class="view-mode-pill" style="margin-left: 10px;">
-    <button type="button" id="mode-btn-sanctuary" class="view-pill-btn active" onclick="switchViewMode('sanctuary')" title="Sanctuary 3D Kyoto View">
+    <button type="button" id="mode-btn-sanctuary" class="view-pill-btn" onclick="switchViewMode('sanctuary')" title="Sanctuary 3D Kyoto View">
       <i data-lucide="compass" style="width: 12px; height: 12px;"></i>
       <span>Sanctuary // 閑雅</span>
     </button>
-    <button type="button" id="mode-btn-warroom" class="view-pill-btn" onclick="switchViewMode('warroom')" title="Cyber War Room HUD (Hotkey: W)">
+    <button type="button" id="mode-btn-warroom" class="view-pill-btn active" onclick="switchViewMode('warroom')" title="Cyber War Room HUD (Hotkey: W)">
       <span class="live-dot-pulse"></span>
       <i data-lucide="shield-alert" style="width: 12px; height: 12px; color: var(--vermilion);"></i>
       <span>War Room // 影</span>
@@ -6336,7 +6374,7 @@ body.theme-light .kage-btn.secondary {
 </header>
 
 <!-- CYBER WAR ROOM HUD VIEW -->
-<div id="war-room-view" class="war-room-hud" style="display: none;">
+<div id="war-room-view" class="war-room-hud">
   <!-- TOP TICKER / STATUS BAR -->
   <div class="hud-top-bar">
     <div class="hud-ticker-left">
@@ -6657,7 +6695,7 @@ body.theme-light .kage-btn.secondary {
       </div>
 
       <!-- TAB 2: AI CHAT INTEL SYNTHESIZER CONTAINER -->
-      <div id="tab-content-intel" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-intel" class="kage-tab-hidden" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>02</b> — TACTICAL AI INTEL SYNTHESIS</span>
           <span class="rule"></span>
@@ -6691,7 +6729,7 @@ body.theme-light .kage-btn.secondary {
       </div>
 
       <!-- TAB 3: GHOST VAULT CONTAINER (ANTI-DELETE & ANTI-EDIT) -->
-      <div id="tab-content-ghost" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-ghost" class="kage-tab-hidden" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>03</b> — GHOST VAULT SURVEILLANCE ARCHIVE</span>
           <span class="rule"></span>
@@ -6726,7 +6764,7 @@ body.theme-light .kage-btn.secondary {
       </div>
 
       <!-- TAB 4: MEMBER RECON MATRIX CONTAINER -->
-      <div id="tab-content-recon" style="display: none; flex-direction: column; overflow: hidden; padding: 14px 18px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-recon" class="kage-tab-hidden" style="display: none; flex-direction: column; overflow: hidden; padding: 14px 18px; font-family: 'JetBrains Mono', monospace;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>04</b> — MEMBER RECONNAISSANCE GRID</span>
           <span class="rule"></span>
@@ -6810,7 +6848,7 @@ body.theme-light .kage-btn.secondary {
       </div>
 
       <!-- TAB 5: ALPHA & SIGNAL RADAR CONTAINER (WITH DEXSCREENER) -->
-      <div id="tab-content-alpha" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-alpha" class="kage-tab-hidden" style="display: none; flex-direction: column; overflow-y: auto; padding: 20px; font-family: 'JetBrains Mono', monospace;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>05</b> — ALPHA &amp; SIGNAL HARVESTER</span>
           <span class="rule"></span>
@@ -6840,7 +6878,7 @@ body.theme-light .kage-btn.secondary {
 </div>
 
 
-<div class="page" id="top">
+<div class="page kage-view-hidden" id="top" style="display: none;">
 
   <!-- CHAPTER 00: HERO SECTION -->
   <section class="hero" id="hero">
@@ -12612,15 +12650,21 @@ body.theme-light .kage-btn.secondary {
       if (typeof window.pauseSanctuary3D === 'function') {
         window.pauseSanctuary3D();
       }
-      if (glCanvas) glCanvas.style.display = 'none';
-      if (vignette) vignette.style.display = 'block';
-      if (sanctuaryView) sanctuaryView.style.display = 'none';
-      if (warRoomView) warRoomView.style.display = 'flex';
+      if (glCanvas) glCanvas.style.setProperty('display', 'none', 'important');
+      if (vignette) vignette.style.setProperty('display', 'none', 'important');
+      if (sanctuaryView) {
+        sanctuaryView.classList.add('kage-view-hidden');
+        sanctuaryView.style.setProperty('display', 'none', 'important');
+      }
+      if (warRoomView) {
+        warRoomView.classList.remove('kage-view-hidden');
+        warRoomView.style.setProperty('display', 'flex', 'important');
+      }
       if (sanctuaryBtn) sanctuaryBtn.classList.remove('active');
       if (warRoomBtn) warRoomBtn.classList.add('active');
       if (mobSanctuary) mobSanctuary.classList.remove('active');
       if (mobWarroom) mobWarroom.classList.add('active');
-      if (navLinks) navLinks.style.display = 'none';
+      if (navLinks) navLinks.style.setProperty('display', 'none', 'important');
       document.documentElement.classList.add('warroom-active');
       document.body.classList.add('warroom-active');
       window.scrollTo(0, 0);
@@ -12634,18 +12678,29 @@ body.theme-light .kage-btn.secondary {
         }
       }
 
+      // Enforce active child center tab state so tabs never overlap
+      if (typeof switchCenterTab === 'function') {
+        switchCenterTab(activeCenterTab || 'wiretap', true);
+      }
+
       refreshWiretap();
       loadThreatsHistory();
     } else {
-      if (glCanvas) glCanvas.style.display = 'block';
-      if (vignette) vignette.style.display = 'block';
-      if (sanctuaryView) sanctuaryView.style.display = 'block';
-      if (warRoomView) warRoomView.style.display = 'none';
+      if (glCanvas) glCanvas.style.setProperty('display', 'block', 'important');
+      if (vignette) vignette.style.setProperty('display', 'block', 'important');
+      if (sanctuaryView) {
+        sanctuaryView.classList.remove('kage-view-hidden');
+        sanctuaryView.style.setProperty('display', 'block', 'important');
+      }
+      if (warRoomView) {
+        warRoomView.classList.add('kage-view-hidden');
+        warRoomView.style.setProperty('display', 'none', 'important');
+      }
       if (sanctuaryBtn) sanctuaryBtn.classList.add('active');
       if (warRoomBtn) warRoomBtn.classList.remove('active');
       if (mobSanctuary) mobSanctuary.classList.add('active');
       if (mobWarroom) mobWarroom.classList.remove('active');
-      if (navLinks) navLinks.style.display = 'flex';
+      if (navLinks) navLinks.style.setProperty('display', 'flex', 'important');
       document.documentElement.classList.remove('warroom-active');
       document.body.classList.remove('warroom-active');
 
@@ -18069,6 +18124,15 @@ body.theme-light .kage-btn.secondary {
   }
 
   window.addEventListener('popstate', function(e) {
+    // 0. If in Sanctuary mode, back button returns to War Room
+    if (currentViewMode === 'sanctuary') {
+      switchViewMode('warroom');
+      if (window.history && window.history.pushState) {
+        window.history.pushState({ kageNav: true, tab: activeCenterTab || 'wiretap' }, '', window.location.pathname);
+      }
+      return;
+    }
+
     // 1. If any modal overlay is open, close it and prevent leaving the site
     const openModals = Array.from(document.querySelectorAll('.kage-modal-overlay')).filter(el => {
       return el.style.display && el.style.display !== 'none';
@@ -18161,7 +18225,7 @@ body.theme-light .kage-btn.secondary {
       const wiretapDock = document.getElementById('mob-dock-wiretap');
       if (wiretapDock) wiretapDock.classList.add('active');
     }
-    switchViewMode(currentViewMode || 'sanctuary');
+    switchViewMode(currentViewMode || 'warroom');
   };
 
 </script>
