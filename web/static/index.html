@@ -6185,7 +6185,7 @@ body.theme-light .kage-btn.secondary {
       CLEARANCE GATEWAY
     </h2>
     <p id="owner-gate-desc" class="owner-lockscreen-desc">
-      Provide your registered Telegram username and assigned 4-digit code to unlock mission control.
+      Provide authorized credentials to authenticate clearance session.
     </p>
 
     <div id="owner-pin-container">
@@ -8580,10 +8580,10 @@ body.theme-light .kage-btn.secondary {
           </div>
 
           <div>
-            <label style="font-size: 9px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">Assigned 4-Digit Code</label>
+            <label style="font-size: 9px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">Assigned Clearance Passcode</label>
             <div style="display: flex; gap: 6px;">
-              <input type="text" id="new-op-pin" placeholder="1234" maxlength="4" style="width: 100%; padding: 8px 10px; font-size: 12px; letter-spacing: 3px; text-align: center; background: #080c10; border: 1px solid var(--line-soft); border-radius: 4px; color: #34d399; outline: none;" />
-              <button type="button" onclick="generateRandomPin()" class="btn-xs-outline" style="white-space: nowrap; font-size: 9px;" title="Generate random 4-digit code">🎲 Random</button>
+              <input type="text" id="new-op-pin" placeholder="PIN or Passphrase" maxlength="32" style="width: 100%; padding: 8px 10px; font-size: 12px; letter-spacing: 2px; text-align: center; background: #080c10; border: 1px solid var(--line-soft); border-radius: 4px; color: #34d399; outline: none;" />
+              <button type="button" onclick="generateRandomPin()" class="btn-xs-outline" style="white-space: nowrap; font-size: 9px;" title="Generate random clearance code">🎲 Random</button>
             </div>
           </div>
         </div>
@@ -17582,7 +17582,7 @@ body.theme-light .kage-btn.secondary {
 
     if (!pin || pin.length < 4) {
       if (errBox) {
-        errBox.innerText = 'Assigned clearance code must be at least 4 digits.';
+        errBox.innerText = 'Clearance credentials required.';
         errBox.style.display = 'block';
       }
       if (pinInput) pinInput.focus();
