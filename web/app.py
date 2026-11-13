@@ -102,6 +102,15 @@ def find_mp3_sync_offset(filepath: str, target_pos: int, max_scan: int = 4096) -
         pass
     return max(0, target_pos)
 
+def _sanitize_csv_cell(val: Any) -> str:
+    """Sanitize cell value against CSV formula injection (CWE-1236 / OWASP)."""
+    if val is None:
+        return ""
+    s = str(val)
+    if s and s[0] in ('=', '+', '-', '@', '\t', '\r'):
+        return f"'{s}"
+    return s
+
 def create_app(engine: SuperBanEngine):
     enable_docs = os.environ.get("ENABLE_API_DOCS", "0").strip().lower() in ("1", "true", "yes")
     app = FastAPI(
@@ -1386,8 +1395,9 @@ def create_app(engine: SuperBanEngine):
         if not targets:
             targets = [{"id": tid, "username": "", "full_name": ""} for tid in req.target_ids]
 
-        asyncio.create_task(engine.broadcast_campaign(targets, req.message))
-        return {"status": "started", "total_targets": len(targets)}
+        cid = f"camp_{uuid.uuid4().hex[:8]}"
+        asyncio.create_task(engine.broadcast_campaign(targets, req.message, campaign_id=cid))
+        return {"status": "started", "campaign_id": cid, "total_targets": len(targets)}
 
     @app.get("/api/broadcast/campaigns")
     async def list_campaigns():
@@ -2528,34 +2538,81 @@ def create_app(engine: SuperBanEngine):
         }
 
     @app.get("/api/export/members")
-    async def export_members_csv(group_id: int, format: str = "csv"):
+    async def export_members_csv(
+        group_id: int,
+        format: str = "csv",
+        filter_mode: str = "all",
+        sort_by: str = "reputation",
+        query: str = ""
+    ):
+        norm_gid = engine.normalize_gid(group_id) if hasattr(engine, "normalize_gid") else group_id
         entity = await engine.get_group_entity(group_id)
-        if not entity:
-            raise HTTPException(status_code=404, detail="Target group not found")
-        members = await engine.inspect_group_members(entity, limit=5000)
-        
+        group_title = getattr(entity, 'title', f"group_{norm_gid}") if entity else f"group_{norm_gid}"
+
+        members = []
+        # 1. Prefer rich indexed reputation records from SQLite
+        if engine.db and hasattr(engine.db, "get_group_members_ranked"):
+            members = await engine.db.get_group_members_ranked(
+                group_id=norm_gid,
+                sort_by=sort_by,
+                filter_mode=filter_mode,
+                limit=5000,
+                query=query
+            )
+
+        # 2. Fall back to live participant inspection if DB is empty
+        if not members and entity:
+            members = await engine.inspect_group_members(entity, limit=5000)
+
+        if not members and not entity:
+            raise HTTPException(status_code=404, detail="Target group not found and no offline records available")
+
         if format == "json":
             return members
-            
+
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["User ID", "Full Name", "Username", "Trust Score", "Trust Level", "Vintage", "Is Premium", "Is Verified", "Is Bot", "Is Scam", "Is Fake"])
+        writer.writerow([
+            "User ID", "Full Name", "Username", "Reputation Score", "Reputation Tier",
+            "Archetype", "Message Count", "Reactions Received", "First Seen", "Last Seen",
+            "Is Premium", "Is Verified", "Is Bot", "Is Risky"
+        ])
+
         for m in members:
+            uid = m.get("user_id") or m.get("id") or 0
+            fname = m.get("full_name") or m.get("name") or "User"
+            uname = m.get("username") or ""
+            rep_score = m.get("reputation_score") if m.get("reputation_score") is not None else m.get("trust_score", 50)
+            rep_tier = m.get("reputation_tier") or m.get("trust_level", "NEUTRAL CITIZEN")
+            archetype = m.get("persona_archetype") or "CITIZEN"
+            msg_cnt = m.get("message_count", 0)
+            rx_cnt = m.get("reactions_received", 0)
+            f_seen = m.get("first_seen") or m.get("vintage", "Standard Account")
+            l_seen = m.get("last_seen", "")
+            is_prem = "YES" if m.get("is_premium") else "NO"
+            is_ver = "YES" if m.get("is_verified") else "NO"
+            is_b = "YES" if m.get("is_bot") else "NO"
+            is_risk = "YES" if (m.get("is_scam") or m.get("is_fake") or (m.get("risk_flags") and len(m.get("risk_flags")) > 0) or rep_score < 40) else "NO"
+
             writer.writerow([
-                m.get("user_id"),
-                m.get("name"),
-                m.get("username"),
-                m.get("trust_score", 70),
-                m.get("trust_level", "NEUTRAL CITIZEN"),
-                m.get("vintage", "Standard Account"),
-                "YES" if m.get("is_premium") else "NO",
-                "YES" if m.get("is_verified") else "NO",
-                "YES" if m.get("is_bot") else "NO",
-                "YES" if m.get("is_scam") else "NO",
-                "YES" if m.get("is_fake") else "NO"
+                _sanitize_csv_cell(uid),
+                _sanitize_csv_cell(fname),
+                _sanitize_csv_cell(uname),
+                _sanitize_csv_cell(rep_score),
+                _sanitize_csv_cell(rep_tier),
+                _sanitize_csv_cell(archetype),
+                _sanitize_csv_cell(msg_cnt),
+                _sanitize_csv_cell(rx_cnt),
+                _sanitize_csv_cell(f_seen),
+                _sanitize_csv_cell(l_seen),
+                _sanitize_csv_cell(is_prem),
+                _sanitize_csv_cell(is_ver),
+                _sanitize_csv_cell(is_b),
+                _sanitize_csv_cell(is_risk)
             ])
+
         output.seek(0)
-        clean_title = "".join(c for c in getattr(entity, 'title', 'group') if c.isalnum() or c in ('_', '-')) or "group"
+        clean_title = "".join(c for c in group_title if c.isalnum() or c in ('_', '-')) or "group"
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",

@@ -17,6 +17,14 @@ class DatabaseManager:
         self.db_path = str(db_path or DB_FILE)
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=15.0)
         self.cursor = self.conn.cursor()
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
         self.lock = asyncio.Lock()
         
         # Enable Write-Ahead Logging (WAL) for maximum stability & zero database locks
@@ -319,8 +327,52 @@ class DatabaseManager:
             CREATE INDEX IF NOT EXISTS idx_gmr_rep ON group_member_reputation(group_id, reputation_score DESC);
             CREATE INDEX IF NOT EXISTS idx_gmr_msg ON group_member_reputation(group_id, message_count DESC);
             CREATE INDEX IF NOT EXISTS idx_gmr_user ON group_member_reputation(user_id);
+
+            -- ═══════════════════════════════════════════════════════
+            --   PERSISTENT SCAN JOBS LIFECYCLE (ZERO-LOSS AUDIT)
+            -- ═══════════════════════════════════════════════════════
+            CREATE TABLE IF NOT EXISTS scan_jobs (
+                job_id TEXT PRIMARY KEY,
+                job_type TEXT DEFAULT 'reputation_scan',
+                target_id INTEGER NOT NULL,
+                target_title TEXT,
+                requested_limit INTEGER DEFAULT 100000,
+                batch_size INTEGER DEFAULT 500,
+                speed_mode TEXT DEFAULT 'turbo',
+                processed_count INTEGER DEFAULT 0,
+                total_available INTEGER DEFAULT 0,
+                percent REAL DEFAULT 0.0,
+                speed REAL DEFAULT 0.0,
+                eta_seconds INTEGER DEFAULT 0,
+                unique_members INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'IDLE',
+                started_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                heartbeat_at TIMESTAMP,
+                error_info TEXT,
+                cancellation_status TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_scan_jobs_target ON scan_jobs(target_id, status);
+            CREATE INDEX IF NOT EXISTS idx_scan_jobs_status ON scan_jobs(status);
         ''')
         self.conn.commit()
+
+        # Auto-recover stalled scan jobs from previous server crash/restart
+        try:
+            now_iso = datetime.now().isoformat()
+            self.cursor.execute('''
+                UPDATE scan_jobs
+                SET status = 'FAILED',
+                    error_info = 'Server restarted during processing',
+                    completed_at = ?,
+                    updated_at = ?
+                WHERE status IN ('CONNECTING', 'PROCESSING', 'VALIDATING', 'QUEUED')
+            ''', (now_iso, now_iso))
+            self.conn.commit()
+        except Exception:
+            pass
 
         # Idempotent migration for Ghost Media Vault columns in intercepted_messages
         for col_name, col_type in [
@@ -2144,6 +2196,245 @@ class DatabaseManager:
             except Exception as e:
                 logger.error(f"Error fetching reputation summary: {e}")
                 return {"group_id": group_id, "total_members_profiled": 0, "total_messages_indexed": 0}
+
+    # ═══════════════════════════════════════════════════════
+    #   SCAN JOBS LIFECYCLE MANAGEMENT (AUDIT & RECOVERY)
+    # ═══════════════════════════════════════════════════════
+    async def create_scan_job(
+        self,
+        job_id: str,
+        job_type: str,
+        target_id: int,
+        target_title: str,
+        requested_limit: int,
+        batch_size: int = 500,
+        speed_mode: str = "turbo"
+    ) -> Dict[str, Any]:
+        norm_gid = self.normalize_gid(target_id)
+        now_iso = datetime.now().isoformat()
+        job_record = {
+            "job_id": job_id,
+            "job_type": job_type,
+            "target_id": norm_gid,
+            "target_title": target_title,
+            "requested_limit": requested_limit,
+            "batch_size": batch_size,
+            "speed_mode": speed_mode,
+            "processed_count": 0,
+            "total_available": 0,
+            "percent": 0.0,
+            "speed": 0.0,
+            "eta_seconds": 0,
+            "unique_members": 0,
+            "status": "VALIDATING",
+            "started_at": now_iso,
+            "completed_at": None,
+            "heartbeat_at": now_iso,
+            "error_info": None,
+            "cancellation_status": None,
+            "created_at": now_iso,
+            "updated_at": now_iso
+        }
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    INSERT OR REPLACE INTO scan_jobs (
+                        job_id, job_type, target_id, target_title, requested_limit,
+                        batch_size, speed_mode, processed_count, total_available,
+                        percent, speed, eta_seconds, unique_members, status,
+                        started_at, completed_at, heartbeat_at, error_info,
+                        cancellation_status, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    job_id, job_type, norm_gid, target_title, requested_limit,
+                    batch_size, speed_mode, 0, 0,
+                    0.0, 0.0, 0, 0, "VALIDATING",
+                    now_iso, None, now_iso, None,
+                    None, now_iso, now_iso
+                ))
+                self.conn.commit()
+                return job_record
+            except Exception as e:
+                logger.error(f"Error creating scan job {job_id}: {e}")
+                return job_record
+
+    async def update_scan_job_progress(
+        self,
+        job_id: str,
+        status: Optional[str] = None,
+        processed_count: Optional[int] = None,
+        total_available: Optional[int] = None,
+        percent: Optional[float] = None,
+        speed: Optional[float] = None,
+        eta_seconds: Optional[int] = None,
+        unique_members: Optional[int] = None,
+        error_info: Optional[str] = None,
+        cancellation_status: Optional[str] = None
+    ) -> bool:
+        now_iso = datetime.now().isoformat()
+        fields = ["updated_at = ?", "heartbeat_at = ?"]
+        params = [now_iso, now_iso]
+
+        if status is not None:
+            fields.append("status = ?")
+            params.append(status)
+            if status in ("COMPLETED", "FAILED", "CANCELLED"):
+                fields.append("completed_at = ?")
+                params.append(now_iso)
+        if processed_count is not None:
+            fields.append("processed_count = ?")
+            params.append(int(processed_count))
+        if total_available is not None:
+            fields.append("total_available = ?")
+            params.append(int(total_available))
+        if percent is not None:
+            fields.append("percent = ?")
+            params.append(float(percent))
+        if speed is not None:
+            fields.append("speed = ?")
+            params.append(float(speed))
+        if eta_seconds is not None:
+            fields.append("eta_seconds = ?")
+            params.append(int(eta_seconds))
+        if unique_members is not None:
+            fields.append("unique_members = ?")
+            params.append(int(unique_members))
+        if error_info is not None:
+            fields.append("error_info = ?")
+            params.append(str(error_info))
+        if cancellation_status is not None:
+            fields.append("cancellation_status = ?")
+            params.append(str(cancellation_status))
+
+        params.append(job_id)
+        sql = f"UPDATE scan_jobs SET {', '.join(fields)} WHERE job_id = ?"
+
+        async with self.lock:
+            try:
+                self.cursor.execute(sql, params)
+                self.conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error updating scan job {job_id}: {e}")
+                return False
+
+    async def get_scan_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT job_id, job_type, target_id, target_title, requested_limit,
+                           batch_size, speed_mode, processed_count, total_available,
+                           percent, speed, eta_seconds, unique_members, status,
+                           started_at, completed_at, heartbeat_at, error_info,
+                           cancellation_status, created_at, updated_at
+                    FROM scan_jobs WHERE job_id = ?
+                ''', (job_id,))
+                row = self.cursor.fetchone()
+                if not row:
+                    return None
+                return self._row_to_scan_job(row)
+            except Exception as e:
+                logger.error(f"Error getting scan job {job_id}: {e}")
+                return None
+
+    async def get_active_scan_job_for_target(self, target_id: int) -> Optional[Dict[str, Any]]:
+        norm_gid = self.normalize_gid(target_id)
+        abs_gid = abs(int(target_id)) if str(target_id).lstrip("-").isdigit() else norm_gid
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT job_id, job_type, target_id, target_title, requested_limit,
+                           batch_size, speed_mode, processed_count, total_available,
+                           percent, speed, eta_seconds, unique_members, status,
+                           started_at, completed_at, heartbeat_at, error_info,
+                           cancellation_status, created_at, updated_at
+                    FROM scan_jobs
+                    WHERE target_id IN (?, ?) AND status IN ('VALIDATING', 'QUEUED', 'CONNECTING', 'PROCESSING')
+                    ORDER BY updated_at DESC LIMIT 1
+                ''', (norm_gid, abs_gid))
+                row = self.cursor.fetchone()
+                if not row:
+                    return None
+                return self._row_to_scan_job(row)
+            except Exception as e:
+                logger.error(f"Error getting active scan job for target {target_id}: {e}")
+                return None
+
+    async def get_latest_scan_job_for_target(self, target_id: int) -> Optional[Dict[str, Any]]:
+        norm_gid = self.normalize_gid(target_id)
+        abs_gid = abs(int(target_id)) if str(target_id).lstrip("-").isdigit() else norm_gid
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT job_id, job_type, target_id, target_title, requested_limit,
+                           batch_size, speed_mode, processed_count, total_available,
+                           percent, speed, eta_seconds, unique_members, status,
+                           started_at, completed_at, heartbeat_at, error_info,
+                           cancellation_status, created_at, updated_at
+                    FROM scan_jobs
+                    WHERE target_id IN (?, ?)
+                    ORDER BY updated_at DESC LIMIT 1
+                ''', (norm_gid, abs_gid))
+                row = self.cursor.fetchone()
+                if not row:
+                    return None
+                return self._row_to_scan_job(row)
+            except Exception as e:
+                logger.error(f"Error getting latest scan job for target {target_id}: {e}")
+                return None
+
+    async def cancel_scan_job(self, job_id: str, reason: str = "User aborted scan") -> bool:
+        return await self.update_scan_job_progress(
+            job_id,
+            status="CANCELLED",
+            cancellation_status=reason
+        )
+
+    async def recover_stalled_scan_jobs(self) -> int:
+        now_iso = datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    UPDATE scan_jobs
+                    SET status = 'FAILED',
+                        error_info = 'Server restarted during processing',
+                        completed_at = ?,
+                        updated_at = ?
+                    WHERE status IN ('CONNECTING', 'PROCESSING', 'VALIDATING', 'QUEUED')
+                ''', (now_iso, now_iso))
+                recovered = self.cursor.rowcount
+                self.conn.commit()
+                if recovered > 0:
+                    logger.info(f"Auto-recovered {recovered} stalled scan jobs into FAILED state.")
+                return recovered
+            except Exception as e:
+                logger.error(f"Error recovering stalled scan jobs: {e}")
+                return 0
+
+    def _row_to_scan_job(self, row: Tuple) -> Dict[str, Any]:
+        return {
+            "job_id": row[0],
+            "job_type": row[1],
+            "target_id": row[2],
+            "target_title": row[3],
+            "requested_limit": row[4],
+            "batch_size": row[5],
+            "speed_mode": row[6],
+            "processed_count": row[7],
+            "total_available": row[8],
+            "percent": row[9],
+            "speed": row[10],
+            "eta_seconds": row[11],
+            "unique_members": row[12],
+            "status": row[13],
+            "started_at": row[14],
+            "completed_at": row[15],
+            "heartbeat_at": row[16],
+            "error_info": row[17],
+            "cancellation_status": row[18],
+            "created_at": row[19],
+            "updated_at": row[20]
+        }
 
     def close(self):
         try:

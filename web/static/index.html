@@ -9757,7 +9757,7 @@ body.theme-light .kage-btn.secondary {
       fetch(`/api/messages/deep_scan/status?group_id=${val}`)
         .then(r => r.json())
         .then(data => {
-          if (data && data.status === 'RUNNING') {
+          if (data && ['RUNNING', 'PROCESSING', 'CONNECTING', 'VALIDATING', 'QUEUED'].includes(data.status)) {
             handleDeepScanProgress(data);
             startDeepScanPolling(val);
           } else {
@@ -11196,22 +11196,46 @@ body.theme-light .kage-btn.secondary {
         })
       });
       const data = await res.json();
+      const campaignId = data.campaign_id;
       showToast(`⚡ Broadcast campaign launched for ${data.total_targets} members!`);
 
-      // Mock smooth progress display
-      let pct = 0;
-      const interval = setInterval(() => {
-        pct += Math.floor(Math.random() * 8) + 4;
-        if (pct >= 100) {
-          pct = 100;
-          clearInterval(interval);
-          document.getElementById('broadcast-progress-label').innerText = 'Campaign Completed';
-          document.getElementById('btn-start-broadcast').disabled = false;
-          showToast("✓ Drip outreach successfully completed!");
+      // Track real database campaign execution progress
+      const totalTargets = data.total_targets || targetList.length;
+      const progLabel = document.getElementById('broadcast-progress-label');
+      const progPct = document.getElementById('broadcast-progress-pct');
+      const progBar = document.getElementById('broadcast-progress-bar');
+      if (progLabel) progLabel.innerText = `Drip Outreach Active (0 / ${totalTargets})...`;
+      if (progPct) progPct.innerText = '0%';
+      if (progBar) progBar.style.width = '0%';
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const campRes = await fetch('/api/broadcast/campaigns');
+          if (!campRes.ok) return;
+          const campaigns = await campRes.json();
+          const activeCamp = (campaigns || []).find(c => c.campaign_id === campaignId || c.id === campaignId);
+          if (activeCamp) {
+            const sent = activeCamp.sent_count || activeCamp.sent || 0;
+            const failed = activeCamp.failed_count || activeCamp.failed || 0;
+            const total = activeCamp.total_targets || activeCamp.total || totalTargets;
+            const processed = sent + failed;
+            const pct = Math.min(100, Math.round((processed / Math.max(1, total)) * 100));
+
+            if (progLabel) progLabel.innerText = `Sent ${sent}/${total} (${failed} failed)...`;
+            if (progPct) progPct.innerText = `${pct}%`;
+            if (progBar) progBar.style.width = `${pct}%`;
+
+            if (activeCamp.status === 'completed' || processed >= total) {
+              clearInterval(pollInterval);
+              if (progLabel) progLabel.innerText = 'Campaign Completed';
+              document.getElementById('btn-start-broadcast').disabled = false;
+              showToast(`✓ Drip outreach successfully completed! (${sent} sent, ${failed} failed)`);
+            }
+          }
+        } catch (err) {
+          console.debug("Error checking broadcast progress:", err);
         }
-        document.getElementById('broadcast-progress-pct').innerText = `${pct}%`;
-        document.getElementById('broadcast-progress-bar').style.width = `${pct}%`;
-      }, 500);
+      }, 1000);
 
     } catch (e) {
       alert("Broadcast error: " + e.message);
@@ -13892,7 +13916,7 @@ body.theme-light .kage-btn.secondary {
         fetch(`/api/messages/deep_scan/status?group_id=${gid}`)
           .then(r => r.json())
           .then(data => {
-            if (data && data.status === 'RUNNING') {
+            if (data && ['RUNNING', 'PROCESSING', 'CONNECTING', 'VALIDATING', 'QUEUED'].includes(data.status)) {
               handleDeepScanProgress(data);
               startDeepScanPolling(gid);
             }
@@ -14159,7 +14183,7 @@ body.theme-light .kage-btn.secondary {
         }
         if (!res.ok) return;
         const data = await res.json();
-        if (data.status === 'RUNNING') {
+        if (['RUNNING', 'PROCESSING', 'CONNECTING', 'VALIDATING', 'QUEUED'].includes(data.status)) {
           handleDeepScanProgress(data);
         } else if (data.status === 'COMPLETED') {
           clearInterval(deepScanPollInterval);
@@ -14168,12 +14192,12 @@ body.theme-light .kage-btn.secondary {
             unique_members: data.unique_members || 0,
             total_scanned: data.scanned || 0
           });
-        } else if (data.status === 'CANCELLED' || data.status === 'ERROR') {
+        } else if (data.status === 'CANCELLED' || data.status === 'ERROR' || data.status === 'FAILED') {
           clearInterval(deepScanPollInterval);
           deepScanPollInterval = null;
           const panel = document.getElementById('deep-scan-progress-panel');
           if (panel) panel.style.display = 'none';
-          if (data.status === 'ERROR') {
+          if (data.status === 'ERROR' || data.status === 'FAILED') {
             showToast("Deep scan error: " + (data.error || "Unknown error"), "error");
           }
         }
@@ -14292,6 +14316,14 @@ body.theme-light .kage-btn.secondary {
       showToast("Select a target group first", "error");
       return;
     }
+    const confirmed = confirm(
+      "⚠️ RESTORE CLOUD DATABASE // ME VAULT\n\n" +
+      "This operation will restore and overwrite local group member intelligence and reputation scores " +
+      "using your encrypted Telegram Saved Messages ('me') backup.\n\n" +
+      "Are you sure you want to proceed?"
+    );
+    if (!confirmed) return;
+
     const btn = document.getElementById('btn-saved-chat-restore');
     if (btn) {
       btn.innerHTML = '<span class="loading-spin"></span> Restoring...';
@@ -14334,7 +14366,11 @@ body.theme-light .kage-btn.secondary {
 
     const countLbl = document.getElementById('deep-scan-counts-label');
     if (countLbl) {
-      if (scanned === 0) {
+      if (data.status === 'VALIDATING') {
+        countLbl.innerText = 'Validating channel permissions & MTProto entity...';
+      } else if (data.status === 'CONNECTING') {
+        countLbl.innerText = 'Connecting to Telegram cluster & preparing stream...';
+      } else if (scanned === 0) {
         countLbl.innerText = `Ingesting MTProto stream for ${total.toLocaleString()} messages...`;
       } else {
         countLbl.innerText = `Scanned ${scanned.toLocaleString()} / ${total.toLocaleString()} messages (${pct}%)`;
@@ -14349,14 +14385,26 @@ body.theme-light .kage-btn.secondary {
 
     const spdLbl = document.getElementById('deep-scan-speed-label');
     if (spdLbl) {
-      const spd = data.speed || 0;
-      spdLbl.innerText = spd > 0 ? `${spd} msgs/sec` : `Streaming...`;
+      if (data.status === 'VALIDATING') spdLbl.innerText = 'Validating...';
+      else if (data.status === 'CONNECTING') spdLbl.innerText = 'Connecting...';
+      else {
+        const spd = data.speed || 0;
+        spdLbl.innerText = spd > 0 ? `${spd} msgs/sec` : `Streaming...`;
+      }
     }
 
     const etaLbl = document.getElementById('deep-scan-eta-label');
     if (etaLbl) {
-      const eta = data.eta_seconds || 0;
-      etaLbl.innerText = eta > 60 ? `ETA: ~${Math.ceil(eta / 60)} min` : (eta > 0 ? `ETA: ~${eta}s` : `Calculating...`);
+      const eta = data.eta_seconds;
+      if (data.status === 'VALIDATING' || data.status === 'CONNECTING') {
+        etaLbl.innerText = 'ETA: calculating...';
+      } else if (eta !== null && eta !== undefined && eta > 0) {
+        etaLbl.innerText = eta > 60 ? `ETA: ~${Math.ceil(eta / 60)} min` : `ETA: ~${eta}s`;
+      } else if (data.speed && data.speed > 0) {
+        etaLbl.innerText = 'ETA: finalizing...';
+      } else {
+        etaLbl.innerText = 'ETA unavailable';
+      }
     }
   }
 
@@ -14610,28 +14658,44 @@ body.theme-light .kage-btn.secondary {
     safeCreateIcons();
   }
 
+  function sanitizeCsvField(val) {
+    if (val === null || val === undefined) return '""';
+    let s = String(val);
+    if (s.length > 0 && ['=', '+', '-', '@', '\t', '\r'].includes(s.charAt(0))) {
+      s = "'" + s;
+    }
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+
   function exportReconMembers() {
+    const gid = getActiveGroupId();
+    if (gid) {
+      window.location.href = `/api/export/members?group_id=${gid}&format=csv`;
+      showToast("📥 Exporting members database to CSV with formula protection...", "info");
+      return;
+    }
+
     if (!cachedReconMembers || cachedReconMembers.length === 0) {
       showToast("Scan members first before exporting", "error");
       return;
     }
-    const header = ["User ID", "Full Name", "Username", "Vintage", "Trust Score", "Trust Level", "Is Premium", "Last Seen"];
+    const header = ["User ID", "Full Name", "Username", "Vintage", "Reputation Score", "Reputation Tier", "Is Premium", "Last Seen"];
     const rows = cachedReconMembers.map(m => [
-      m.id,
-      `"${(m.full_name || '').replace(/"/g, '""')}"`,
-      m.username || "",
-      `"${m.vintage || ''}"`,
-      m.trust_score || 70,
-      `"${m.trust_level || ''}"`,
-      m.is_premium ? "YES" : "NO",
-      `"${m.last_seen || ''}"`
+      sanitizeCsvField(m.id || m.user_id),
+      sanitizeCsvField(m.full_name || ''),
+      sanitizeCsvField(m.username || ''),
+      sanitizeCsvField(m.vintage || ''),
+      sanitizeCsvField(m.trust_score || m.reputation_score || 50),
+      sanitizeCsvField(m.trust_level || m.reputation_tier || 'NEUTRAL CITIZEN'),
+      sanitizeCsvField(m.is_premium ? "YES" : "NO"),
+      sanitizeCsvField(m.last_seen || '')
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8," + [header.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `superban_member_recon_${getActiveGroupId() || 'group'}.csv`);
+    link.setAttribute("download", `kage_member_recon_${gid || 'group'}.csv`);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -17670,7 +17734,9 @@ body.theme-light .kage-btn.secondary {
   }
 
   function generateRandomPin() {
-    const pin = Math.floor(1000 + Math.random() * 9000).toString();
+    const array = new Uint32Array(1);
+    window.crypto.getRandomValues(array);
+    const pin = (1000 + (array[0] % 9000)).toString();
     const pinEl = document.getElementById('new-op-pin');
     if (pinEl) pinEl.value = pin;
   }

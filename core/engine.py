@@ -121,6 +121,18 @@ class SuperBanEngine:
         self._pause_event = asyncio.Event()
         self._pause_event.set()
         
+        # Active Voice Chat Tracking Session & Dispatch Policy
+        self.active_vc_session: Optional[Dict[str, Any]] = None
+        self.auto_send_vc_to_saved: bool = True
+
+        # 100k Deep Message Scan & Reputation Engine State
+        self.active_deep_scans: Dict[int, Dict[str, Any]] = {}
+        self._cancel_deep_scans: Set[int] = set()
+
+        # Native PyTgCalls WebRTC Engine
+        self.call_py: Optional[Any] = None
+        self._call_py_started = False
+
         # Real-Time Autonomous Sentinel
         self.sentinel = SentinelShield(self.client, self.db, engine=self)
         self.sentinel.engine = self
@@ -362,7 +374,13 @@ class SuperBanEngine:
     # ═══════════════════════════════════════════════════════
     #   100,000 MESSAGE DEEP SCAN & REPUTATION ENGINE
     # ═══════════════════════════════════════════════════════
-    async def deep_scan_group_messages(self, group_entity, limit: int = 100000) -> Dict[str, Any]:
+    async def deep_scan_group_messages(
+        self,
+        group_entity,
+        limit: int = 100000,
+        job_id: Optional[str] = None,
+        job_type: Optional[str] = None
+    ) -> Dict[str, Any]:
         """High-velocity 100,000 message deep scanner for group member reputation and behavioral profiling."""
         raw_gid = getattr(group_entity, 'id', 0)
         if not raw_gid and isinstance(group_entity, (int, str)):
@@ -372,25 +390,47 @@ class SuperBanEngine:
         target_limit = max(100, min(int(limit), 100000))
         group_title = getattr(group_entity, 'title', f"Group {raw_gid}")
 
+        job_id = job_id or f"scan_{uuid.uuid4().hex[:12]}"
+        if not job_type:
+            job_type = "10k_quick" if target_limit <= 10000 else "100k_reputation"
+
         self._cancel_deep_scans.discard(norm_gid)
         self._cancel_deep_scans.discard(abs_gid)
 
         start_t = time.time()
         scan_info = {
+            "job_id": job_id,
+            "job_type": job_type,
             "group_id": raw_gid,
             "norm_group_id": norm_gid,
             "group_title": group_title,
             "target_limit": target_limit,
             "scanned": 0,
             "unique_members": 0,
-            "status": "RUNNING",
+            "status": "VALIDATING",
             "start_time": start_t,
             "speed": 0.0,
-            "eta_seconds": 0,
+            "eta_seconds": None,
             "error": None
         }
         self.active_deep_scans[norm_gid] = scan_info
         self.active_deep_scans[abs_gid] = scan_info
+
+        # Persist to SQLite scan_jobs table
+        if self.db and hasattr(self.db, "create_scan_job"):
+            try:
+                await self.db.create_scan_job(
+                    job_id=job_id,
+                    job_type=job_type,
+                    target_id=norm_gid,
+                    target_title=group_title,
+                    requested_limit=target_limit,
+                    batch_size=500,
+                    speed_mode="turbo"
+                )
+            except Exception as e:
+                logger.error(f"Error persisting scan job init: {e}")
+
         await self.emit_telemetry("deep_scan_started", scan_info)
 
         member_aggregates: Dict[int, Dict[str, Any]] = {}
@@ -399,8 +439,29 @@ class SuperBanEngine:
         username_to_user: Dict[str, Tuple[int, str]] = {}
 
         try:
+            scan_info["status"] = "CONNECTING"
+            if self.db and hasattr(self.db, "update_scan_job_progress"):
+                await self.db.update_scan_job_progress(job_id, status="CONNECTING")
+            await self.emit_telemetry("deep_scan_progress", {
+                "job_id": job_id,
+                "group_id": raw_gid,
+                "norm_group_id": norm_gid,
+                "group_title": group_title,
+                "scanned": 0,
+                "total": target_limit,
+                "percent": 0.0,
+                "unique_members": 0,
+                "speed": 0.0,
+                "eta_seconds": None,
+                "status": "CONNECTING"
+            })
+
             await self.ensure_connected()
             last_emit_t = 0.0
+
+            scan_info["status"] = "PROCESSING"
+            if self.db and hasattr(self.db, "update_scan_job_progress"):
+                await self.db.update_scan_job_progress(job_id, status="PROCESSING")
 
             # Turbocharged non-blocking stream: wait_time=0 bypasses Telethon's artificial 1.0s/chunk sleep
             try:
@@ -411,7 +472,16 @@ class SuperBanEngine:
             async for msg in msg_stream:
                 if norm_gid in self._cancel_deep_scans or abs_gid in self._cancel_deep_scans:
                     scan_info["status"] = "CANCELLED"
-                    logger.info(f"Deep scan for group {raw_gid} cancelled by user.")
+                    if self.db and hasattr(self.db, "update_scan_job_progress"):
+                        await self.db.update_scan_job_progress(
+                            job_id,
+                            status="CANCELLED",
+                            cancellation_status="User cancelled scan",
+                            processed_count=scan_info["scanned"],
+                            percent=scan_info.get("percent", 0.0),
+                            unique_members=len(member_aggregates)
+                        )
+                    logger.info(f"Deep scan for group {raw_gid} (job {job_id}) cancelled by user.")
                     break
 
                 scan_info["scanned"] += 1
@@ -570,12 +640,13 @@ class SuperBanEngine:
                     last_emit_t = now_t
                     elapsed = max(0.05, now_t - start_t)
                     speed = scanned_now / elapsed
-                    eta = max(0, int((target_limit - scanned_now) / speed)) if speed > 0 else 0
+                    eta = max(0, int((target_limit - scanned_now) / speed)) if speed > 0 else None
                     pct = round((scanned_now / target_limit) * 100, 1)
                     scan_info["speed"] = round(speed, 1)
                     scan_info["eta_seconds"] = eta
                     scan_info["unique_members"] = len(member_aggregates)
                     scan_info["percent"] = pct
+                    scan_info["status"] = "PROCESSING"
 
                     # Progressive Checkpoint flush to SQLite for real-time member table ingestion:
                     # Flush early at 500, 1000, 2500, and every 2500 messages thereafter
@@ -587,7 +658,20 @@ class SuperBanEngine:
                         member_payload = self._build_member_reputation_payload(norm_gid, member_aggregates)
                         asyncio.create_task(self.db.batch_upsert_member_reputation(norm_gid, member_payload))
 
+                    # Update persistent SQLite scan_jobs table
+                    if self.db and hasattr(self.db, "update_scan_job_progress"):
+                        asyncio.create_task(self.db.update_scan_job_progress(
+                            job_id,
+                            status="PROCESSING",
+                            processed_count=scanned_now,
+                            percent=pct,
+                            speed=round(speed, 1),
+                            eta_seconds=eta if eta is not None else 0,
+                            unique_members=len(member_aggregates)
+                        ))
+
                     await self.emit_telemetry("deep_scan_progress", {
+                        "job_id": job_id,
                         "group_id": raw_gid,
                         "norm_group_id": norm_gid,
                         "group_title": group_title,
@@ -597,7 +681,7 @@ class SuperBanEngine:
                         "unique_members": len(member_aggregates),
                         "speed": scan_info["speed"],
                         "eta_seconds": eta,
-                        "status": "RUNNING"
+                        "status": "PROCESSING"
                     })
                     # Yield event loop without delay
                     await asyncio.sleep(0)
@@ -605,7 +689,10 @@ class SuperBanEngine:
         except FloodWaitError as fwe:
             logger.warning(f"FloodWait during deep scan: Sleeping {fwe.seconds}s...")
             scan_info["status"] = f"FLOOD_WAIT ({fwe.seconds}s)"
+            if self.db and hasattr(self.db, "update_scan_job_progress"):
+                await self.db.update_scan_job_progress(job_id, status=scan_info["status"])
             await self.emit_telemetry("deep_scan_progress", {
+                "job_id": job_id,
                 "group_id": raw_gid,
                 "norm_group_id": norm_gid,
                 "status": scan_info["status"],
@@ -615,28 +702,36 @@ class SuperBanEngine:
         except Exception as e:
             logger.error(f"Error in deep scan for group {raw_gid}: {e}")
             scan_info["error"] = str(e)
-            scan_info["status"] = "ERROR"
+            scan_info["status"] = "FAILED"
+            if self.db and hasattr(self.db, "update_scan_job_progress"):
+                await self.db.update_scan_job_progress(
+                    job_id,
+                    status="FAILED",
+                    error_info=str(e),
+                    processed_count=scan_info["scanned"]
+                )
             await self.emit_telemetry("deep_scan_error", {
+                "job_id": job_id,
                 "group_id": raw_gid,
                 "norm_group_id": norm_gid,
                 "error": str(e),
                 "scanned": scan_info["scanned"],
-                "status": "ERROR"
+                "status": "FAILED"
             })
 
         # Final pass: Compute final AI archetypes and persist to SQLite
-        if scan_info["status"] not in ("CANCELLED", "ERROR"):
+        if scan_info["status"] not in ("CANCELLED", "FAILED"):
             scan_info["status"] = "COMPLETED"
 
         scan_info["unique_members"] = len(member_aggregates)
         final_members = self._build_member_reputation_payload(norm_gid, member_aggregates)
 
         # 1. Persist 100k Member Reputation & AI Archetypes
-        if self.db and hasattr(self.db, "batch_upsert_member_reputation"):
+        if self.db and hasattr(self.db, "batch_upsert_member_reputation") and final_members:
             await self.db.batch_upsert_member_reputation(norm_gid, final_members)
 
         # 2. Enrich User Cross-Group OSINT Profiles with 100k Intelligence
-        if self.db and hasattr(self.db, "batch_update_user_cross_profiles"):
+        if self.db and hasattr(self.db, "batch_update_user_cross_profiles") and final_members:
             await self.db.batch_update_user_cross_profiles(norm_gid, group_title, final_members)
 
         # 3. Persist 100k Social Influence Graph Topology
@@ -656,10 +751,25 @@ class SuperBanEngine:
             ]
             await self.db.batch_record_social_interactions(interaction_tuples)
 
+        # 4. Final update in SQLite scan_jobs table
+        if self.db and hasattr(self.db, "update_scan_job_progress"):
+            fin_pct = round((scan_info["scanned"] / target_limit) * 100, 1) if target_limit else 100.0
+            if scan_info["status"] == "COMPLETED":
+                fin_pct = 100.0
+            await self.db.update_scan_job_progress(
+                job_id,
+                status=scan_info["status"],
+                processed_count=scan_info["scanned"],
+                percent=fin_pct,
+                unique_members=len(member_aggregates)
+            )
+
         # Sort top chatters for summary
         top_chatters = sorted(final_members, key=lambda x: x["message_count"], reverse=True)[:10]
 
         summary = {
+            "job_id": job_id,
+            "job_type": job_type,
             "group_id": raw_gid,
             "norm_group_id": norm_gid,
             "group_title": group_title,
@@ -766,21 +876,76 @@ class SuperBanEngine:
         return result
 
     async def cancel_deep_scan(self, group_id: int) -> Dict[str, Any]:
-        """Cancel an in-progress 100k message scan."""
+        """Cancel an in-progress message scan with DB state persistence."""
         norm_gid = self.normalize_gid(group_id)
         abs_gid = abs(int(group_id)) if str(group_id).lstrip("-").isdigit() else norm_gid
         self._cancel_deep_scans.add(norm_gid)
         self._cancel_deep_scans.add(abs_gid)
+        cancelled_jobs = []
         for k in (norm_gid, abs_gid):
             if k in self.active_deep_scans:
                 self.active_deep_scans[k]["status"] = "CANCELLED"
-        return {"cancelled": True, "group_id": group_id}
+                jid = self.active_deep_scans[k].get("job_id")
+                if jid:
+                    cancelled_jobs.append(jid)
+        if self.db and hasattr(self.db, "get_active_scan_job_for_target"):
+            active_job = await self.db.get_active_scan_job_for_target(group_id)
+            if active_job:
+                await self.db.cancel_scan_job(active_job["job_id"], reason="User aborted scan")
+                cancelled_jobs.append(active_job["job_id"])
+        return {"cancelled": True, "group_id": group_id, "jobs": list(set(cancelled_jobs))}
 
     async def get_deep_scan_status(self, group_id: int) -> Dict[str, Any]:
         """Retrieve progress and telemetry for an active or completed deep scan."""
         norm_gid = self.normalize_gid(group_id)
         abs_gid = abs(int(group_id)) if str(group_id).lstrip("-").isdigit() else norm_gid
-        return self.active_deep_scans.get(norm_gid) or self.active_deep_scans.get(abs_gid) or {
+        mem_info = self.active_deep_scans.get(norm_gid) or self.active_deep_scans.get(abs_gid)
+        if mem_info and mem_info.get("status") in ("VALIDATING", "CONNECTING", "PROCESSING", "RUNNING"):
+            return mem_info
+
+        # Check SQLite scan_jobs for active job
+        if self.db and hasattr(self.db, "get_active_scan_job_for_target"):
+            active_db_job = await self.db.get_active_scan_job_for_target(group_id)
+            if active_db_job:
+                return {
+                    "job_id": active_db_job["job_id"],
+                    "job_type": active_db_job["job_type"],
+                    "group_id": group_id,
+                    "norm_group_id": norm_gid,
+                    "group_title": active_db_job.get("target_title", f"Group {group_id}"),
+                    "scanned": active_db_job.get("processed_count", 0),
+                    "total": active_db_job.get("requested_limit", 100000),
+                    "target_limit": active_db_job.get("requested_limit", 100000),
+                    "percent": active_db_job.get("percent", 0.0),
+                    "speed": active_db_job.get("speed", 0.0),
+                    "eta_seconds": active_db_job.get("eta_seconds"),
+                    "unique_members": active_db_job.get("unique_members", 0),
+                    "status": active_db_job.get("status", "PROCESSING"),
+                    "error": active_db_job.get("error_info")
+                }
+
+        # Check latest completed/failed/cancelled job from DB if memory is empty
+        if self.db and hasattr(self.db, "get_latest_scan_job_for_target"):
+            latest_db_job = await self.db.get_latest_scan_job_for_target(group_id)
+            if latest_db_job:
+                return {
+                    "job_id": latest_db_job["job_id"],
+                    "job_type": latest_db_job["job_type"],
+                    "group_id": group_id,
+                    "norm_group_id": norm_gid,
+                    "group_title": latest_db_job.get("target_title", f"Group {group_id}"),
+                    "scanned": latest_db_job.get("processed_count", 0),
+                    "total": latest_db_job.get("requested_limit", 100000),
+                    "target_limit": latest_db_job.get("requested_limit", 100000),
+                    "percent": latest_db_job.get("percent", 0.0),
+                    "speed": latest_db_job.get("speed", 0.0),
+                    "eta_seconds": latest_db_job.get("eta_seconds"),
+                    "unique_members": latest_db_job.get("unique_members", 0),
+                    "status": latest_db_job.get("status", "IDLE"),
+                    "error": latest_db_job.get("error_info")
+                }
+
+        return mem_info or {
             "status": "IDLE",
             "group_id": group_id,
             "scanned": 0,
@@ -1343,8 +1508,16 @@ class SuperBanEngine:
 
             # Emit live progress
             if sent % 5 == 0 or sent + failed == total:
-                await self.db.update_broadcast_progress(cid, sent, failed, "running" if (sent + failed < total) else "completed")
-                await self.emit_telemetry("broadcast_progress")
+                cur_status = "running" if (sent + failed < total) else "completed"
+                await self.db.update_broadcast_progress(cid, sent, failed, cur_status)
+                await self.emit_telemetry("broadcast_progress", {
+                    "campaign_id": cid,
+                    "sent": sent,
+                    "failed": failed,
+                    "total": total,
+                    "percent": round(((sent + failed) / max(1, total)) * 100, 1),
+                    "status": cur_status
+                })
 
             # Jitter delay: 1.5s - 3.5s
             await asyncio.sleep(random.uniform(1.2, 2.8))
