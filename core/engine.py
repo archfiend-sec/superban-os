@@ -1366,22 +1366,53 @@ class SuperBanEngine:
                 gid = group_entity
             my_id = await self.get_me_id()
             msg_map = {m.id: m for m in messages if m}
-            for msg in reversed(messages):
+            async def _process_single_msg(msg):
                 if not msg:
-                    continue
+                    return None
                 sender = None
-                if hasattr(msg, 'get_sender') and callable(msg.get_sender):
-                    try:
-                        s_res = msg.get_sender()
-                        if asyncio.iscoroutine(s_res):
-                            sender = await asyncio.wait_for(s_res, timeout=0.25)
-                        else:
-                            sender = s_res
-                    except Exception:
-                        sender = None
-                elif hasattr(msg, 'sender'):
-                    sender = getattr(msg, 'sender', None)
-                sender_id = getattr(sender, 'id', 0) if sender else 0
+                raw_sid = getattr(msg, 'sender_id', None)
+                cached_sender_id = raw_sid if isinstance(raw_sid, int) else None
+
+                # Check in-memory sentinel sender cache if we have a valid int ID
+                if cached_sender_id and hasattr(self, 'sentinel') and hasattr(self.sentinel, '_sender_cache') and cached_sender_id in self.sentinel._sender_cache:
+                    cached_s = self.sentinel._sender_cache[cached_sender_id]
+                    sender = cached_s.get("sender")
+                    full_name = cached_s.get("full_name", "Anonymous")
+                    username = cached_s.get("username", "")
+                    sender_id = cached_sender_id
+                else:
+                    if hasattr(msg, 'get_sender') and callable(msg.get_sender):
+                        try:
+                            s_res = msg.get_sender()
+                            if asyncio.iscoroutine(s_res):
+                                sender = await asyncio.wait_for(s_res, timeout=0.20)
+                            else:
+                                sender = s_res
+                        except Exception:
+                            sender = None
+                    elif hasattr(msg, 'sender'):
+                        sender = getattr(msg, 'sender', None)
+
+                    sid_val = getattr(sender, 'id', None)
+                    sender_id = sid_val if isinstance(sid_val, int) else (cached_sender_id or 0)
+
+                    first_name = getattr(sender, 'first_name', '') or ''
+                    last_name = getattr(sender, 'last_name', '') or ''
+                    first_name_str = first_name if isinstance(first_name, str) else ''
+                    last_name_str = last_name if isinstance(last_name, str) else ''
+                    full_name = f"{first_name_str} {last_name_str}".strip() or (getattr(sender, 'title', '') if isinstance(getattr(sender, 'title', None), str) else '') or "Anonymous"
+                    u_val = getattr(sender, 'username', '')
+                    username = u_val if isinstance(u_val, str) else ''
+
+                    if sender_id and hasattr(self, 'sentinel') and hasattr(self.sentinel, '_sender_cache'):
+                        self.sentinel._sender_cache[sender_id] = {
+                            "sender": sender,
+                            "full_name": full_name,
+                            "username": username,
+                            "is_bot": bool(getattr(sender, 'bot', False)),
+                            "is_premium": bool(getattr(sender, 'premium', False)),
+                            "is_verified": bool(getattr(sender, 'verified', False))
+                        }
 
                 # STRICT OPSEC: Mask own userbot identity from wiretap surveillance
                 is_self = bool(
@@ -1391,12 +1422,7 @@ class SuperBanEngine:
                 if is_self:
                     full_name = "🛡️ [STEALTH SENSOR]"
                     username = "PROTECTED"
-                else:
-                    first_name = getattr(sender, 'first_name', '') or ''
-                    last_name = getattr(sender, 'last_name', '') or ''
-                    full_name = f"{first_name} {last_name}".strip() or getattr(sender, 'title', '') or "Anonymous"
-                    username = getattr(sender, 'username', '') or ''
-                
+
                 media_info = extract_media_info(msg, group_id=gid)
                 msg_raw = getattr(msg, 'raw_text', None)
                 if not isinstance(msg_raw, str):
@@ -1405,12 +1431,12 @@ class SuperBanEngine:
                     msg_raw = getattr(msg, 'text', None)
                 raw_text = msg_raw if isinstance(msg_raw, str) else ""
                 display_text = raw_text or media_info.get("fallback_text", "")
-                reply_info = await extract_reply_info(msg, msg_cache=msg_map, timeout=0.2)
+                reply_info = await extract_reply_info(msg, msg_cache=msg_map, timeout=0.15)
                 reactions_info = extract_reactions_info(msg)
 
-                res.append({
+                return {
                     "message_id": msg.id,
-                    "user_id": sender_id,
+                    "user_id": sender_id or 0,
                     "is_self": is_self,
                     "full_name": full_name,
                     "username": username,
@@ -1434,7 +1460,10 @@ class SuperBanEngine:
                     "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None,
                     "reactions": reactions_info.get("reactions", []),
                     "recent_reactors": reactions_info.get("recent_reactors", [])
-                })
+                }
+
+            processed = await asyncio.gather(*[_process_single_msg(m) for m in reversed(messages) if m])
+            res = [p for p in processed if p is not None]
 
             # Inject accurate 100k member reputation intelligence into wiretap messages
             sender_ids = [m["user_id"] for m in res if m.get("user_id")]

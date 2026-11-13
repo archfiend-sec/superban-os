@@ -537,16 +537,8 @@ class SentinelShield:
                 asyncio.create_task(self.db.record_activity(group_id, now_dt.tm_hour, now_dt.tm_wday))
 
             sender = getattr(event, 'sender', None)
-            sender_id = getattr(event, 'sender_id', None) or (sender.id if sender else None)
-
-            # Ultra-Fast Sender Resolution with Memory Cache
-            first_name = ""
-            last_name = ""
-            username = ""
-            full_name = "Anonymous"
-            is_bot = False
-            is_premium = False
-            is_verified = False
+            raw_sid = getattr(event, 'sender_id', None)
+            sender_id = raw_sid if isinstance(raw_sid, int) else (getattr(sender, 'id', None) if isinstance(getattr(sender, 'id', None), int) else None)
 
             # Retrieve userbot ID for stealth self-masking
             my_id = None
@@ -564,22 +556,147 @@ class SentinelShield:
             except Exception:
                 pass
 
-            is_self = bool(
-                getattr(event, 'out', None) is True or
-                getattr(getattr(event, 'message', None), 'out', None) is True or
-                (isinstance(my_id, int) and isinstance(sender_id, int) and my_id > 0 and sender_id == my_id)
+            # Fast group title resolution from memory cache
+            group_title = ""
+            chat = getattr(event, 'chat', None)
+            if chat and getattr(chat, 'title', None):
+                group_title = chat.title
+                self._chat_title_cache[group_id] = group_title
+            elif group_id in self._chat_title_cache:
+                group_title = self._chat_title_cache[group_id]
+            elif self.engine and hasattr(self.engine, '_dialogs_cache') and self.engine._dialogs_cache:
+                for d in self.engine._dialogs_cache:
+                    if d.get("id") == group_id:
+                        group_title = d.get("title", "")
+                        self._chat_title_cache[group_id] = group_title
+                        break
+
+            # Fast reply resolution from memory ring-buffer
+            reply_info = None
+            is_reply = bool(getattr(event, 'is_reply', False))
+            reply_to_id = getattr(event, 'reply_to_msg_id', None)
+            if is_reply and reply_to_id:
+                if reply_to_id in self._recent_msg_cache:
+                    c_msg = self._recent_msg_cache[reply_to_id]
+                    reply_info = {
+                        "reply_to_msg_id": reply_to_id,
+                        "reply_to_sender": c_msg.get("sender", "User"),
+                        "reply_to_text": c_msg.get("text", ""),
+                        "reply_to_media_type": c_msg.get("media_type")
+                    }
+                else:
+                    reply_hdr = getattr(event, 'reply_to', None) or getattr(getattr(event, 'message', None), 'reply_to', None)
+                    quote_text = getattr(reply_hdr, 'quote_text', None)
+                    if quote_text:
+                        reply_info = {
+                            "reply_to_msg_id": reply_to_id,
+                            "reply_to_sender": "Replied Message",
+                            "reply_to_text": quote_text,
+                            "reply_to_media_type": None
+                        }
+
+            # Fast reputation resolution from memory cache (5-minute TTL)
+            now_ts = time.time()
+            effective_uid = sender_id or 0
+            cache_key = (group_id, effective_uid)
+            member_rep = None
+            if cache_key in self._member_rep_cache:
+                c_time, c_data = self._member_rep_cache[cache_key]
+                if now_ts - c_time < 300:
+                    member_rep = c_data
+
+            # Concurrent sub-50ms resolvers for any missing data
+            async def _resolve_sender_async():
+                if sender:
+                    return sender
+                if sender_id and sender_id in self._sender_cache:
+                    return self._sender_cache[sender_id].get("sender")
+                try:
+                    return await asyncio.wait_for(event.get_sender(), timeout=0.15)
+                except Exception:
+                    return None
+
+            async def _resolve_title_async():
+                if group_title:
+                    return group_title
+                try:
+                    c = await asyncio.wait_for(event.get_chat(), timeout=0.15)
+                    t = getattr(c, 'title', '') or ''
+                    if t:
+                        self._chat_title_cache[group_id] = t
+                    return t
+                except Exception:
+                    return ""
+
+            async def _resolve_reply_async():
+                if reply_info:
+                    return reply_info
+                if not is_reply:
+                    return None
+                try:
+                    return await extract_reply_info(getattr(event, 'message', None) or event, timeout=0.12)
+                except Exception:
+                    return None
+
+            async def _resolve_rep_async():
+                if member_rep:
+                    return member_rep
+                if self.db and hasattr(self.db, "get_group_member_reputation"):
+                    try:
+                        rep_call = self.db.get_group_member_reputation(group_id, effective_uid)
+                        if asyncio.iscoroutine(rep_call):
+                            r = await asyncio.wait_for(rep_call, timeout=0.06)
+                        else:
+                            r = rep_call
+                        if r:
+                            self._member_rep_cache[cache_key] = (now_ts, r)
+                        return r
+                    except Exception:
+                        pass
+                return None
+
+            # Execute missing lookups in parallel instead of sequentially
+            gather_res = await asyncio.gather(
+                _resolve_sender_async(),
+                _resolve_title_async(),
+                _resolve_reply_async(),
+                _resolve_rep_async(),
+                return_exceptions=True
             )
+            s_val, t_val, r_val, m_val = gather_res
+            if not isinstance(s_val, Exception) and s_val:
+                sender = s_val
+                if not sender_id and hasattr(sender, 'id') and isinstance(sender.id, int):
+                    sender_id = sender.id
+                    effective_uid = sender_id
+            if not isinstance(t_val, Exception) and t_val:
+                group_title = t_val
+            if not isinstance(r_val, Exception) and r_val:
+                reply_info = r_val
+            if not isinstance(m_val, Exception) and m_val:
+                member_rep = m_val
+
+            first_name = ""
+            last_name = ""
+            username = ""
+            full_name = "Anonymous"
+            is_bot = False
+            is_premium = False
+            is_verified = False
 
             if sender:
                 first_name = getattr(sender, 'first_name', '') or ''
                 last_name = getattr(sender, 'last_name', '') or ''
-                full_name = f"{first_name} {last_name}".strip() or getattr(sender, 'title', '') or "Anonymous"
-                username = getattr(sender, 'username', '') or ''
+                first_name_str = first_name if isinstance(first_name, str) else ''
+                last_name_str = last_name if isinstance(last_name, str) else ''
+                full_name = f"{first_name_str} {last_name_str}".strip() or (getattr(sender, 'title', '') if isinstance(getattr(sender, 'title', None), str) else '') or "Anonymous"
+                u_val = getattr(sender, 'username', '')
+                username = u_val if isinstance(u_val, str) else ''
                 is_bot = bool(getattr(sender, 'bot', False))
                 is_premium = bool(getattr(sender, 'premium', False))
                 is_verified = bool(getattr(sender, 'verified', False))
-                if sender.id:
-                    self._sender_cache[sender.id] = {
+                if sender_id:
+                    self._sender_cache[sender_id] = {
                         "sender": sender,
                         "full_name": full_name,
                         "username": username,
@@ -595,27 +712,12 @@ class SentinelShield:
                 is_bot = c["is_bot"]
                 is_premium = c["is_premium"]
                 is_verified = c["is_verified"]
-            else:
-                try:
-                    sender = await asyncio.wait_for(event.get_sender(), timeout=0.15)
-                except Exception:
-                    sender = None
-                first_name = getattr(sender, 'first_name', '') or ''
-                last_name = getattr(sender, 'last_name', '') or ''
-                full_name = f"{first_name} {last_name}".strip() or getattr(sender, 'title', '') or (f"User #{sender_id}" if sender_id else "Anonymous")
-                username = getattr(sender, 'username', '') or ''
-                is_bot = bool(getattr(sender, 'bot', False))
-                is_premium = bool(getattr(sender, 'premium', False))
-                is_verified = bool(getattr(sender, 'verified', False))
-                if sender_id:
-                    self._sender_cache[sender_id] = {
-                        "sender": sender,
-                        "full_name": full_name,
-                        "username": username,
-                        "is_bot": is_bot,
-                        "is_premium": is_premium,
-                        "is_verified": is_verified
-                    }
+
+            is_self = bool(
+                getattr(event, 'out', None) is True or
+                getattr(getattr(event, 'message', None), 'out', None) is True or
+                (isinstance(my_id, int) and isinstance(sender_id, int) and my_id > 0 and sender_id == my_id)
+            )
 
             if is_self:
                 full_name = "🛡️ [STEALTH SENSOR]"
@@ -646,30 +748,6 @@ class SentinelShield:
                 threat_type = "UNAUTHORIZED_INVITE"
                 trigger_reason = "Unauthorized channel invite / external link"
                 confidence = 92
-
-            # Ultra-Fast Group Title Resolution with Memory Cache
-            group_title = ""
-            chat = getattr(event, 'chat', None)
-            if chat and getattr(chat, 'title', None):
-                group_title = chat.title
-                self._chat_title_cache[group_id] = group_title
-            elif group_id in self._chat_title_cache:
-                group_title = self._chat_title_cache[group_id]
-            else:
-                if self.engine and hasattr(self.engine, '_dialogs_cache') and self.engine._dialogs_cache:
-                    for d in self.engine._dialogs_cache:
-                        if d.get("id") == group_id:
-                            group_title = d.get("title", "")
-                            self._chat_title_cache[group_id] = group_title
-                            break
-                if not group_title:
-                    try:
-                        chat = await asyncio.wait_for(event.get_chat(), timeout=0.15)
-                        group_title = getattr(chat, 'title', '') or ''
-                        if group_title:
-                            self._chat_title_cache[group_id] = group_title
-                    except Exception:
-                        pass
 
             # Sovereign Intelligence: Entity Extraction
             extracted_entities = self._extract_entities(text, group_id, group_title, event.id, sender_id or 0, full_name)
@@ -715,32 +793,6 @@ class SentinelShield:
             if self.db:
                 asyncio.create_task(_bg_save_media_vault(event, group_id, group_title, sender_id or 0, file_name, display_text, media_info))
 
-            # Ultra-Fast Tagged / Replied Message Resolution with Ring Buffer
-            reply_info = None
-            is_reply = bool(getattr(event, 'is_reply', False))
-            reply_to_id = getattr(event, 'reply_to_msg_id', None)
-            if is_reply and reply_to_id:
-                if reply_to_id in self._recent_msg_cache:
-                    c_msg = self._recent_msg_cache[reply_to_id]
-                    reply_info = {
-                        "reply_to_msg_id": reply_to_id,
-                        "reply_to_sender": c_msg.get("sender", "User"),
-                        "reply_to_text": c_msg.get("text", ""),
-                        "reply_to_media_type": c_msg.get("media_type")
-                    }
-                else:
-                    reply_hdr = getattr(event, 'reply_to', None) or getattr(getattr(event, 'message', None), 'reply_to', None)
-                    quote_text = getattr(reply_hdr, 'quote_text', None)
-                    if quote_text:
-                        reply_info = {
-                            "reply_to_msg_id": reply_to_id,
-                            "reply_to_sender": "Replied Message",
-                            "reply_to_text": quote_text,
-                            "reply_to_media_type": None
-                        }
-                    else:
-                        reply_info = await extract_reply_info(getattr(event, 'message', None) or event, timeout=0.12)
-
             reactions_info = extract_reactions_info(getattr(event, 'message', None) or event)
 
             # Background OSINT & Intelligence tracking tasks (STRICT OPSEC: Skip userbot)
@@ -767,28 +819,6 @@ class SentinelShield:
                     group_id, group_title, sender_id or 0, full_name, username, text, event.id, extracted_entities
                 ))
             
-            # Ultra-Fast User Forensic Reputation Cache (5-minute TTL)
-            now_ts = time.time()
-            member_rep = None
-            effective_uid = sender_id or 0
-            cache_key = (group_id, effective_uid)
-            if cache_key in self._member_rep_cache:
-                c_time, c_data = self._member_rep_cache[cache_key]
-                if now_ts - c_time < 300:
-                    member_rep = c_data
-
-            if member_rep is None and self.db and hasattr(self.db, "get_group_member_reputation"):
-                try:
-                    rep_call = self.db.get_group_member_reputation(group_id, effective_uid)
-                    if asyncio.iscoroutine(rep_call):
-                        member_rep = await asyncio.wait_for(rep_call, timeout=0.06)
-                    else:
-                        member_rep = rep_call
-                    if member_rep:
-                        self._member_rep_cache[cache_key] = (now_ts, member_rep)
-                except Exception:
-                    pass
-
             user_profile = ForensicInspector.inspect_user(sender, member_stats=member_rep)
 
             msg_dt = getattr(event, 'date', None) or getattr(getattr(event, 'message', None), 'date', None)

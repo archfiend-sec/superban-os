@@ -10416,6 +10416,11 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
+  let wsHeartbeatTimer = null;
+  let wsMissedPongs = 0;
+  let wsReconnectAttempts = 0;
+  let lastWiretapActivityTime = Date.now();
+
   function initWebSocket() {
     if (!isOwnerVerified) return;
     const token = sessionStorage.getItem('owner_token') || '';
@@ -10432,11 +10437,35 @@ body.theme-light .kage-btn.secondary {
       return;
     }
     ws.onopen = () => {
+      wsMissedPongs = 0;
+      wsReconnectAttempts = 0;
+      lastWiretapActivityTime = Date.now();
+      
+      // Real-time keep-alive heartbeat: prevents mobile 5G/WiFi carrier NAT freeze
+      if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
+      wsHeartbeatTimer = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          wsMissedPongs++;
+          if (wsMissedPongs > 2) {
+            console.warn("WebSocket heartbeat missing pongs — resetting frozen connection");
+            try { ws.close(); } catch (_) {}
+            initWebSocket();
+            return;
+          }
+          try { ws.send("ping"); } catch (_) {}
+        }
+      }, 4500);
+
       if (typeof syncWiretapCatchup === 'function') {
         syncWiretapCatchup();
       }
     };
     ws.onmessage = (event) => {
+      lastWiretapActivityTime = Date.now();
+      if (event.data === 'pong') {
+        wsMissedPongs = 0;
+        return;
+      }
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'deep_scan_progress' || msg.type === 'scan_progress' || msg.type === 'deep_scan_started') {
@@ -10499,13 +10528,26 @@ body.theme-light .kage-btn.secondary {
         }
       } catch (e) {}
     };
+    ws.onerror = () => {
+      if (wsHeartbeatTimer) {
+        clearInterval(wsHeartbeatTimer);
+        wsHeartbeatTimer = null;
+      }
+    };
     ws.onclose = (e) => {
+      if (wsHeartbeatTimer) {
+        clearInterval(wsHeartbeatTimer);
+        wsHeartbeatTimer = null;
+      }
       if (e.code === 1008 || e.code === 4001) {
         console.warn("WebSocket authorization clearance rejected (1008).");
         return;
       }
       if (isOwnerVerified) {
-        setTimeout(initWebSocket, 3000);
+        // Fast reconnect with exponential jitter (starts at 300ms instead of 3000ms)
+        const delay = Math.min(300 + (wsReconnectAttempts * 300), 2500);
+        wsReconnectAttempts++;
+        setTimeout(initWebSocket, delay);
       }
     };
   }
@@ -12492,23 +12534,53 @@ body.theme-light .kage-btn.secondary {
 
     isCatchupSyncing = true;
     try {
-      const res = await fetch(`/api/messages?group_id=${gid}&limit=35`);
+      const res = await fetch(`/api/messages?group_id=${gid}&limit=40`);
       if (res.ok) {
         const msgs = await res.json();
         if (Array.isArray(msgs) && msgs.length > 0) {
           const selectedGroup = dialogsList.find(d => isSameGroup(d.id, gid));
           const targetName = selectedGroup ? selectedGroup.title : `Entity #${gid}`;
+          
+          const fragment = document.createDocumentFragment();
           let addedCount = 0;
+          const initState = stream.querySelector('.wiretap-init-state');
+
           msgs.forEach(m => {
             if (m.message_id && !wiretapSeenIds.has(m.message_id)) {
               m.group_id = gid;
               m.group_title = targetName;
-              appendWiretapMessage(m, false, true);
-              addedCount++;
+              wiretapSeenIds.add(m.message_id);
+              if (wiretapFilter === 'threats' && !m.is_threat) return;
+              const card = createWiretapMessageCard(m);
+              if (card) {
+                fragment.appendChild(card);
+                addedCount++;
+              }
             }
           });
-          if (addedCount > 0 && !userScrolledUpWiretap) {
-            scrollWiretapToBottom(false);
+
+          if (addedCount > 0) {
+            if (initState) initState.remove();
+            safeCreateIcons(fragment);
+            stream.appendChild(fragment);
+            wiretapMessageCount += addedCount;
+
+            const countEl = document.getElementById('wiretap-count');
+            if (countEl) countEl.innerText = wiretapMessageCount;
+
+            const scannedEl = document.getElementById('hud-stat-scanned');
+            if (scannedEl) scannedEl.innerText = parseInt(scannedEl.innerText || '0') + addedCount;
+
+            const MAX_WIRETAP_DOM_CARDS = 160;
+            while (stream.children.length > MAX_WIRETAP_DOM_CARDS) {
+              const oldest = stream.firstElementChild;
+              if (!oldest || oldest.classList.contains('wiretap-init-state')) break;
+              oldest.remove();
+            }
+
+            if (!userScrolledUpWiretap) {
+              scrollWiretapToBottom(false);
+            }
           }
         }
       }
@@ -12518,14 +12590,24 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
-  // Auto-sync catchup on tab focus & background interval (Only when WebSocket stream is offline)
+  // Active Connection Wakeup: auto-reconnects WS & syncs messages when returning to tab or waking phone
+  function handleConnectionWakeup() {
+    if (!isOwnerVerified) return;
+    if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+      initWebSocket();
+    }
+    if (currentViewMode === 'warroom') {
+      syncWiretapCatchup();
+    }
+  }
+
+  window.addEventListener('online', handleConnectionWakeup);
+  window.addEventListener('focus', handleConnectionWakeup);
+
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      if (currentViewMode === 'warroom') {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-          syncWiretapCatchup();
-        }
-      } else if (typeof window.startSanctuary3D === 'function') {
+      handleConnectionWakeup();
+      if (typeof window.startSanctuary3D === 'function') {
         window.startSanctuary3D();
       }
     } else {
@@ -12534,14 +12616,23 @@ body.theme-light .kage-btn.secondary {
       }
     }
   });
+
+  // Fast adaptive background polling:
+  // If WebSocket stream drops or reconnects on mobile, polls every 2.5s for instant sync!
+  // If WebSocket is open, performs a gentle safety catchup every 10s if no live messages arrived.
   setInterval(() => {
-    // Passive safety fallback: Only query MTProto if WebSocket stream has disconnected
     if (document.visibilityState === 'visible' && currentViewMode === 'warroom') {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
+      const isWsDead = !ws || ws.readyState !== WebSocket.OPEN;
+      if (isWsDead) {
+        syncWiretapCatchup();
+        if (!ws || ws.readyState === WebSocket.CLOSED) {
+          initWebSocket();
+        }
+      } else if (Date.now() - lastWiretapActivityTime > 10000) {
         syncWiretapCatchup();
       }
     }
-  }, 15000);
+  }, 2500);
 
   async function refreshWiretap() {
     const gid = getActiveGroupId();
