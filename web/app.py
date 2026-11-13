@@ -306,7 +306,7 @@ def create_app(engine: SuperBanEngine):
             if user_role != "owner":
                 return JSONResponse(
                     status_code=403,
-                    content={"detail": "Forbidden: Master Owner (@archfiend000) authorization required."}
+                    content={"detail": "Forbidden: Sovereign Owner authorization required."}
                 )
 
         # Operational command throttling (protect Telethon from FloodWait)
@@ -349,15 +349,15 @@ def create_app(engine: SuperBanEngine):
         session = OPERATOR_SESSIONS.get(token)
         is_authenticated = False
         username = None
-        role = None
+        role = "guest"
 
         if session and session.get("expires", 0) >= now:
             is_authenticated = True
             username = session.get("username")
-            role = session.get("role")
+            role = session.get("role", "operator")
         elif token and token in OWNER_TOKENS and OWNER_TOKENS[token] >= now:
             is_authenticated = True
-            username = Config.get_owner_username()
+            username = "owner"
             role = "owner"
 
         return {
@@ -365,7 +365,6 @@ def create_app(engine: SuperBanEngine):
             "username": username,
             "role": role,
             "is_owner": (role == "owner"),
-            "owner_username": Config.get_owner_username(),
             "pin_configured": True
         }
 
@@ -460,6 +459,12 @@ def create_app(engine: SuperBanEngine):
         now = time.time()
         record = FAILED_VERIFY_ATTEMPTS.get(client_ip, {"count": 0, "lockout_until": 0.0, "last_attempt": 0.0})
 
+        # Auto-reset lockout state if duration has expired
+        if record.get("lockout_until", 0.0) <= now and record.get("count", 0) >= 5:
+            record["count"] = 0
+            record["lockout_until"] = 0.0
+            FAILED_VERIFY_ATTEMPTS[client_ip] = record
+
         # Check if currently locked out
         if record["lockout_until"] > now:
             retry_after = max(1, int(record["lockout_until"] - now))
@@ -481,7 +486,8 @@ def create_app(engine: SuperBanEngine):
         if Config.verify_owner_credentials(clean_user, candidate_pin):
             auth_success = True
             role = "owner"
-            clean_user = Config.get_owner_username()
+            if not clean_user:
+                clean_user = "owner"
         elif engine.db and clean_user:
             # Check registered operator clearance in SQLite
             op_record = await engine.db.get_operator_clearance(clean_user)
@@ -510,11 +516,11 @@ def create_app(engine: SuperBanEngine):
             remaining = 5 - record["count"]
             log_security_event_task(
                 "AUTH_FAILED", clean_user, client_ip,
-                f"Failed PIN verification ({record['count']}/5)", "WARNING"
+                f"Failed clearance verification ({record['count']}/5)", "WARNING"
             )
             raise HTTPException(
                 status_code=403,
-                detail=f"Invalid Clearance PIN. ({remaining} attempts remaining before temporary lockout)"
+                detail=f"Invalid clearance credentials. ({remaining} attempts remaining before temporary lockout)"
             )
 
         # Successful verification: reset failed attempt counter
@@ -547,7 +553,7 @@ def create_app(engine: SuperBanEngine):
             secure=is_secure,
             samesite="lax"
         )
-        return {"status": "authorized", "token": token, "username": clean_user, "role": role, "is_owner": (role == "owner")}
+        return {"status": "authorized", "token": token, "username": clean_user or "owner", "role": role, "is_owner": (role == "owner")}
 
     @app.post("/api/owner/logout")
     async def logout_owner(request: Request, response: Response):
@@ -576,12 +582,12 @@ def create_app(engine: SuperBanEngine):
         if not engine.db:
             return []
         records = await engine.db.list_operator_clearances()
-        # Always guarantee master owner @archfiend000 is present
-        has_owner = any(r.get("username") == "archfiend000" for r in records)
+        # Always guarantee master owner is present
+        has_owner = any(r.get("role") == "owner" for r in records)
         if not has_owner:
             records.insert(0, {
                 "id": 0,
-                "username": "archfiend000",
+                "username": "owner",
                 "role": "owner",
                 "status": "active",
                 "assigned_by": "system",
@@ -600,15 +606,15 @@ def create_app(engine: SuperBanEngine):
 
         if not clean_user:
             raise HTTPException(status_code=400, detail="Telegram username cannot be empty.")
-        if clean_user == "archfiend000":
-            raise HTTPException(status_code=400, detail="Master Owner (@archfiend000) credentials cannot be overwritten via this endpoint.")
+        if clean_user == Config.get_owner_username() or clean_user == "owner":
+            raise HTTPException(status_code=400, detail="Master Owner credentials cannot be overwritten via this endpoint.")
         if len(pin) != 4 or not pin.isdigit():
             raise HTTPException(status_code=400, detail="Assigned clearance code must be exactly 4 digits (0000-9999).")
 
         pin_hash = Config.hash_pin(pin)
-        saved = await engine.db.save_operator_clearance(clean_user, pin_hash, role="operator", assigned_by="archfiend000")
+        saved = await engine.db.save_operator_clearance(clean_user, pin_hash, role="operator", assigned_by="owner")
 
-        # Automatically dispatch assigned credentials to @archfiend000 Telegram DM
+        # Automatically dispatch assigned credentials to Master Owner Telegram DM
         dm_dispatched = await engine.notify_owner_clearance_issued(clean_user, pin, role="operator")
 
         op = getattr(request.state, "operator", {})
@@ -623,7 +629,7 @@ def create_app(engine: SuperBanEngine):
             "pin": pin,
             "role": "operator",
             "dm_dispatched": dm_dispatched,
-            "message": f"Clearance granted to @{clean_user}. Assigned code dispatched to @archfiend000 Telegram DM."
+            "message": f"Clearance granted to @{clean_user}. Assigned code dispatched to Master Owner Telegram DM."
         }
 
     @app.post("/api/operators/revoke")
@@ -632,8 +638,8 @@ def create_app(engine: SuperBanEngine):
             raise HTTPException(status_code=500, detail="Database persistence layer unavailable")
 
         clean_user = req.username.strip().lstrip('@').lower()
-        if clean_user == "archfiend000":
-            raise HTTPException(status_code=400, detail="Cannot revoke Master Owner (@archfiend000).")
+        if clean_user == Config.get_owner_username() or clean_user == "owner":
+            raise HTTPException(status_code=400, detail="Cannot revoke Master Owner.")
 
         success = await engine.db.revoke_operator_clearance(clean_user)
         if not success:
@@ -670,7 +676,7 @@ def create_app(engine: SuperBanEngine):
             raise HTTPException(status_code=500, detail="Database persistence layer unavailable")
 
         clean_user = username.strip().lstrip('@').lower()
-        if clean_user == "archfiend000":
+        if clean_user == Config.get_owner_username() or clean_user == "owner":
             raise HTTPException(status_code=400, detail="Cannot delete Master Owner.")
 
         await engine.db.delete_operator_clearance(clean_user)
@@ -696,7 +702,7 @@ def create_app(engine: SuperBanEngine):
         """Owner-Exclusive Security Audit Trail Exporter."""
         op = getattr(request.state, "operator", {})
         if op.get("role") != "owner":
-            raise HTTPException(status_code=403, detail="Forbidden: Master Owner (@archfiend000) authorization required.")
+            raise HTTPException(status_code=403, detail="Forbidden: Sovereign Owner authorization required.")
         if not engine.db:
             return []
         clamped_limit = max(1, min(int(limit), 200))
@@ -2219,7 +2225,7 @@ def create_app(engine: SuperBanEngine):
 
     @app.post("/api/vc/transcribe")
     async def transcribe_vc_endpoint(req: VCTranscribeReq):
-        """Plan A: Voice Chat Speech-to-Text & AI Summarizer (dispatched to @archfiend000 DM)."""
+        """Plan A: Voice Chat Speech-to-Text & AI Summarizer (dispatched to Master Owner DM)."""
         try:
             return await engine.transcribe_and_summarize_vc(req.group_id, req.audio_path)
         except Exception as e:
@@ -2575,7 +2581,7 @@ def create_app(engine: SuperBanEngine):
     async def launch_native_terminal(request: Request):
         op = getattr(request.state, "operator", {})
         if op.get("role") != "owner":
-            raise HTTPException(status_code=403, detail="Forbidden: Master Owner (@archfiend000) authorization required.")
+            raise HTTPException(status_code=403, detail="Forbidden: Sovereign Owner authorization required.")
         import platform
         import subprocess
         if platform.system() != "Darwin":

@@ -441,7 +441,7 @@ async def run_security_tests():
         headers={"x-owner-token": op_token}
     )
     assert res_op_import.status == 403, f"Expected 403 Forbidden for operator on /api/auth/import_session, got {res_op_import.status}"
-    assert "Master Owner (@archfiend000) authorization required" in res_op_import.json().get("detail", "")
+    assert "Sovereign Owner authorization required" in res_op_import.json().get("detail", "")
 
     res_op_term = await client.request(
         "POST",
@@ -500,11 +500,96 @@ async def run_security_tests():
     assert "retry-after" in res_throttled.headers
     print("  ✅ PASS: Operational rate limiter active (429 Too Many Requests after 30 commands/min).")
 
+    # ---------------------------------------------------------
+    # TEST 15: Directory Traversal & Static Path Escape Defense
+    # ---------------------------------------------------------
+    print("\n[TEST 15] Directory Traversal & Path Traversal Mitigation...")
+    res_trav = await client.request("GET", "/static/../../../../etc/passwd")
+    assert res_trav.status in (401, 404), f"Path traversal attempt must return 401/404, got {res_trav.status}"
+    res_trav2 = await client.request("GET", "/static/%2e%2e%2f%2e%2e%2f.env")
+    assert res_trav2.status in (401, 404), f"Encoded traversal attempt must return 401/404, got {res_trav2.status}"
+    print("  ✅ PASS: Directory traversal attacks strictly neutralized by static route sandbox.")
+
+    # ---------------------------------------------------------
+    # TEST 16: Session Invalidation & Post-Logout Eviction
+    # ---------------------------------------------------------
+    print("\n[TEST 16] Session Invalidation & Secure Logout Protocol...")
+    logout_token = owner_token_test
+    res_logout = await client.request(
+        "POST",
+        "/api/owner/logout",
+        headers={"x-owner-token": logout_token}
+    )
+    assert res_logout.status == 200, f"Logout must succeed, got {res_logout.status}"
+    assert res_logout.json().get("status") == "logged_out"
+
+    # Token must now be strictly invalid on protected routes
+    res_after_logout = await client.request(
+        "GET",
+        "/api/stats",
+        headers={"x-owner-token": logout_token}
+    )
+    assert res_after_logout.status == 401, f"Revoked session must be denied with 401, got {res_after_logout.status}"
+    print("  ✅ PASS: Session token securely invalidated on logout; replay attack blocked.")
+
+    # ---------------------------------------------------------
+    # TEST 17: Zero Private Identifiers & Public Route Non-Disclosure
+    # ---------------------------------------------------------
+    print("\n[TEST 17] Zero Account Enumeration & Public Route Non-Disclosure...")
+    res_status_pub = await client.request("GET", "/api/owner/status")
+    assert res_status_pub.status == 200
+    pub_data = res_status_pub.json()
+    assert pub_data.get("authenticated") is False, "Unauthenticated status must report authenticated=False"
+    assert pub_data.get("username") is None, "Username must be null in unauthenticated status"
+    assert pub_data.get("role") == "guest", "Role must be guest in unauthenticated status"
+    assert "owner_username" not in pub_data, "Public endpoint must NEVER return owner_username"
+    print("  ✅ PASS: Zero private credentials or usernames disclosed on unauthenticated endpoints.")
+
+    # ---------------------------------------------------------
+    # TEST 18: Frontend Bundle & HTML Credential Hygiene
+    # ---------------------------------------------------------
+    print("\n[TEST 18] Frontend Bundle & Static Asset Credential Hygiene...")
+    index_path = ROOT_DIR / "web" / "static" / "index.html"
+    index_content = index_path.read_text(encoding="utf-8")
+    assert "archfiend" not in index_content, "Frontend index.html contains forbidden identifier 'archfiend'"
+    assert "1704" not in index_content, "Frontend index.html contains forbidden plaintext PIN '1704'"
+    assert 'placeholder="handle"' in index_content or 'placeholder="Operator handle (optional)"' in index_content, "Missing generic placeholder"
+    print("  ✅ PASS: Frontend index.html completely sanitized of owner identifiers and credentials.")
+
+    # ---------------------------------------------------------
+    # TEST 19: Insecure Direct Object Reference (IDOR) & Escalation Prevention
+    # ---------------------------------------------------------
+    print("\n[TEST 19] IDOR & Privilege Escalation Prevention...")
+    # Operator cannot delete or overwrite master owner
+    res_del_owner = await client.request(
+        "DELETE",
+        "/api/operators?username=owner",
+        headers={"x-owner-token": op_token}
+    )
+    assert res_del_owner.status == 403, f"Non-owner must receive 403 trying to delete owner, got {res_del_owner.status}"
+    print("  ✅ PASS: Insecure Direct Object Reference (IDOR) on operator registry blocked.")
+
+    # ---------------------------------------------------------
+    # TEST 20: Sensitive File Permissions (0600 Lockdown)
+    # ---------------------------------------------------------
+    print("\n[TEST 20] Operating System Least-Privilege & Credential File Permissions...")
+    env_file = ROOT_DIR / ".env"
+    cfg_file = ROOT_DIR / "ultimate_config.json"
+    Config.harden_file_permissions(env_file)
+    Config.harden_file_permissions(cfg_file)
+    if env_file.exists():
+        mode = oct(env_file.stat().st_mode & 0o777)
+        assert mode == "0o600", f".env permissions must be 0o600, got {mode}"
+    if cfg_file.exists():
+        mode = oct(cfg_file.stat().st_mode & 0o777)
+        assert mode == "0o600", f"ultimate_config.json permissions must be 0o600, got {mode}"
+    print("  ✅ PASS: Sensitive credential files strictly enforced with 0o600 permissions.")
+
     # Restore clean master owner PIN hash
     Config.save_owner_pin("1704")
 
     print("\n" + "=" * 70)
-    print("🏆 ALL 14 COMPREHENSIVE SECURITY TESTS PASSED WITH 100% SUCCESS!")
+    print("🏆 ALL 20 COMPREHENSIVE OWASP ASVS SECURITY TESTS PASSED (100%)!")
     print("=" * 70)
 
 if __name__ == "__main__":

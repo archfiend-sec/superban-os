@@ -275,7 +275,7 @@ class DatabaseManager:
                 pin_hash TEXT NOT NULL,
                 role TEXT DEFAULT 'operator', -- 'owner' or 'operator'
                 status TEXT DEFAULT 'active', -- 'active' or 'revoked'
-                assigned_by TEXT DEFAULT 'archfiend000',
+                assigned_by TEXT DEFAULT 'system',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -347,14 +347,15 @@ class DatabaseManager:
             except Exception:
                 pass
 
-        # Seed or sync master owner @archfiend000 clearance
+        # Seed or sync master owner clearance
         try:
             from core.config import Config
+            owner_user = Config.get_owner_username()
             owner_hash = Config.hash_pin(Config.DEFAULT_MASTER_OWNER_PIN)
             self.cursor.execute(
                 '''INSERT OR IGNORE INTO operator_clearances (username, pin_hash, role, status, assigned_by)
-                   VALUES ('archfiend000', ?, 'owner', 'active', 'system')''',
-                (owner_hash,)
+                   VALUES (?, ?, 'owner', 'active', 'system')''',
+                (owner_user, owner_hash)
             )
             self.conn.commit()
         except Exception:
@@ -1727,7 +1728,7 @@ class DatabaseManager:
                 "updated_at": str(r[6])
             } for r in self.cursor.fetchall()]
 
-    async def save_operator_clearance(self, username: str, pin_hash: str, role: str = 'operator', assigned_by: str = 'archfiend000') -> Dict[str, Any]:
+    async def save_operator_clearance(self, username: str, pin_hash: str, role: str = 'operator', assigned_by: str = 'system') -> Dict[str, Any]:
         """Grant or update an operator clearance record."""
         clean_user = str(username or "").strip().lstrip('@').lower()
         async with self.lock:
@@ -1752,8 +1753,9 @@ class DatabaseManager:
 
     async def revoke_operator_clearance(self, username: str) -> bool:
         """Revoke clearance for a given operator (cannot revoke master owner)."""
+        from core.config import Config
         clean_user = str(username or "").strip().lstrip('@').lower()
-        if clean_user == "archfiend000":
+        if clean_user == Config.get_owner_username() or clean_user == "owner":
             return False
         async with self.lock:
             self.cursor.execute(
@@ -1767,8 +1769,9 @@ class DatabaseManager:
 
     async def delete_operator_clearance(self, username: str) -> bool:
         """Permanently remove an operator clearance (cannot delete master owner)."""
+        from core.config import Config
         clean_user = str(username or "").strip().lstrip('@').lower()
-        if clean_user == "archfiend000":
+        if clean_user == Config.get_owner_username() or clean_user == "owner":
             return False
         async with self.lock:
             self.cursor.execute(

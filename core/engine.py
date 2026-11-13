@@ -2971,7 +2971,7 @@ class SuperBanEngine:
             return False
 
     async def notify_owner_clearance_issued(self, target_username: str, assigned_pin: str, role: str = "operator") -> bool:
-        """Notify master owner @archfiend000 via Telegram DM with issued credentials."""
+        """Notify master owner via Telegram DM with issued credentials."""
         clean_target = target_username.strip().lstrip('@')
         now_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         dossier = (
@@ -2980,16 +2980,17 @@ class SuperBanEngine:
             f"👤 <b>Authorized Username:</b> @{clean_target}\n"
             f"🔑 <b>Assigned 4-Digit Code:</b> <code>{assigned_pin}</code>\n"
             f"🎖️ <b>Clearance Role:</b> {role.upper()}\n"
-            f"👑 <b>Issued By:</b> Master Owner (@archfiend000)\n"
+            f"👑 <b>Issued By:</b> Master Owner\n"
             f"⏰ <b>Dispatched At:</b> {now_str} UTC\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🔒 <i>This operator can now authenticate to SuperBan OS War Room using their username and assigned code. Keep this code confidential.</i>"
         )
-        # 1. Send DM directly to master owner @archfiend000 (by owner ID and username)
+        # 1. Send DM directly to master owner (by owner ID and username)
         owner_id = Config.get_owner_telegram_id()
+        owner_user = Config.get_owner_username()
         sent = await self.send_telegram_dm(owner_id, dossier)
-        if not sent:
-            sent = await self.send_telegram_dm("archfiend000", dossier)
+        if not sent and owner_user:
+            sent = await self.send_telegram_dm(owner_user, dossier)
         # 2. Also forward to Saved Messages ('me') as a secondary safety backup
         try:
             if self.client and self.client.is_connected():
@@ -2999,7 +3000,7 @@ class SuperBanEngine:
         return sent
 
     async def notify_owner_clearance_revoked(self, target_username: str) -> bool:
-        """Notify master owner @archfiend000 via Telegram DM when an operator clearance is revoked."""
+        """Notify master owner via Telegram DM when an operator clearance is revoked."""
         clean_target = target_username.strip().lstrip('@')
         now_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         notice = (
@@ -3007,15 +3008,16 @@ class SuperBanEngine:
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"👤 <b>Revoked Username:</b> @{clean_target}\n"
             f"🚫 <b>Status:</b> REVOKED & ACCESS TERMINATED\n"
-            f"👑 <b>Revoked By:</b> Master Owner (@archfiend000)\n"
+            f"👑 <b>Revoked By:</b> Master Owner\n"
             f"⏰ <b>Timestamp:</b> {now_str} UTC\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🔒 <i>All active sessions for this operator have been invalidated.</i>"
         )
         owner_id = Config.get_owner_telegram_id()
+        owner_user = Config.get_owner_username()
         sent = await self.send_telegram_dm(owner_id, notice)
-        if not sent:
-            sent = await self.send_telegram_dm("archfiend000", notice)
+        if not sent and owner_user:
+            sent = await self.send_telegram_dm(owner_user, notice)
         try:
             if self.client and self.client.is_connected():
                 await self.client.send_message('me', notice, parse_mode='html')
@@ -3090,7 +3092,7 @@ class SuperBanEngine:
     # ═══════════════════════════════════════════════════════════════
     async def transcribe_and_summarize_vc(self, group_id: int, audio_path: Optional[str] = None) -> Dict[str, Any]:
         """Non-Admin Superpower: Transcribe recorded Voice Chat audio stream and synthesize a 3-bullet
-        executive tactical summary, automatically dispatching the briefing to Master Owner @archfiend000 via DM.
+        executive tactical summary, automatically dispatching the briefing to Master Owner via DM.
         """
         clean_gid = str(group_id).replace('-100', '').replace('-', '')
         target_audio = audio_path
@@ -3165,10 +3167,11 @@ class SuperBanEngine:
             f"• 👥 <b>Participants & Sentiment:</b>\n{bullet_2}\n\n"
             f"• 🚨 <b>Risk & Threat Level:</b>\n{bullet_3}\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🔒 <i>Executive AI briefing delivered directly to Master Owner @archfiend000.</i>"
+            f"🔒 <i>Executive AI briefing delivered directly to Master Owner.</i>"
         )
 
-        dm_sent = await self.send_telegram_dm("archfiend000", dossier)
+        owner_user = Config.get_owner_username()
+        dm_sent = await self.send_telegram_dm(owner_user, dossier)
         try:
             if self.client and self.client.is_connected():
                 await self.client.send_message('me', dossier, parse_mode='html')

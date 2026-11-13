@@ -6191,20 +6191,20 @@ body.theme-light .kage-btn.secondary {
     <div id="owner-pin-container">
       <!-- Telegram Username Input -->
       <div class="owner-input-group">
-        <label class="owner-input-label">Telegram Username <span style="font-size: 10px; opacity: 0.55;">(Optional for Owner)</span></label>
+        <label class="owner-input-label">Operator Handle <span style="font-size: 10px; opacity: 0.55;">(Optional for Sovereign Root)</span></label>
         <div class="owner-input-wrapper">
           <span class="owner-at-symbol">@</span>
-          <input type="text" id="owner-username-input" class="owner-text-input" placeholder="archfiend000" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          <input type="text" id="owner-username-input" class="owner-text-input" placeholder="handle" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
             onkeydown="if(event.key==='Enter') document.getElementById('owner-pin-input').focus()"
           />
         </div>
       </div>
 
-      <!-- Assigned 4-Digit Code Input -->
+      <!-- Clearance Passcode Input -->
       <div class="owner-input-group">
-        <label class="owner-input-label">Assigned 4-Digit Code</label>
+        <label class="owner-input-label">Clearance Passcode</label>
         <div class="owner-input-wrapper">
-          <input type="password" id="owner-pin-input" class="owner-pin-input" placeholder="••••" maxlength="8"
+          <input type="password" id="owner-pin-input" class="owner-pin-input" placeholder="••••••••" maxlength="64" autocomplete="current-password"
             onkeydown="if(event.key==='Enter') submitOwnerPin()"
           />
           <button type="button" onclick="toggleOwnerPinVisibility()" class="owner-pin-toggle-btn" title="Toggle PIN visibility">
@@ -7345,7 +7345,7 @@ body.theme-light .kage-btn.secondary {
       <div style="font-size: 11px; color: var(--muted); margin-bottom: 6px;"># Run from ANY terminal folder on your Mac:</div>
       <div style="color: #34d399; font-size: 15px; font-weight: 600;">bot</div>
       <div style="font-size: 11px; color: var(--muted); margin: 12px 0 6px;"># Or from project folder:</div>
-      <div style="color: var(--bone-dim); font-size: 12px;">cd /Users/archfiend/.gemini/antigravity/scratch/telegram_group_manager && ./bot</div>
+      <div style="color: var(--bone-dim); font-size: 12px;">cd /path/to/telegram_group_manager && ./bot</div>
     </div>
 
     <div style="font-size: 12px; color: var(--bone-dim); line-height: 1.8;">
@@ -7965,7 +7965,7 @@ body.theme-light .kage-btn.secondary {
         <button id="vc-btn-join-stream" onclick="toggleVCConnection()" class="kage-btn" style="flex: 1; min-width: 190px; background: #059669; border-color: #10b981;" title="Connect directly to group call as ghost listener (muted)">
           <i data-lucide="headphones" style="width: 13px; height: 13px;"></i> <span id="vc-join-btn-text">Connect (Ghost Listener)</span>
         </button>
-        <button id="btn-vc-ai-transcribe" onclick="transcribeAndSummarizeVC()" class="kage-btn" style="flex: 1; min-width: 190px; background: #4f46e5; border-color: #818cf8;" title="Plan A: Transcribe audio stream and dispatch 3-bullet tactical summary to @archfiend000 DM">
+        <button id="btn-vc-ai-transcribe" onclick="transcribeAndSummarizeVC()" class="kage-btn" style="flex: 1; min-width: 190px; background: #4f46e5; border-color: #818cf8;" title="Plan A: Transcribe audio stream and dispatch 3-bullet tactical summary to Master Owner DM">
           <i data-lucide="brain" style="width: 13px; height: 13px;"></i> <span>AI Transcribe &amp; Summarize</span>
         </button>
         <button onclick="exportVCMembers()" class="kage-btn-secondary" style="flex: 1; min-width: 160px;" title="Export complete participant intelligence dossier to JSON">
@@ -8547,7 +8547,7 @@ body.theme-light .kage-btn.secondary {
         </div>
         <div>
           <h4 style="font-size: 15px; color: var(--bone); margin: 0;">OPERATOR CLEARANCE REGISTRY // 権限管理</h4>
-          <span style="color: var(--muted); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;">MASTER AUTHORITY: @archfiend000 • EXCLUSIVE DISPATCH GATE</span>
+          <span style="color: var(--muted); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;">SOVEREIGN CLEARANCE REGISTRY • EXCLUSIVE DISPATCH GATE</span>
         </div>
       </div>
       <button onclick="closeOperatorClearanceModal()" class="kage-btn-pill">✕ Close</button>
@@ -8558,7 +8558,7 @@ body.theme-light .kage-btn.secondary {
       <div style="background: rgba(10,14,18,0.85); border: 1px solid rgba(245,158,11,0.35); border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
         <div>
           <div style="font-size: 10px; color: #f59e0b; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">👑 Master Owner & Root Authority</div>
-          <div style="font-size: 14px; color: var(--bone); font-weight: bold; margin-top: 2px;">@archfiend000 <span style="font-size: 10px; color: #34d399; font-weight: 600; margin-left: 6px; border: 1px solid rgba(52,211,153,0.3); padding: 1px 6px; border-radius: 4px;">CLEARANCE ACTIVE</span></div>
+          <div style="font-size: 14px; color: var(--bone); font-weight: bold; margin-top: 2px;">SOVEREIGN ROOT <span style="font-size: 10px; color: #34d399; font-weight: 600; margin-left: 6px; border: 1px solid rgba(52,211,153,0.3); padding: 1px 6px; border-radius: 4px;">CLEARANCE ACTIVE</span></div>
         </div>
         <span class="badge" style="background: rgba(245,158,11,0.15); border: 1px solid #f59e0b; color: #f59e0b; font-size: 9px; padding: 2px 8px;">SOVEREIGN ROOT</span>
       </div>
@@ -8590,7 +8590,7 @@ body.theme-light .kage-btn.secondary {
 
         <button type="button" id="btn-grant-clearance" onclick="submitGrantClearance()" class="kage-btn" style="width: 100%; justify-content: center; padding: 11px 14px; font-size: 11px; background: #0284c7; border-color: #38bdf8; color: #fff; font-weight: 700;">
           <i data-lucide="send" style="width: 12px; height: 12px;"></i>
-          <span>Grant Clearance & Dispatch Credentials to @archfiend000 DM</span>
+          <span>Grant Clearance & Dispatch Credentials to Owner DM</span>
         </button>
       </div>
 
@@ -8618,7 +8618,7 @@ body.theme-light .kage-btn.secondary {
         </div>
         <div>
           <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0;">VC AI TACTICAL BRIEFING // 音声要約</h4>
-          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">3-BULLET EXECUTIVE DOSSIER • DISPATCHED TO @archfiend000</span>
+          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">3-BULLET EXECUTIVE DOSSIER • SECURE DISPATCH</span>
         </div>
       </div>
       <button onclick="closeVCBriefingModal()" class="kage-btn-pill">✕ Close</button>
@@ -8659,14 +8659,14 @@ body.theme-light .kage-btn.secondary {
         </div>
         <div>
           <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0;">TELEGRAM COMPANION CONTROLLER // 遠隔指揮</h4>
-          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">MOBILE DM REMOTE CONTROL • ROOT OWNER @archfiend000</span>
+          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">MOBILE DM REMOTE CONTROL • SOVEREIGN ROOT</span>
         </div>
       </div>
       <button onclick="closeCompanionModal()" class="kage-btn-pill">✕ Close</button>
     </div>
     <div style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
       <div style="background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.3); border-radius: 4px; padding: 12px 14px; font-size: 12px; color: var(--bone); line-height: 1.5;">
-        👑 <b>Direct Telegram DM Command Channel Active:</b> As Master Owner <b>@archfiend000</b>, you can control SuperBan OS directly from your phone by sending commands to your userbot in Telegram DM. Zero web login required!
+        👑 <b>Direct Telegram DM Command Channel Active:</b> As Master Owner, you can control SuperBan OS directly from your phone by sending commands to your userbot in Telegram DM. Zero web login required!
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -16191,7 +16191,7 @@ body.theme-light .kage-btn.secondary {
         return;
       }
       playZenSound('chime');
-      showToast('🧠 AI Tactical Briefing generated & dispatched to @archfiend000 DM!', 'success');
+      showToast('🧠 AI Tactical Briefing generated & dispatched to Owner DM!', 'success');
       openVCBriefingModal(data);
     } catch (err) {
       showToast('Transcription error: ' + err.message, 'error');
@@ -16225,7 +16225,7 @@ body.theme-light .kage-btn.secondary {
             </div>
           </div>
           <span class="badge" style="background: rgba(16,185,129,0.18); border: 1px solid #10b981; color: #10b981; font-size: 10px; padding: 4px 8px;">
-            📨 Dispatched to @archfiend000 DM
+            📨 Dispatched to Owner DM
           </span>
         </div>
 
@@ -17746,7 +17746,7 @@ body.theme-light .kage-btn.secondary {
       }
 
       listEl.innerHTML = data.map(op => {
-        const isOwner = op.role === 'owner' || op.username === 'archfiend000';
+        const isOwner = op.role === 'owner';
         const roleBadge = isOwner 
           ? '<span class="badge" style="background: rgba(245,158,11,0.15); border: 1px solid #f59e0b; color: #f59e0b; font-size: 9px; padding: 2px 7px;">👑 MASTER OWNER</span>'
           : '<span class="badge badge-emerald" style="font-size: 9px; padding: 2px 7px;">OPERATOR</span>';
@@ -17820,7 +17820,7 @@ body.theme-light .kage-btn.secondary {
         throw new Error(data.detail || 'Could not assign clearance');
       }
 
-      showToast(`⚡ Clearance granted to @${username}! Credentials sent to @archfiend000 DM`, 'success');
+      showToast(`⚡ Clearance granted to @${username}! Credentials dispatched to Owner DM`, 'success');
       playZenSound('alpha');
       if (userEl) userEl.value = '';
       if (pinEl) pinEl.value = '';
@@ -17830,7 +17830,7 @@ body.theme-light .kage-btn.secondary {
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="send" style="width: 12px; height: 12px;"></i><span>Grant Clearance & Dispatch Credentials to @archfiend000 DM</span>`;
+        btn.innerHTML = `<i data-lucide="send" style="width: 12px; height: 12px;"></i><span>Grant Clearance & Dispatch Credentials to Owner DM</span>`;
         safeCreateIcons();
       }
     }

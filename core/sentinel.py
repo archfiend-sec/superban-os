@@ -239,11 +239,11 @@ class SentinelShield:
                 logger.debug(f"Reaction update hook notice: {e}")
 
         # ═══════════════════════════════════════════════════════════════
-        #   PLAN I: TELEGRAM COMPANION CONTROLLER FOR @archfiend000
+        #   PLAN I: TELEGRAM COMPANION CONTROLLER FOR MASTER OWNER
         # ═══════════════════════════════════════════════════════════════
         @self.client.on(events.NewMessage)
         async def on_private_dm_companion(event):
-            """Plan I: Non-Admin Remote Control in Telegram DM for Master Owner @archfiend000."""
+            """Plan I: Non-Admin Remote Control in Telegram DM for Master Owner."""
             # Fast check: Process private DMs only (positive chat_id, is_private, or PeerUser)
             is_dm = bool(
                 getattr(event, 'is_private', False) or
@@ -259,7 +259,7 @@ class SentinelShield:
                 return
 
             owner_id = Config.get_owner_telegram_id()  # 8312795263
-            owner_user = Config.get_owner_username()    # "archfiend000"
+            owner_user = Config.get_owner_username()
 
             async def reply_safe(text: str):
                 try:
@@ -310,7 +310,7 @@ class SentinelShield:
                     await reply_safe(
                         "⛔ <b>SUPERBAN OS // ACCESS DENIED</b>\n"
                         "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                        "This companion terminal is restricted strictly to <b>Master Owner @archfiend000</b>."
+                        "This companion terminal is restricted strictly to <b>Master Owner</b>."
                     )
                     return
 
@@ -321,7 +321,7 @@ class SentinelShield:
                     help_msg = (
                         "👑 <b>SUPERBAN OS // COMPANION COMMAND CENTER</b>\n"
                         "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                        "Welcome, Master Owner <b>@archfiend000</b>. You have full non-admin remote control:\n\n"
+                        "Welcome, Master Owner. You have full non-admin remote control:\n\n"
                         "• 📊 <code>/status</code> — Live War Room telemetry, monitored groups & stats\n"
                         "• 🔑 <code>/assign &lt;@user&gt; &lt;4-digit-code&gt;</code> — Grant new operator clearance\n"
                         "• 🚫 <code>/revoke &lt;@user&gt;</code> — Terminate operator clearance instantly\n"
@@ -355,7 +355,7 @@ class SentinelShield:
                     status_msg = (
                         "⚡ <b>SUPERBAN OS // TACTICAL STATUS REPORT</b>\n"
                         "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                        f"👑 <b>Master Owner:</b> @archfiend000 [Clearance Active]\n"
+                        f"👑 <b>Master Owner:</b> @{owner_user} [Clearance Active]\n"
                         f"🛡️ <b>Monitored Groups:</b> <code>{active_grp_count}</code> groups active\n"
                         f"📡 <b>Wiretapped Interceptions:</b> <code>{total_intercepted}</code> messages\n"
                         f"👻 <b>Ghost Vault Recoveries:</b> <code>{total_ghosts}</code> deleted items\n"
@@ -381,14 +381,14 @@ class SentinelShield:
                     
                     pin_hash = Config.hash_pin(target_pin)
                     if self.db:
-                        await self.db.save_operator_clearance(target_user, pin_hash, role='operator', assigned_by='archfiend000')
+                        await self.db.save_operator_clearance(target_user, pin_hash, role='operator', assigned_by='owner')
                     if hasattr(self, 'engine') and self.engine:
                         await self.engine.notify_owner_clearance_issued(target_user, target_pin, role='operator')
                         try:
                             await self.engine.send_telegram_dm(
                                 target_user,
                                 f"🛡️ <b>SUPERBAN OS CLEARANCE GRANTED</b>\n"
-                                f"Master Owner @archfiend000 has authorized your username @{target_user} with 4-digit code: <code>{target_pin}</code>."
+                                f"Master Owner has authorized your username @{target_user} with 4-digit code: <code>{target_pin}</code>."
                             )
                         except Exception:
                             pass
@@ -408,8 +408,9 @@ class SentinelShield:
                         await reply_safe("⚠️ <b>Usage:</b> <code>/revoke &lt;@username&gt;</code>")
                         return
                     target_user = parts[1].strip().lstrip('@').lower()
-                    if target_user == 'archfiend000':
-                        await reply_safe("❌ Cannot revoke Master Owner @archfiend000.")
+                    if target_user == Config.get_owner_username() or target_user == 'owner':
+                        await reply_safe("❌ Cannot revoke Master Owner.")
+                        return
                         return
                     
                     revoked = False

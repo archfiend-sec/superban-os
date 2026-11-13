@@ -242,8 +242,6 @@ class Config:
         # Legacy fallback: constant-time comparison for plaintext PINs
         return secrets.compare_digest(candidate, stored)
 
-    MASTER_OWNER_ID: int = 8312795263
-    MASTER_OWNER_USERNAME = "archfiend000"
     DEFAULT_MASTER_OWNER_PIN = "1704"
 
     @staticmethod
@@ -255,7 +253,7 @@ class Config:
 
     @staticmethod
     def get_owner_username() -> str:
-        return os.environ.get("MASTER_OWNER_USERNAME", "archfiend000").strip().lstrip('@').lower()
+        return os.environ.get("MASTER_OWNER_USERNAME", "owner").strip().lstrip('@').lower()
 
     @staticmethod
     def verify_owner_credentials(username: Optional[str], candidate_pin: str) -> bool:
