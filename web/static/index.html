@@ -6191,10 +6191,10 @@ body.theme-light .kage-btn.secondary {
     <div id="owner-pin-container">
       <!-- Telegram Username Input -->
       <div class="owner-input-group">
-        <label class="owner-input-label">Telegram Username</label>
+        <label class="owner-input-label">Telegram Username <span style="font-size: 10px; opacity: 0.55;">(Optional for Owner)</span></label>
         <div class="owner-input-wrapper">
           <span class="owner-at-symbol">@</span>
-          <input type="text" id="owner-username-input" class="owner-text-input" placeholder="username" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus
+          <input type="text" id="owner-username-input" class="owner-text-input" placeholder="archfiend000" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
             onkeydown="if(event.key==='Enter') document.getElementById('owner-pin-input').focus()"
           />
         </div>
@@ -17589,10 +17589,10 @@ body.theme-light .kage-btn.secondary {
     if (pinInput) pinInput.value = '';
 
     setTimeout(() => {
-      if (userInput) {
-        userInput.focus();
-      } else if (pinInput) {
+      if (pinInput) {
         pinInput.focus();
+      } else if (userInput) {
+        userInput.focus();
       }
       safeCreateIcons(lock);
     }, 150);
@@ -17635,15 +17635,6 @@ body.theme-light .kage-btn.secondary {
     const username = userInput ? userInput.value.trim().replace(/^@/, '') : '';
     const pin = pinInput ? pinInput.value.trim() : '';
 
-    if (!username) {
-      if (errBox) {
-        errBox.innerText = 'Telegram username is required.';
-        errBox.style.display = 'block';
-      }
-      if (userInput) userInput.focus();
-      return;
-    }
-
     if (!pin || pin.length < 4) {
       if (errBox) {
         errBox.innerText = 'Assigned clearance code must be at least 4 digits.';
@@ -17664,7 +17655,7 @@ body.theme-light .kage-btn.secondary {
       const res = await fetch('/api/owner/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, pin })
+        body: JSON.stringify({ username: username || undefined, pin })
       });
       const data = await res.json();
 

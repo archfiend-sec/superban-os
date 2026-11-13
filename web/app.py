@@ -469,17 +469,20 @@ def create_app(engine: SuperBanEngine):
                 headers={"Retry-After": str(retry_after)}
             )
 
-        clean_user = (req.username or Config.get_owner_username()).strip().lstrip('@').lower()
-        candidate_pin = req.pin.strip()
+        candidate_pin = (req.pin or "").strip()
+        if not candidate_pin:
+            raise HTTPException(status_code=400, detail="Clearance code is required")
+
+        clean_user = (req.username or "").strip().lstrip('@').lower()
         auth_success = False
         role = "operator"
 
-        if clean_user == Config.get_owner_username():
-            # Master Owner verification (@archfiend000 with 1704 or stored PIN)
-            if Config.verify_owner_credentials(clean_user, candidate_pin):
-                auth_success = True
-                role = "owner"
-        elif engine.db:
+        # 1. Master Owner verification: candidate PIN validates against master owner PIN/hash
+        if Config.verify_owner_credentials(clean_user, candidate_pin):
+            auth_success = True
+            role = "owner"
+            clean_user = Config.get_owner_username()
+        elif engine.db and clean_user:
             # Check registered operator clearance in SQLite
             op_record = await engine.db.get_operator_clearance(clean_user)
             if op_record and op_record.get("status") == "active":
