@@ -126,9 +126,26 @@ class SuperBanEngine:
         self.sentinel.engine = self
         def _forward_sentinel_telemetry(evt):
             # Guard against duplicating high-frequency chat messages over WebSocket
-            if evt.get("type") not in ("live_chat_message", "live_chat_action", "message_reactions_updated"):
+            if evt.get("type") not in ("live_chat_message", "live_chat_action", "message_reactions_updated", "message_sender_resolved"):
                 asyncio.create_task(self.emit_telemetry(evt["type"], evt.get("data", {})))
         self.sentinel.register_callback(_forward_sentinel_telemetry)
+
+    def set_client(self, client: TelegramClient):
+        """Update client reference and rebind SentinelShield event handlers dynamically."""
+        self.client = client
+        self.clients = [client]
+        if hasattr(self, 'sentinel') and self.sentinel:
+            self.sentinel.attach_client(client)
+        try:
+            @self.client.on(events.Raw(types.UpdateGroupCallConnection))
+            async def _on_vc_connection_update(event):
+                try:
+                    data = json.loads(event.params.data)
+                    logger.info(f"🎙️ MTProto UpdateGroupCallConnection received (candidates: {len(data.get('transport', {}).get('candidates', []))})")
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
         # Active Voice Chat Tracking Session & Dispatch Policy
         self.active_vc_session: Optional[Dict[str, Any]] = None

@@ -10664,10 +10664,6 @@ body.theme-light .kage-btn.secondary {
           try { ws.send("ping"); } catch (_) {}
         }
       }, 4500);
-
-      if (typeof syncWiretapCatchup === 'function') {
-        syncWiretapCatchup();
-      }
     };
     ws.onmessage = (event) => {
       lastWiretapActivityTime = Date.now();
@@ -10684,11 +10680,12 @@ body.theme-light .kage-btn.secondary {
         } else if (msg.type === 'deep_scan_error') {
           if (typeof handleDeepScanError === 'function') handleDeepScanError(msg.data || msg);
         } else if (msg.type === 'saved_chat_db_restored') {
-          const d = msg.data || msg;
-          showToast(`📥 Cloud Database Restored! Imported ${d.restored_members || 0} members from Saved Messages.`, 'success');
+          showToast(`📥 Cloud Database Restored! Imported ${(msg.data && msg.data.restored_members) || 0} members from Saved Messages.`, 'success');
           if (typeof loadGroupReputationGrid === 'function') loadGroupReputationGrid();
         } else if (msg.type === 'live_chat_message') {
           appendWiretapMessage(msg.data || msg);
+        } else if (msg.type === 'message_sender_resolved') {
+          if (typeof handleMessageSenderResolved === 'function') handleMessageSenderResolved(msg.data || msg);
         } else if (msg.type === 'live_chat_action') {
           appendWiretapAction(msg.data || msg);
         } else if (msg.type === 'ai_threat_neutralized') {
@@ -12745,81 +12742,16 @@ body.theme-light .kage-btn.secondary {
     }
   });
 
-  let isCatchupSyncing = false;
+  // Zero-Latency Streaming: Batch polling and catchup sync completely eliminated per directive.
   async function syncWiretapCatchup() {
-    if (isCatchupSyncing) return;
-    const gid = getActiveGroupId();
-    if (!gid) return;
-
-    const stream = document.getElementById('wiretap-stream');
-    if (!stream) return;
-
-    isCatchupSyncing = true;
-    try {
-      const res = await fetch(`/api/messages?group_id=${gid}&limit=40`);
-      if (res.ok) {
-        const msgs = await res.json();
-        if (Array.isArray(msgs) && msgs.length > 0) {
-          const selectedGroup = dialogsList.find(d => isSameGroup(d.id, gid));
-          const targetName = selectedGroup ? selectedGroup.title : `Entity #${gid}`;
-          
-          const fragment = document.createDocumentFragment();
-          let addedCount = 0;
-          const initState = stream.querySelector('.wiretap-init-state');
-
-          msgs.forEach(m => {
-            if (m.message_id && !wiretapSeenIds.has(m.message_id)) {
-              m.group_id = gid;
-              m.group_title = targetName;
-              wiretapSeenIds.add(m.message_id);
-              if (wiretapFilter === 'threats' && !m.is_threat) return;
-              const card = createWiretapMessageCard(m);
-              if (card) {
-                fragment.appendChild(card);
-                addedCount++;
-              }
-            }
-          });
-
-          if (addedCount > 0) {
-            if (initState) initState.remove();
-            safeCreateIcons(fragment);
-            stream.appendChild(fragment);
-            wiretapMessageCount += addedCount;
-
-            const countEl = document.getElementById('wiretap-count');
-            if (countEl) countEl.innerText = wiretapMessageCount;
-
-            const scannedEl = document.getElementById('hud-stat-scanned');
-            if (scannedEl) scannedEl.innerText = parseInt(scannedEl.innerText || '0') + addedCount;
-
-            const MAX_WIRETAP_DOM_CARDS = 160;
-            while (stream.children.length > MAX_WIRETAP_DOM_CARDS) {
-              const oldest = stream.firstElementChild;
-              if (!oldest || oldest.classList.contains('wiretap-init-state')) break;
-              oldest.remove();
-            }
-
-            if (!userScrolledUpWiretap) {
-              scrollWiretapToBottom(false);
-            }
-          }
-        }
-      }
-    } catch (_) {}
-    finally {
-      isCatchupSyncing = false;
-    }
+    return;
   }
 
-  // Active Connection Wakeup: auto-reconnects WS & syncs messages when returning to tab or waking phone
+  // Active Connection Wakeup: auto-reconnects WS if disconnected when returning to tab or waking device
   function handleConnectionWakeup() {
     if (!isOwnerVerified) return;
     if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
       initWebSocket();
-    }
-    if (currentViewMode === 'warroom') {
-      syncWiretapCatchup();
     }
   }
 
@@ -12839,22 +12771,14 @@ body.theme-light .kage-btn.secondary {
     }
   });
 
-  // Fast adaptive background polling:
-  // If WebSocket stream drops or reconnects on mobile, polls every 2.5s for instant sync!
-  // If WebSocket is open, performs a gentle safety catchup every 10s if no live messages arrived.
+  // Zero-Batch Connection Watchdog: Reconnects WebSocket if dropped; NEVER polls or batch-uploads!
   setInterval(() => {
     if (document.visibilityState === 'visible' && currentViewMode === 'warroom') {
-      const isWsDead = !ws || ws.readyState !== WebSocket.OPEN;
-      if (isWsDead) {
-        syncWiretapCatchup();
-        if (!ws || ws.readyState === WebSocket.CLOSED) {
-          initWebSocket();
-        }
-      } else if (Date.now() - lastWiretapActivityTime > 10000) {
-        syncWiretapCatchup();
+      if (isOwnerVerified && (!ws || ws.readyState === WebSocket.CLOSED)) {
+        initWebSocket();
       }
     }
-  }, 2500);
+  }, 3000);
 
   async function refreshWiretap() {
     const gid = getActiveGroupId();
@@ -13478,8 +13402,9 @@ body.theme-light .kage-btn.secondary {
       }
     }
 
-    if (data.message_id && wiretapSeenIds.has(data.message_id)) return;
-    if (data.message_id) wiretapSeenIds.add(data.message_id);
+    const seenKey = (data.message_id !== undefined && data.message_id !== null) ? String(data.message_id) : null;
+    if (seenKey && wiretapSeenIds.has(seenKey)) return;
+    if (seenKey) wiretapSeenIds.add(seenKey);
 
     const stream = document.getElementById('wiretap-stream');
     if (!stream) return;
@@ -13534,6 +13459,26 @@ body.theme-light .kage-btn.secondary {
 
     if (!skipScroll) {
       scrollWiretapToBottom(false);
+    }
+  }
+
+  function handleMessageSenderResolved(data) {
+    if (!data || !data.message_id) return;
+    const card = document.getElementById(`wiretap-card-${data.message_id}`);
+    if (card && !card.classList.contains('wiretap-self-card')) {
+      if (data.full_name) {
+        const nameEl = card.querySelector('.wiretap-sender-name');
+        if (nameEl) {
+          nameEl.innerText = data.full_name;
+          nameEl.title = data.full_name;
+        }
+      }
+      if (data.username || data.user_id) {
+        const handleEl = card.querySelector('.wiretap-sender-handle');
+        if (handleEl) {
+          handleEl.innerText = data.username ? `@${data.username}` : `ID: ${data.user_id}`;
+        }
+      }
     }
   }
 

@@ -790,6 +790,10 @@ def create_app(engine: SuperBanEngine):
             me = await engine.client.get_me() if is_auth else None
             if me:
                 engine._me_id = me.id
+                if hasattr(engine, 'sentinel') and engine.sentinel:
+                    engine.sentinel.attach_client(engine.client)
+            if me:
+                engine._me_id = me.id
             phone_val = creds.get("phone", "") or auth_state.get("phone", "")
             return {
                 "authorized": is_auth,
@@ -891,7 +895,7 @@ def create_app(engine: SuperBanEngine):
                         await engine.client.disconnect()
                     except Exception:
                         pass
-                    engine.client = TelegramClient(StringSession(), api_id, api_hash)
+                    engine.set_client(TelegramClient(StringSession(), api_id, api_hash))
                     await engine.client.connect()
                     res = await engine.client.send_code_request(phone)
                     auth_state["phone"] = phone
@@ -967,6 +971,10 @@ def create_app(engine: SuperBanEngine):
                 pass
 
             me = await engine.client.get_me()
+            if me:
+                engine._me_id = me.id
+            if hasattr(engine, 'sentinel') and engine.sentinel:
+                engine.sentinel.attach_client(engine.client)
             return {
                 "status": "authorized",
                 "session_saved": bool(saved_str),
@@ -1021,10 +1029,12 @@ def create_app(engine: SuperBanEngine):
                 await engine.client.disconnect()
             except Exception:
                 pass
-            engine.client = TelegramClient(StringSession(session_str), api_id, api_hash)
+            engine.set_client(TelegramClient(StringSession(session_str), api_id, api_hash))
             await engine.client.connect()
             if me:
                 engine._me_id = me.id
+            if hasattr(engine, 'sentinel') and engine.sentinel:
+                engine.sentinel.attach_client(engine.client)
             await engine.get_dialogs(force=True)
 
             return {
@@ -1048,6 +1058,10 @@ def create_app(engine: SuperBanEngine):
         try:
             is_auth = await engine.client.is_user_authorized()
             me = await engine.client.get_me() if is_auth else None
+            if me:
+                engine._me_id = me.id
+                if hasattr(engine, 'sentinel') and engine.sentinel:
+                    engine.sentinel.attach_client(engine.client)
             return {
                 "authorized": is_auth,
                 "account": {

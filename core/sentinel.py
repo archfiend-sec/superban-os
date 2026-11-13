@@ -61,10 +61,31 @@ class SentinelShield:
 
         self.event_callbacks: List[Callable[[Dict[str, Any]], Any]] = []
         self._handlers_registered = False
+        self._active_handlers: List[Any] = []
         self._init_handlers()
 
     def register_callback(self, cb: Callable[[Dict[str, Any]], Any]):
         self.event_callbacks.append(cb)
+
+    def attach_client(self, client: TelegramClient):
+        """Dynamically rebind SentinelShield event handlers to an active Telegram client."""
+        if not client:
+            return
+        if self.client is client and self._handlers_registered:
+            return
+
+        if self.client and self._handlers_registered:
+            try:
+                for handler in getattr(self, '_active_handlers', []):
+                    self.client.remove_event_handler(handler)
+            except Exception:
+                pass
+
+        self._active_handlers = []
+        self.client = client
+        self._handlers_registered = False
+        self._init_handlers()
+        logger.info("🛡️ SentinelShield event handlers successfully bound to active Telegram client.")
 
     async def emit_sentinel_event(self, event_type: str, data: Dict[str, Any]):
         payload = {"type": event_type, "data": data, "timestamp": time.time()}
@@ -528,36 +549,91 @@ class SentinelShield:
 
         self._handlers_registered = True
 
+    async def _bg_enrich_message(self, event, group_id: int, sender_id: Optional[int], message_id: int):
+        """Asynchronously resolve sender and chat entities in background without blocking real-time wiretap."""
+        try:
+            updated_sender = False
+            full_name = None
+            username = None
+            if sender_id and sender_id not in self._sender_cache:
+                try:
+                    s = await asyncio.wait_for(event.get_sender(), timeout=0.8)
+                    if s:
+                        fn = f"{getattr(s, 'first_name', '') or ''} {getattr(s, 'last_name', '') or ''}".strip() or getattr(s, 'title', '') or 'User'
+                        un = getattr(s, 'username', '') or ''
+                        is_b = bool(getattr(s, 'bot', False))
+                        is_p = bool(getattr(s, 'premium', False))
+                        is_v = bool(getattr(s, 'verified', False))
+                        self._sender_cache[sender_id] = {
+                            "sender": s,
+                            "full_name": fn,
+                            "username": un,
+                            "is_bot": is_b,
+                            "is_premium": is_p,
+                            "is_verified": is_v
+                        }
+                        full_name = fn
+                        username = un
+                        updated_sender = True
+                except Exception:
+                    pass
+
+            if group_id and group_id not in self._chat_title_cache:
+                try:
+                    c = await asyncio.wait_for(event.get_chat(), timeout=0.8)
+                    if c and getattr(c, 'title', None):
+                        self._chat_title_cache[group_id] = c.title
+                except Exception:
+                    pass
+
+            if updated_sender and full_name:
+                await self.emit_sentinel_event("message_sender_resolved", {
+                    "group_id": group_id,
+                    "message_id": message_id,
+                    "user_id": sender_id,
+                    "full_name": full_name,
+                    "username": username
+                })
+        except Exception:
+            pass
+
     async def _process_incoming_message(self, event):
         try:
-            group_id = event.chat_id
-            
-            # Record activity for analytics heatmap in background
+            group_id = getattr(event, 'chat_id', None)
+            if group_id is None:
+                peer = getattr(event, 'peer_id', None) or getattr(getattr(event, 'message', None), 'peer_id', None)
+                if peer:
+                    if hasattr(peer, 'channel_id'):
+                        group_id = -1000000000000 - peer.channel_id if peer.channel_id > 0 else peer.channel_id
+                    elif hasattr(peer, 'chat_id'):
+                        group_id = -peer.chat_id if peer.chat_id > 0 else peer.chat_id
+                    elif hasattr(peer, 'user_id'):
+                        group_id = peer.user_id
+            group_id = group_id or 0
+
+            # Record activity for analytics heatmap in background (never blocks)
             now_dt = time.localtime()
-            if self.db:
+            if self.db and group_id:
                 asyncio.create_task(self.db.record_activity(group_id, now_dt.tm_hour, now_dt.tm_wday))
 
             sender = getattr(event, 'sender', None)
             raw_sid = getattr(event, 'sender_id', None)
             sender_id = raw_sid if isinstance(raw_sid, int) else (getattr(sender, 'id', None) if isinstance(getattr(sender, 'id', None), int) else None)
 
-            # Retrieve userbot ID for stealth self-masking
+            # Retrieve userbot ID for stealth self-masking (in-memory lookup, 0ms)
             my_id = None
-            try:
-                if self.engine and hasattr(self.engine, '_me_id') and isinstance(self.engine._me_id, int):
-                    my_id = self.engine._me_id
-                elif hasattr(self, '_me_id') and isinstance(self._me_id, int):
-                    my_id = self._me_id
-                elif self.client and hasattr(self.client, 'is_connected') and self.client.is_connected():
-                    if hasattr(self.client, 'is_user_authorized') and await self.client.is_user_authorized():
-                        me = await self.client.get_me()
-                        if me and isinstance(getattr(me, 'id', None), int):
-                            self._me_id = me.id
-                            my_id = me.id
-            except Exception:
-                pass
+            if self.engine and hasattr(self.engine, '_me_id') and isinstance(self.engine._me_id, int):
+                my_id = self.engine._me_id
+            elif hasattr(self, '_me_id') and isinstance(self._me_id, int):
+                my_id = self._me_id
 
-            # Fast group title resolution from memory cache
+            is_self = bool(
+                getattr(event, 'out', None) is True or
+                getattr(getattr(event, 'message', None), 'out', None) is True or
+                (isinstance(my_id, int) and isinstance(sender_id, int) and my_id > 0 and sender_id == my_id)
+            )
+
+            # Instant group title resolution from memory cache or event (0ms)
             group_title = ""
             chat = getattr(event, 'chat', None)
             if chat and getattr(chat, 'title', None):
@@ -571,8 +647,10 @@ class SentinelShield:
                         group_title = d.get("title", "")
                         self._chat_title_cache[group_id] = group_title
                         break
+            if not group_title and group_id:
+                group_title = f"Entity #{group_id}"
 
-            # Fast reply resolution from memory ring-buffer
+            # Instant reply resolution from memory ring-buffer or quote header (0ms)
             reply_info = None
             is_reply = bool(getattr(event, 'is_reply', False))
             reply_to_id = getattr(event, 'reply_to_msg_id', None)
@@ -595,8 +673,15 @@ class SentinelShield:
                             "reply_to_text": quote_text,
                             "reply_to_media_type": None
                         }
+                    else:
+                        reply_info = {
+                            "reply_to_msg_id": reply_to_id,
+                            "reply_to_sender": "Replied Message",
+                            "reply_to_text": f"Message #{reply_to_id}",
+                            "reply_to_media_type": None
+                        }
 
-            # Fast reputation resolution from memory cache (5-minute TTL)
+            # Fast reputation resolution from memory cache (0ms)
             now_ts = time.time()
             effective_uid = sender_id or 0
             cache_key = (group_id, effective_uid)
@@ -605,77 +690,6 @@ class SentinelShield:
                 c_time, c_data = self._member_rep_cache[cache_key]
                 if now_ts - c_time < 300:
                     member_rep = c_data
-
-            # Concurrent sub-50ms resolvers for any missing data
-            async def _resolve_sender_async():
-                if sender:
-                    return sender
-                if sender_id and sender_id in self._sender_cache:
-                    return self._sender_cache[sender_id].get("sender")
-                try:
-                    return await asyncio.wait_for(event.get_sender(), timeout=0.15)
-                except Exception:
-                    return None
-
-            async def _resolve_title_async():
-                if group_title:
-                    return group_title
-                try:
-                    c = await asyncio.wait_for(event.get_chat(), timeout=0.15)
-                    t = getattr(c, 'title', '') or ''
-                    if t:
-                        self._chat_title_cache[group_id] = t
-                    return t
-                except Exception:
-                    return ""
-
-            async def _resolve_reply_async():
-                if reply_info:
-                    return reply_info
-                if not is_reply:
-                    return None
-                try:
-                    return await extract_reply_info(getattr(event, 'message', None) or event, timeout=0.12)
-                except Exception:
-                    return None
-
-            async def _resolve_rep_async():
-                if member_rep:
-                    return member_rep
-                if self.db and hasattr(self.db, "get_group_member_reputation"):
-                    try:
-                        rep_call = self.db.get_group_member_reputation(group_id, effective_uid)
-                        if asyncio.iscoroutine(rep_call):
-                            r = await asyncio.wait_for(rep_call, timeout=0.06)
-                        else:
-                            r = rep_call
-                        if r:
-                            self._member_rep_cache[cache_key] = (now_ts, r)
-                        return r
-                    except Exception:
-                        pass
-                return None
-
-            # Execute missing lookups in parallel instead of sequentially
-            gather_res = await asyncio.gather(
-                _resolve_sender_async(),
-                _resolve_title_async(),
-                _resolve_reply_async(),
-                _resolve_rep_async(),
-                return_exceptions=True
-            )
-            s_val, t_val, r_val, m_val = gather_res
-            if not isinstance(s_val, Exception) and s_val:
-                sender = s_val
-                if not sender_id and hasattr(sender, 'id') and isinstance(sender.id, int):
-                    sender_id = sender.id
-                    effective_uid = sender_id
-            if not isinstance(t_val, Exception) and t_val:
-                group_title = t_val
-            if not isinstance(r_val, Exception) and r_val:
-                reply_info = r_val
-            if not isinstance(m_val, Exception) and m_val:
-                member_rep = m_val
 
             first_name = ""
             last_name = ""
@@ -690,7 +704,7 @@ class SentinelShield:
                 last_name = getattr(sender, 'last_name', '') or ''
                 first_name_str = first_name if isinstance(first_name, str) else ''
                 last_name_str = last_name if isinstance(last_name, str) else ''
-                full_name = f"{first_name_str} {last_name_str}".strip() or (getattr(sender, 'title', '') if isinstance(getattr(sender, 'title', None), str) else '') or "Anonymous"
+                full_name = f"{first_name_str} {last_name_str}".strip() or (getattr(sender, 'title', '') if isinstance(getattr(sender, 'title', None), str) else '') or "User"
                 u_val = getattr(sender, 'username', '')
                 username = u_val if isinstance(u_val, str) else ''
                 is_bot = bool(getattr(sender, 'bot', False))
@@ -713,19 +727,12 @@ class SentinelShield:
                 is_bot = c["is_bot"]
                 is_premium = c["is_premium"]
                 is_verified = c["is_verified"]
-
-            is_self = bool(
-                getattr(event, 'out', None) is True or
-                getattr(getattr(event, 'message', None), 'out', None) is True or
-                (isinstance(my_id, int) and isinstance(sender_id, int) and my_id > 0 and sender_id == my_id)
-            )
+            elif sender_id:
+                full_name = f"User #{sender_id}"
 
             if is_self:
                 full_name = "🛡️ [STEALTH SENSOR]"
                 username = "PROTECTED"
-
-            if is_bot:
-                return
 
             text = event.raw_text or ""
             is_threat = False
@@ -750,15 +757,73 @@ class SentinelShield:
                 trigger_reason = "Unauthorized channel invite / external link"
                 confidence = 92
 
-            # Sovereign Intelligence: Entity Extraction
-            extracted_entities = self._extract_entities(text, group_id, group_title, event.id, sender_id or 0, full_name)
-
             # Extract rich media metadata instantaneously without blocking live wiretap delivery
             media_info = extract_media_info(getattr(event, 'message', None) or event, group_id=group_id)
             display_text = text or media_info.get("fallback_text", "")
             file_name = media_info.get("file_name", "")
+            reactions_info = extract_reactions_info(getattr(event, 'message', None) or event)
+            user_profile = ForensicInspector.inspect_user(sender, member_stats=member_rep)
 
-            # Ghost Media Vault preservation runs in background task so live delivery never stalls
+            msg_dt = getattr(event, 'date', None) or getattr(getattr(event, 'message', None), 'date', None)
+            msg_ts = msg_dt.timestamp() if msg_dt else time.time()
+            msg_date_str = msg_dt.strftime("%H:%M:%S") if msg_dt else time.strftime("%H:%M:%S", time.gmtime())
+
+            msg_id = getattr(event, 'id', 0) or getattr(getattr(event, 'message', None), 'id', 0)
+
+            # Cache message in in-memory ring buffer for instant future reply resolutions
+            self._recent_msg_cache[msg_id] = {
+                "sender": full_name,
+                "text": display_text,
+                "media_type": media_info.get("media_type")
+            }
+            if len(self._recent_msg_cache) > 2000:
+                old_keys = list(self._recent_msg_cache.keys())[:500]
+                for k in old_keys:
+                    self._recent_msg_cache.pop(k, None)
+
+            # ⚡ ZERO LATENCY BROADCAST: Emit message to wiretap stream immediately!
+            await self.emit_sentinel_event("live_chat_message", {
+                "message_id": msg_id,
+                "group_id": group_id,
+                "group_title": group_title,
+                "user_id": effective_uid,
+                "is_self": is_self,
+                "full_name": full_name,
+                "username": username,
+                "text": display_text,
+                "raw_text": text,
+                "date": msg_date_str,
+                "timestamp": msg_ts,
+                "is_threat": is_threat,
+                "threat_type": threat_type,
+                "confidence": confidence,
+                "reason": trigger_reason,
+                "message_count": 0 if is_self else (member_rep.get("message_count", 1) if member_rep else 1),
+                "trust_score": 100 if is_self else user_profile.get("trust_score", 70),
+                "trust_level": "IMMUNE SENSOR" if is_self else ("BOT / SERVICE" if is_bot else user_profile.get("trust_level", "NEUTRAL CITIZEN")),
+                "trust_color": "#10b981" if is_self else user_profile.get("trust_color", "#38bdf8"),
+                "vintage": user_profile.get("vintage", ""),
+                "is_premium": is_premium,
+                "is_verified": is_verified,
+                "has_media": media_info["has_media"],
+                "media_type": media_info["media_type"],
+                "media_emoji": media_info["media_emoji"],
+                "file_name": file_name or media_info["file_name"],
+                "media_url": media_info["media_url"],
+                "is_reply": bool(reply_info),
+                "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
+                "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
+                "reply_to_text": reply_info["reply_to_text"] if reply_info else None,
+                "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None,
+                "reactions": reactions_info.get("reactions", []),
+                "recent_reactors": reactions_info.get("recent_reactors", [])
+            })
+
+            # Background async enrichment: If sender or title needs resolution, resolve in background
+            if (not sender and sender_id and sender_id not in self._sender_cache) or not group_title:
+                asyncio.create_task(self._bg_enrich_message(event, group_id, sender_id, msg_id))
+
+            # Ghost Media Vault preservation runs in background task
             async def _bg_save_media_vault(ev, gid, gtitle, snd_id, fname, dtext, minfo):
                 m_path = ""
                 f_size = 0
@@ -794,9 +859,8 @@ class SentinelShield:
             if self.db:
                 asyncio.create_task(_bg_save_media_vault(event, group_id, group_title, sender_id or 0, file_name, display_text, media_info))
 
-            reactions_info = extract_reactions_info(getattr(event, 'message', None) or event)
-
             # Background OSINT & Intelligence tracking tasks (STRICT OPSEC: Skip userbot)
+            extracted_entities = self._extract_entities(text, group_id, group_title, msg_id, sender_id or 0, full_name)
             if self.db and not is_self:
                 asyncio.create_task(self.db.update_user_cross_profile(
                     sender_id or 0, full_name, username, group_id, group_title,
@@ -817,63 +881,8 @@ class SentinelShield:
                     }))
                 asyncio.create_task(self._track_interaction(event, group_id, sender_id or 0, full_name, text))
                 asyncio.create_task(self._check_siphon(
-                    group_id, group_title, sender_id or 0, full_name, username, text, event.id, extracted_entities
+                    group_id, group_title, sender_id or 0, full_name, username, text, msg_id, extracted_entities
                 ))
-            
-            user_profile = ForensicInspector.inspect_user(sender, member_stats=member_rep)
-
-            msg_dt = getattr(event, 'date', None) or getattr(getattr(event, 'message', None), 'date', None)
-            msg_ts = msg_dt.timestamp() if msg_dt else time.time()
-            msg_date_str = msg_dt.strftime("%H:%M:%S") if msg_dt else time.strftime("%H:%M:%S", time.gmtime())
-
-            # Cache message in in-memory ring buffer for instant future reply resolutions
-            self._recent_msg_cache[event.id] = {
-                "sender": full_name,
-                "text": display_text,
-                "media_type": media_info.get("media_type")
-            }
-            if len(self._recent_msg_cache) > 2000:
-                old_keys = list(self._recent_msg_cache.keys())[:500]
-                for k in old_keys:
-                    self._recent_msg_cache.pop(k, None)
-
-            # ⚡ ZERO LATENCY BROADCAST: Emit message to wiretap stream immediately!
-            await self.emit_sentinel_event("live_chat_message", {
-                "message_id": event.id,
-                "group_id": group_id,
-                "group_title": group_title,
-                "user_id": effective_uid,
-                "is_self": is_self,
-                "full_name": full_name,
-                "username": username,
-                "text": display_text,
-                "raw_text": text,
-                "date": msg_date_str,
-                "timestamp": msg_ts,
-                "is_threat": is_threat,
-                "threat_type": threat_type,
-                "confidence": confidence,
-                "reason": trigger_reason,
-                "message_count": 0 if is_self else (member_rep.get("message_count", 1) if member_rep else 1),
-                "trust_score": 100 if is_self else user_profile.get("trust_score", 70),
-                "trust_level": "IMMUNE SENSOR" if is_self else user_profile.get("trust_level", "NEUTRAL CITIZEN"),
-                "trust_color": "#10b981" if is_self else user_profile.get("trust_color", "#38bdf8"),
-                "vintage": user_profile.get("vintage", ""),
-                "is_premium": is_premium,
-                "is_verified": is_verified,
-                "has_media": media_info["has_media"],
-                "media_type": media_info["media_type"],
-                "media_emoji": media_info["media_emoji"],
-                "file_name": file_name or media_info["file_name"],
-                "media_url": media_info["media_url"],
-                "is_reply": bool(reply_info),
-                "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
-                "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
-                "reply_to_text": reply_info["reply_to_text"] if reply_info else None,
-                "reply_to_media_type": reply_info["reply_to_media_type"] if reply_info else None,
-                "reactions": reactions_info.get("reactions", []),
-                "recent_reactors": reactions_info.get("recent_reactors", [])
-            })
 
             if group_id not in self.active_groups:
                 return
