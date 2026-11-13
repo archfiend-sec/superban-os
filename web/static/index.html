@@ -17786,8 +17786,14 @@ body.theme-light .kage-btn.secondary {
     const errBox = document.getElementById('owner-error-msg');
     const btn = document.getElementById('owner-unlock-btn');
 
-    const username = userInput ? userInput.value.trim().replace(/^@/, '') : '';
-    const pin = pinInput ? pinInput.value.trim() : '';
+    let username = userInput ? userInput.value.trim().replace(/^@/, '') : '';
+    let pin = pinInput ? pinInput.value.trim() : '';
+
+    // If user entered passcode into the first input box
+    if (!pin && username && username.length >= 4) {
+      pin = username;
+      username = '';
+    }
 
     if (!pin || pin.length < 4) {
       if (errBox) {

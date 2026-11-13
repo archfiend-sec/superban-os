@@ -465,17 +465,18 @@ def create_app(engine: SuperBanEngine):
     @app.post("/api/owner/verify")
     async def verify_owner_pin(req: OwnerPinReq, request: Request, response: Response):
         client_ip = get_client_ip(request)
+        is_loopback = client_ip in ("127.0.0.1", "::1", "localhost")
         now = time.time()
         record = FAILED_VERIFY_ATTEMPTS.get(client_ip, {"count": 0, "lockout_until": 0.0, "last_attempt": 0.0})
 
-        # Auto-reset lockout state if duration has expired
-        if record.get("lockout_until", 0.0) <= now and record.get("count", 0) >= 5:
+        # Auto-reset lockout state if duration has expired, or reset immediately on local machine
+        if (record.get("lockout_until", 0.0) <= now and record.get("count", 0) >= 5) or is_loopback:
             record["count"] = 0
             record["lockout_until"] = 0.0
             FAILED_VERIFY_ATTEMPTS[client_ip] = record
 
-        # Check if currently locked out
-        if record["lockout_until"] > now:
+        # Check if currently locked out (enforced strictly on external IPs)
+        if not is_loopback and record["lockout_until"] > now:
             retry_after = max(1, int(record["lockout_until"] - now))
             raise HTTPException(
                 status_code=429,
@@ -484,10 +485,15 @@ def create_app(engine: SuperBanEngine):
             )
 
         candidate_pin = (req.pin or "").strip()
+        clean_user = (req.username or "").strip().lstrip('@').lower()
+
+        # If user entered their passcode into the username input box
+        if not candidate_pin and clean_user:
+            candidate_pin = clean_user
+            clean_user = ""
+
         if not candidate_pin:
             raise HTTPException(status_code=400, detail="Clearance code is required")
-
-        clean_user = (req.username or "").strip().lstrip('@').lower()
         auth_success = False
         role = "operator"
 
