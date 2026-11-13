@@ -2503,12 +2503,13 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     flex-direction: column !important;
   }
 
-  /* ── 4. MODERN HORIZONTAL FILTER CHIP STRIP ── */
+  /* ── 4. MODERN HORIZONTAL FILTER CHIP STRIP (SLIM & COMPACT) ── */
   .wiretap-sub-header {
     display: block !important;
     width: 100% !important;
     max-width: 100vw !important;
-    padding: 6px 8px !important;
+    padding: 3px 6px !important;
+    min-height: 26px !important;
     background: var(--deep-carbon) !important;
     border-bottom: 1px solid var(--hairline) !important;
     box-sizing: border-box !important;
@@ -2522,15 +2523,15 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     width: 100% !important;
     max-width: 100% !important;
     min-width: 100% !important;
-    height: 38px !important;
-    min-height: 38px !important;
-    padding: 0 6px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    padding: 0 4px !important;
     background: rgba(8, 12, 16, 0.96) !important;
     border-bottom: none !important;
     display: flex;
     align-items: center !important;
     justify-content: flex-start !important;
-    gap: 6px !important;
+    gap: 4px !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
     white-space: nowrap !important;
@@ -2548,17 +2549,17 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     display: inline-flex !important;
     background: transparent !important;
     padding: 0 !important;
-    gap: 5px !important;
+    gap: 3px !important;
     flex: 0 0 auto !important;
   }
   .flt-btn {
-    font-size: 11.5px !important;
+    font-size: 8.5px !important;
     font-family: 'Onest', sans-serif !important;
     font-weight: 500 !important;
-    padding: 0 11px !important;
-    height: 28px !important;
-    line-height: 26px !important;
-    border-radius: 14px !important;
+    padding: 0 6px !important;
+    height: 20px !important;
+    line-height: 20px !important;
+    border-radius: 10px !important;
     background: rgba(223, 231, 224, 0.05) !important;
     border: 1px solid rgba(223, 231, 224, 0.1) !important;
     color: var(--bone-dim) !important;
@@ -4357,44 +4358,78 @@ body.warroom-active {
   letter-spacing: 0.12em !important;
 }
 
-/* Stream Sub-Controls Bar */
+/* Stream Sub-Controls Bar (Ultra-Compact to Maximize Wiretap Message Feed) */
 .wiretap-sub-header {
   display: flex !important;
   align-items: center !important;
-  justify-content: space-between !important;
-  padding: 8px 16px !important;
-  background: rgba(10, 14, 22, 0.18) !important;
+  justify-content: flex-start !important;
+  padding: 3px 10px !important;
+  min-height: 26px !important;
+  height: 26px !important;
+  background: rgba(10, 14, 22, 0.35) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
   border-bottom: 1px solid var(--apple-glass-border-subtle) !important;
-  flex-wrap: wrap !important;
-  gap: 8px !important;
+  flex-wrap: nowrap !important;
+  gap: 5px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
+.wiretap-sub-header::-webkit-scrollbar {
+  display: none !important;
+}
+.wiretap-sub-header .sec-head {
+  display: none !important;
 }
 #wiretap-controls-sub {
-  display: flex;
+  display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
+  gap: 4px !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+#wiretap-controls-sub::-webkit-scrollbar {
+  display: none !important;
 }
 .hud-filter-toggle {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
   border: 1px solid var(--apple-glass-border) !important;
   border-radius: var(--apple-radius-pill) !important;
-  padding: 3px !important;
+  padding: 1px 2px !important;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  flex-shrink: 0 !important;
 }
 .flt-btn {
   font-family: var(--font-sans) !important;
-  font-size: 10px !important;
+  font-size: 8.5px !important;
+  font-weight: 500 !important;
   color: var(--steel-grey) !important;
   border-radius: var(--apple-radius-pill) !important;
-  padding: 4px 10px !important;
-  letter-spacing: 0.03em !important;
+  padding: 1px 6px !important;
+  height: 19px !important;
+  line-height: 19px !important;
+  letter-spacing: 0.02em !important;
   transition: all var(--ease-apple) !important;
+  white-space: nowrap !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
 }
 .flt-btn.active {
   background: rgba(255, 255, 255, 0.16) !important;
   color: var(--warm-white) !important;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2), var(--apple-glass-shine) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2), var(--apple-glass-shine) !important;
 }
 .flt-btn.danger.active {
   background: var(--signal-red-bg) !important;
@@ -4435,8 +4470,8 @@ body.warroom-active {
   overflow-x: hidden !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 10px !important;
-  padding: 14px 18px 28px 18px !important;
+  gap: 8px !important;
+  padding: 6px 14px 20px 14px !important;
   scroll-behavior: auto !important;
   overflow-anchor: auto !important;
   box-sizing: border-box !important;
@@ -5094,7 +5129,8 @@ body.warroom-active {
     display: block !important;
     width: 100% !important;
     max-width: 100vw !important;
-    padding: 6px 8px !important;
+    padding: 3px 6px !important;
+    min-height: 26px !important;
     background: rgba(10, 14, 22, 0.2) !important;
     backdrop-filter: blur(14px) !important;
     -webkit-backdrop-filter: blur(14px) !important;
@@ -5110,17 +5146,17 @@ body.warroom-active {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 100% !important;
-    height: 38px !important;
-    min-height: 38px !important;
+    height: 24px !important;
+    min-height: 24px !important;
     display: flex;
     align-items: center !important;
     justify-content: flex-start !important;
-    gap: 6px !important;
+    gap: 4px !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     scrollbar-width: none !important;
-    padding: 2px 4px !important;
+    padding: 0 4px !important;
     box-sizing: border-box !important;
     flex-wrap: nowrap !important;
     white-space: nowrap !important;
@@ -5135,18 +5171,18 @@ body.warroom-active {
     gap: 2px !important;
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    padding: 2px !important;
+    padding: 1px !important;
     background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid var(--apple-glass-border) !important;
     border-radius: var(--apple-radius-pill) !important;
     white-space: nowrap !important;
   }
   .flt-btn {
-    font-size: 10px !important;
+    font-size: 8.5px !important;
     font-family: var(--font-sans) !important;
-    padding: 4px 9px !important;
-    height: 26px !important;
-    line-height: 18px !important;
+    padding: 1px 6px !important;
+    height: 20px !important;
+    line-height: 20px !important;
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
     border-radius: var(--apple-radius-pill) !important;
@@ -5154,7 +5190,7 @@ body.warroom-active {
     letter-spacing: 0.02em !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 4px !important;
+    gap: 3px !important;
   }
   #wiretap-controls-sub .desk-txt {
     display: none !important;
