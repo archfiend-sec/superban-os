@@ -27,6 +27,9 @@ _harden_file_permissions(ENV_PATH)
 _harden_file_permissions(CONFIG_PATH)
 
 class Config:
+    DEFAULT_API_ID = 2040
+    DEFAULT_API_HASH = "b18441a1ff607e10a989891a5462e627"
+
     @staticmethod
     def harden_file_permissions(path: Path = None):
         """Expose file permission hardening to ensure sensitive files are 0o600."""
@@ -37,28 +40,57 @@ class Config:
             _harden_file_permissions(CONFIG_PATH)
 
     @staticmethod
-    def get_credentials():
+    def get_api_credentials():
+        """Retrieve API ID and API Hash from env, config file, or official Telegram defaults."""
+        load_dotenv(ENV_PATH, override=True)
+        raw_id = os.environ.get("TELEGRAM_API_ID", "").strip()
+        api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
+        api_id = None
+        if raw_id:
+            try:
+                api_id = int(raw_id)
+            except ValueError:
+                pass
+
+        if not api_id or not api_hash:
+            if CONFIG_PATH.exists():
+                try:
+                    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if data.get("api_id") and data.get("api_hash"):
+                            api_id = int(data["api_id"])
+                            api_hash = str(data["api_hash"]).strip()
+                except Exception:
+                    pass
+
+        if not api_id or not api_hash:
+            api_id = Config.DEFAULT_API_ID
+            api_hash = Config.DEFAULT_API_HASH
+
+        return {"api_id": api_id, "api_hash": api_hash}
+
+    @staticmethod
+    def get_credentials(allow_empty_phone: bool = True):
+        """Retrieve credentials dict with api_id, api_hash, and phone."""
         # Reload env in case it was updated
         load_dotenv(ENV_PATH, override=True)
-        api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
-        api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
+        api_creds = Config.get_api_credentials()
         phone = os.environ.get("TELEGRAM_PHONE", "").strip()
 
-        if api_id and api_hash and phone:
-            return {
-                "api_id": int(api_id),
-                "api_hash": api_hash,
-                "phone": phone
-            }
-
-        if CONFIG_PATH.exists():
+        if not phone and CONFIG_PATH.exists():
             try:
                 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    if data.get("api_id") and data.get("api_hash") and data.get("phone"):
-                        return data
+                    phone = str(data.get("phone", "")).strip()
             except Exception:
                 pass
+
+        if phone or allow_empty_phone:
+            return {
+                "api_id": api_creds["api_id"],
+                "api_hash": api_creds["api_hash"],
+                "phone": phone
+            }
         return None
 
     @staticmethod
@@ -89,16 +121,90 @@ class Config:
         os.environ["TELEGRAM_STRING_SESSION"] = session_str
 
     @staticmethod
-    def save_credentials(api_id: int, api_hash: str, phone: str):
+    def save_phone(phone: str):
+        """Persist phone number into CONFIG_PATH and .env without erasing other keys."""
+        phone = phone.strip()
+        if not phone:
+            return
+        data = {}
+        if CONFIG_PATH.exists():
+            try:
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                data = {}
+        data["phone"] = phone
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump({"api_id": api_id, "api_hash": api_hash, "phone": phone}, f, indent=2)
+            json.dump(data, f, indent=2)
         _harden_file_permissions(CONFIG_PATH)
 
-        Config.save_string_session("") # Initialize placeholder
-        # Update .env
+        env_lines = []
+        found = False
+        if ENV_PATH.exists():
+            with open(ENV_PATH, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("TELEGRAM_PHONE="):
+                        env_lines.append(f"TELEGRAM_PHONE={phone}\n")
+                        found = True
+                    else:
+                        env_lines.append(line)
+        if not found:
+            env_lines.append(f"TELEGRAM_PHONE={phone}\n")
+
         with open(ENV_PATH, "w", encoding="utf-8") as f:
-            f.write(f"TELEGRAM_API_ID={api_id}\nTELEGRAM_API_HASH={api_hash}\nTELEGRAM_PHONE={phone}\n")
+            f.writelines(env_lines)
         _harden_file_permissions(ENV_PATH)
+        os.environ["TELEGRAM_PHONE"] = phone
+
+    @staticmethod
+    def save_credentials(api_id: int, api_hash: str, phone: str = ""):
+        """Persist api_id, api_hash, and optional phone to CONFIG_PATH and .env without erasing OWNER_PIN."""
+        data = {}
+        if CONFIG_PATH.exists():
+            try:
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                data = {}
+        data["api_id"] = api_id
+        data["api_hash"] = api_hash
+        if phone:
+            data["phone"] = phone
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        _harden_file_permissions(CONFIG_PATH)
+
+        env_lines = []
+        seen_keys = set()
+        if ENV_PATH.exists():
+            with open(ENV_PATH, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("TELEGRAM_API_ID="):
+                        env_lines.append(f"TELEGRAM_API_ID={api_id}\n")
+                        seen_keys.add("TELEGRAM_API_ID")
+                    elif line.startswith("TELEGRAM_API_HASH="):
+                        env_lines.append(f"TELEGRAM_API_HASH={api_hash}\n")
+                        seen_keys.add("TELEGRAM_API_HASH")
+                    elif phone and line.startswith("TELEGRAM_PHONE="):
+                        env_lines.append(f"TELEGRAM_PHONE={phone}\n")
+                        seen_keys.add("TELEGRAM_PHONE")
+                    else:
+                        env_lines.append(line)
+        if "TELEGRAM_API_ID" not in seen_keys:
+            env_lines.append(f"TELEGRAM_API_ID={api_id}\n")
+        if "TELEGRAM_API_HASH" not in seen_keys:
+            env_lines.append(f"TELEGRAM_API_HASH={api_hash}\n")
+        if phone and "TELEGRAM_PHONE" not in seen_keys:
+            env_lines.append(f"TELEGRAM_PHONE={phone}\n")
+
+        with open(ENV_PATH, "w", encoding="utf-8") as f:
+            f.writelines(env_lines)
+        _harden_file_permissions(ENV_PATH)
+
+        os.environ["TELEGRAM_API_ID"] = str(api_id)
+        os.environ["TELEGRAM_API_HASH"] = str(api_hash)
+        if phone:
+            os.environ["TELEGRAM_PHONE"] = str(phone)
 
     @staticmethod
     def hash_pin(pin: str, salt: bytes = None) -> str:

@@ -7355,11 +7355,35 @@ body.theme-light .kage-btn.secondary {
         Send a verification code to your phone or Telegram app to authorize this cloud instance.
       </p>
 
-      <!-- STEP 1: PHONE DISPLAY & SEND CODE BUTTON -->
+      <!-- STEP 1: PHONE INPUT & SEND CODE BUTTON -->
       <div id="auth-step-1">
-        <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); padding: 14px 18px; border-radius: 14px; margin-bottom: 18px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);">
-          <div style="font-size: 10px; color: rgba(255, 255, 255, 0.6); margin-bottom: 4px; letter-spacing: 0.06em; font-weight: 600;">TARGET TELEGRAM SENSOR [STEALTH PROTECTED]</div>
-          <div id="auth-phone-display" style="color: #34c759; font-size: 15px; font-weight: 600; letter-spacing: 0.04em;">PROTECTED SENSOR NODE (ENCRYPTED)</div>
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label for="auth-phone-input" style="font-size: 10px; color: rgba(255, 255, 255, 0.7); font-weight: 600; letter-spacing: 0.06em;">TELEGRAM PHONE NUMBER</label>
+            <span style="font-size: 10px; color: #38bdf8;">With country code (e.g. +1... / +91...)</span>
+          </div>
+          <div style="position: relative;">
+            <input type="tel" id="auth-phone-input" placeholder="+1234567890" autocomplete="tel"
+                   style="width: 100%; background: rgba(12, 16, 26, 0.8); border: 1px solid rgba(255, 255, 255, 0.16); color: #ffffff; padding: 12px 14px 12px 42px; font-size: 16px; border-radius: 12px; font-family: monospace; letter-spacing: 0.05em; box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);" />
+            <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 16px; opacity: 0.7;">📱</span>
+          </div>
+        </div>
+
+        <!-- Optional collapsible custom API ID/Hash for advanced users -->
+        <div style="margin-bottom: 16px;">
+          <button type="button" onclick="toggleCustomApiCreds()" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 10px; cursor: pointer; padding: 0; display: flex; align-items: center; gap: 4px;">
+            <span id="custom-api-arrow">▸</span> Custom Telegram API Keys (Optional — uses official keys if omitted)
+          </button>
+          <div id="custom-api-fields" style="display: none; margin-top: 10px; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+            <div style="margin-bottom: 8px;">
+              <label style="font-size: 9px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">API ID</label>
+              <input type="number" id="auth-custom-api-id" placeholder="Official default: 2040" style="width: 100%; background: rgba(12,16,26,0.6); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 8px 10px; font-size: 12px; border-radius: 6px;" />
+            </div>
+            <div>
+              <label style="font-size: 9px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">API HASH</label>
+              <input type="text" id="auth-custom-api-hash" placeholder="Official default hash" style="width: 100%; background: rgba(12,16,26,0.6); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 8px 10px; font-size: 12px; border-radius: 6px;" />
+            </div>
+          </div>
         </div>
 
         <button id="auth-send-code-btn" onclick="sendAuthCode()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12.5px; justify-content: center; min-height: 48px; border-radius: 12px;">
@@ -7375,9 +7399,18 @@ body.theme-light .kage-btn.secondary {
 
       <!-- STEP 2: ENTER CODE & 2FA -->
       <div id="auth-step-2" style="display: none;">
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="font-size: 11px; color: #38bdf8;">
+            Code dispatched to: <b id="auth-dest-phone" style="color: #ffffff; letter-spacing: 0.04em;"></b>
+          </div>
+          <button type="button" onclick="backToAuthStep1()" style="background: none; border: none; color: rgba(255,255,255,0.6); font-size: 11px; text-decoration: underline; cursor: pointer;">
+            Change
+          </button>
+        </div>
+
         <div style="margin-bottom: 16px;">
           <label style="font-size: 10px; color: rgba(255, 255, 255, 0.6); display: block; margin-bottom: 6px; font-weight: 600;">ENTER 5-DIGIT TELEGRAM CODE</label>
-          <input type="text" id="auth-code-input" placeholder="12345" style="width: 100%; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.14); color: #ffffff; padding: 12px 14px; font-size: 18px; border-radius: 12px; letter-spacing: 6px; text-align: center; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);" />
+          <input type="text" id="auth-code-input" inputmode="numeric" maxlength="10" placeholder="12345" autocomplete="one-time-code" style="width: 100%; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.14); color: #ffffff; padding: 12px 14px; font-size: 20px; border-radius: 12px; letter-spacing: 6px; text-align: center; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);" />
         </div>
 
         <div id="auth-password-group" style="margin-bottom: 16px; display: none;">
@@ -7390,7 +7423,7 @@ body.theme-light .kage-btn.secondary {
         </button>
 
         <div style="display: flex; gap: 8px;">
-          <button type="button" onclick="document.getElementById('auth-step-2').style.display='none'; document.getElementById('auth-step-1').style.display='block';" class="kage-modal-close-btn" style="flex: 1; text-align: center; justify-content: center; font-size: 11px; min-height: 40px; border-radius: 12px;">
+          <button type="button" onclick="backToAuthStep1()" class="kage-modal-close-btn" style="flex: 1; text-align: center; justify-content: center; font-size: 11px; min-height: 40px; border-radius: 12px;">
             ← Back
           </button>
           <button type="button" onclick="sendAuthCode(true)" class="kage-modal-close-btn" style="flex: 1; text-align: center; justify-content: center; font-size: 11px; min-height: 40px; color: #ff9500; border-color: rgba(255, 149, 0, 0.35); border-radius: 12px;">
@@ -7404,10 +7437,27 @@ body.theme-light .kage-btn.secondary {
     <!-- TAB 2: DIRECT STRING SESSION IMPORT -->
     <div id="auth-tab-content-string" style="display: none;">
       <p style="font-size: 12px; color: rgba(255, 255, 255, 0.65); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; line-height: 1.6; margin-bottom: 14px;">
-        If you already have a Telethon string session, paste it below to link your Telegram session instantly without waiting for an SMS:
+        Paste your Telethon or Pyrogram String Session below to link your Telegram account immediately without waiting for SMS/OTP:
       </p>
 
       <textarea id="auth-string-session-input" rows="4" placeholder="Paste 1BJWap1sBu6f4gzV..." style="width: 100%; background: rgba(12, 16, 26, 0.6); border: 1px solid rgba(255, 255, 255, 0.14); color: #34c759; font-size: 11px; padding: 12px; border-radius: 12px; font-family: 'SF Mono', 'JetBrains Mono', monospace; resize: vertical; margin-bottom: 14px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);"></textarea>
+
+      <!-- Optional custom API keys for string session -->
+      <div style="margin-bottom: 14px;">
+        <button type="button" onclick="toggleStringCustomApiCreds()" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 10px; cursor: pointer; padding: 0; display: flex; align-items: center; gap: 4px;">
+          <span id="string-custom-api-arrow">▸</span> Custom API Keys (Optional — only if session used custom credentials)
+        </button>
+        <div id="string-custom-api-fields" style="display: none; margin-top: 10px; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 9px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">API ID</label>
+            <input type="number" id="auth-string-custom-api-id" placeholder="Official default: 2040" style="width: 100%; background: rgba(12,16,26,0.6); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 8px 10px; font-size: 12px; border-radius: 6px;" />
+          </div>
+          <div>
+            <label style="font-size: 9px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">API HASH</label>
+            <input type="text" id="auth-string-custom-api-hash" placeholder="Official default hash" style="width: 100%; background: rgba(12,16,26,0.6); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 8px 10px; font-size: 12px; border-radius: 6px;" />
+          </div>
+        </div>
+      </div>
 
       <button id="auth-import-string-btn" onclick="submitImportSessionString()" class="kage-btn" style="width: 100%; padding: 14px 18px; font-size: 12.5px; justify-content: center; background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%); border-color: rgba(255, 255, 255, 0.28); color: #ffffff; min-height: 48px; border-radius: 12px; box-shadow: 0 4px 16px rgba(56, 189, 248, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35);">
         <i data-lucide="key" style="width: 15px; height: 15px;"></i> ⚡ Connect Instantly via String Session
@@ -9294,23 +9344,69 @@ body.theme-light .kage-btn.secondary {
     } catch (e) {}
   }
 
+  function toggleCustomApiCreds() {
+    const f = document.getElementById('custom-api-fields');
+    const arrow = document.getElementById('custom-api-arrow');
+    if (!f) return;
+    if (f.style.display === 'none' || !f.style.display) {
+      f.style.display = 'block';
+      if (arrow) arrow.innerText = '▾';
+    } else {
+      f.style.display = 'none';
+      if (arrow) arrow.innerText = '▸';
+    }
+  }
+
+  function toggleStringCustomApiCreds() {
+    const f = document.getElementById('string-custom-api-fields');
+    const arrow = document.getElementById('string-custom-api-arrow');
+    if (!f) return;
+    if (f.style.display === 'none' || !f.style.display) {
+      f.style.display = 'block';
+      if (arrow) arrow.innerText = '▾';
+    } else {
+      f.style.display = 'none';
+      if (arrow) arrow.innerText = '▸';
+    }
+  }
+
+  function backToAuthStep1() {
+    const s1 = document.getElementById('auth-step-1');
+    const s2 = document.getElementById('auth-step-2');
+    if (s1) s1.style.display = 'block';
+    if (s2) s2.style.display = 'none';
+    const errBox = document.getElementById('auth-verify-error');
+    if (errBox) errBox.style.display = 'none';
+    const phoneInput = document.getElementById('auth-phone-input');
+    if (phoneInput) setTimeout(() => phoneInput.focus(), 80);
+    safeCreateIcons();
+  }
+
   function openAuthModal() {
     playZenSound('clack');
     const modal = document.getElementById('auth-modal');
     if (modal) {
       modal.style.display = 'flex';
       safeCreateIcons(modal);
+      // Reset to Step 1
+      const s1 = document.getElementById('auth-step-1');
+      const s2 = document.getElementById('auth-step-2');
+      if (s1) s1.style.display = 'block';
+      if (s2) s2.style.display = 'none';
+
       fetch('/api/auth/status')
         .then(r => r.json())
         .then(data => {
-          const phoneEl = document.getElementById('auth-phone-display');
-          if (phoneEl) phoneEl.innerText = 'PROTECTED SENSOR NODE (ENCRYPTED)';
+          const phoneInput = document.getElementById('auth-phone-input');
+          if (phoneInput && data && data.phone && !phoneInput.value) {
+            phoneInput.value = data.phone;
+          }
           const desc = document.getElementById('auth-status-desc');
           if (desc) {
             if (data && data.authorized) {
               desc.innerHTML = `<span style="color: #34d399; font-weight: 600;">● Active MTProto Stealth Session</span><br><span style="color: var(--muted); font-size: 11px;">Cloud userbot node authorized & operational. Re-authorizing will issue a fresh session.</span>`;
             } else {
-              desc.innerText = 'Send a verification code to your phone or Telegram app to authorize this cloud instance.';
+              desc.innerText = 'Enter your phone number to receive a 5-digit verification code in your official Telegram app:';
             }
           }
         })
@@ -9362,6 +9458,9 @@ body.theme-light .kage-btn.secondary {
       return;
     }
 
+    const customApiId = document.getElementById('auth-string-custom-api-id')?.value.trim();
+    const customApiHash = document.getElementById('auth-string-custom-api-hash')?.value.trim();
+
     if (errBox) errBox.style.display = 'none';
     if (btn) {
       btn.innerHTML = '<span class="loading-spin"></span> Verifying Session String...';
@@ -9369,10 +9468,14 @@ body.theme-light .kage-btn.secondary {
     }
 
     try {
+      const payload = { session_string: sessionStr };
+      if (customApiId && !isNaN(parseInt(customApiId))) payload.api_id = parseInt(customApiId);
+      if (customApiHash) payload.api_hash = customApiHash;
+
       const res = await fetch('/api/auth/import_session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_string: sessionStr })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Invalid session string');
@@ -9380,6 +9483,7 @@ body.theme-light .kage-btn.secondary {
       showToast('⚡ Session restored and linked successfully!', 'success');
       closeAuthModal();
       checkAuth();
+      if (window.fetchDialogs) fetchDialogs();
     } catch (e) {
       if (errBox) {
         errBox.innerText = 'Error: ' + e.message;
@@ -9431,6 +9535,13 @@ body.theme-light .kage-btn.secondary {
     const s2 = document.getElementById('auth-step-2');
     if (s1) s1.style.display = 'none';
     if (s2) s2.style.display = 'block';
+    
+    const phoneInput = document.getElementById('auth-phone-input');
+    const destPhone = document.getElementById('auth-dest-phone');
+    if (destPhone && phoneInput && phoneInput.value.trim()) {
+      destPhone.innerText = phoneInput.value.trim();
+    }
+
     if (noticeText) {
       const desc = document.getElementById('auth-status-desc');
       if (desc) desc.innerText = noticeText;
@@ -9439,12 +9550,27 @@ body.theme-light .kage-btn.secondary {
     if (input) {
       setTimeout(() => input.focus(), 100);
     }
-    if (window.lucide) window.lucide.createIcons();
+    safeCreateIcons();
   }
 
   async function sendAuthCode(forceNew = false) {
     const btn = document.getElementById('auth-send-code-btn');
     const errBox = document.getElementById('auth-send-error');
+    const phoneInput = document.getElementById('auth-phone-input');
+    const phoneVal = phoneInput ? phoneInput.value.trim() : '';
+
+    if (!phoneVal) {
+      if (errBox) {
+        errBox.innerText = 'Please enter your phone number with country code (e.g. +1234567890).';
+        errBox.style.display = 'block';
+      }
+      if (phoneInput) phoneInput.focus();
+      return;
+    }
+
+    const customApiId = document.getElementById('auth-custom-api-id')?.value.trim();
+    const customApiHash = document.getElementById('auth-custom-api-hash')?.value.trim();
+
     if (btn) {
       btn.innerHTML = '<span class="loading-spin"></span> Sending Telegram Code...';
       btn.disabled = true;
@@ -9452,10 +9578,17 @@ body.theme-light .kage-btn.secondary {
     if (errBox) errBox.style.display = 'none';
 
     try {
+      const payload = {
+        phone: phoneVal,
+        force_new: !!forceNew
+      };
+      if (customApiId && !isNaN(parseInt(customApiId))) payload.api_id = parseInt(customApiId);
+      if (customApiHash) payload.api_hash = customApiHash;
+
       const res = await fetch('/api/auth/send_code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force_new: !!forceNew })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok) {
@@ -9466,7 +9599,7 @@ body.theme-light .kage-btn.secondary {
         }
         throw new Error(errDetail || 'Failed to send code');
       }
-      goToAuthStep2(data.notice || 'A 5-digit login code was sent to your official Telegram app. Enter it below:');
+      goToAuthStep2(data.notice || `A 5-digit login code was sent to your Telegram app for ${phoneVal}. Enter it below:`);
     } catch (err) {
       const msg = err.message || '';
       if (msg.toLowerCase().includes('resendcoderequest') || msg.toLowerCase().includes('all available options') || msg.toLowerCase().includes('sendcodeunavailable')) {
@@ -9482,13 +9615,15 @@ body.theme-light .kage-btn.secondary {
         btn.innerHTML = '<i data-lucide="send" style="width: 15px; height: 15px;"></i> 📨 Send Telegram Verification Code';
         btn.disabled = false;
       }
-      if (window.lucide) window.lucide.createIcons();
+      safeCreateIcons();
     }
   }
 
   async function verifyAuthCode() {
     const code = document.getElementById('auth-code-input').value.trim();
     const password = document.getElementById('auth-password-input').value;
+    const phoneInput = document.getElementById('auth-phone-input');
+    const phoneVal = phoneInput ? phoneInput.value.trim() : '';
     const btn = document.getElementById('auth-verify-btn');
     const errBox = document.getElementById('auth-verify-error');
 
@@ -9506,7 +9641,7 @@ body.theme-light .kage-btn.secondary {
       const res = await fetch('/api/auth/verify_code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, password: password || null })
+        body: JSON.stringify({ code, phone: phoneVal || null, password: password || null })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -9527,14 +9662,14 @@ body.theme-light .kage-btn.secondary {
         showToast('⚡ Telegram Connected! Loading groups...', 'success');
       }
       await checkAuth();
-      await fetchDialogs();
+      if (window.fetchDialogs) await fetchDialogs();
     } catch (err) {
       errBox.innerText = `Error: ${err.message}`;
       errBox.style.display = 'block';
     } finally {
       btn.innerHTML = '<i data-lucide="check-circle" style="width: 15px; height: 15px;"></i> ⚡ Verify &amp; Authorize Cloud Instance';
       btn.disabled = false;
-      if (window.lucide) window.lucide.createIcons();
+      safeCreateIcons();
     }
   }
 

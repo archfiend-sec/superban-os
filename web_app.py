@@ -22,9 +22,8 @@ logger = logging.getLogger("WebLauncher")
 async def init_client():
     creds = Config.get_credentials()
     if not creds:
-        print("\n❌ Missing Telegram Credentials in .env!")
-        print("Please ensure TELEGRAM_API_ID, TELEGRAM_API_HASH, and TELEGRAM_PHONE are set.\n")
-        sys.exit(1)
+        creds = Config.get_api_credentials()
+        creds["phone"] = ""
 
     string_session = Config.get_string_session()
     if string_session:
@@ -32,7 +31,7 @@ async def init_client():
             client = TelegramClient(StringSession(string_session), creds["api_id"], creds["api_hash"])
             await client.connect()
             if await client.is_user_authorized():
-                print("⚡ Restored Telegram session instantly!")
+                print("⚡ Restored Telegram session instantly from TELEGRAM_STRING_SESSION!")
                 return client
             else:
                 print("⚠️ Provided string session is not authorized.")

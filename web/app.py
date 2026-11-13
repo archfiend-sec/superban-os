@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import aiohttp
+from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.functions.messages import GetCommonChatsRequest
 from telethon.errors import (
@@ -768,9 +769,11 @@ def create_app(engine: SuperBanEngine):
     # ═══════════════════════════════════════════════════════
     #   AUTHENTICATION API (IN-BROWSER TELEGRAM SIGN IN)
     # ═══════════════════════════════════════════════════════
+    #   AUTHENTICATION API (IN-BROWSER TELEGRAM SIGN IN)
+    # ═══════════════════════════════════════════════════════
     @app.get("/api/auth/status")
     async def get_auth_status():
-        creds = Config.get_credentials()
+        creds = Config.get_credentials() or {}
         try:
             if not engine.client.is_connected():
                 await engine.client.connect()
@@ -778,27 +781,61 @@ def create_app(engine: SuperBanEngine):
             me = await engine.client.get_me() if is_auth else None
             if me:
                 engine._me_id = me.id
-            masked_phone = "PROTECTED SENSOR NODE (ENCRYPTED)"
+            phone_val = creds.get("phone", "") or auth_state.get("phone", "")
             return {
                 "authorized": is_auth,
-                "phone": masked_phone,
+                "phone": phone_val,
                 "user": {
                     "id": me.id if me else None,
+                    "first_name": me.first_name if me else "",
+                    "username": me.username if me else "",
                     "status_label": "STEALTH SENSOR ONLINE" if is_auth else "OFFLINE"
                 } if me else None
             }
         except Exception as e:
-            return {"authorized": False, "error": str(e), "phone": ""}
+            return {"authorized": False, "error": str(e), "phone": (creds.get("phone") or auth_state.get("phone") or "")}
 
     class SendCodeReq(BaseModel):
+        phone: Optional[str] = None
         force_new: Optional[bool] = False
+        api_id: Optional[int] = None
+        api_hash: Optional[str] = None
 
     @app.post("/api/auth/send_code")
     async def send_code(req: Optional[SendCodeReq] = None):
-        creds = Config.get_credentials()
-        if not creds:
-            raise HTTPException(status_code=400, detail="Missing TELEGRAM_PHONE or credentials in .env")
-        phone = creds["phone"]
+        creds = Config.get_credentials() or {}
+        api_creds = Config.get_api_credentials()
+        
+        # Determine phone: request payload > saved creds > in-memory auth_state
+        phone = ""
+        if req and req.phone and req.phone.strip():
+            phone = req.phone.strip()
+        elif creds.get("phone"):
+            phone = creds["phone"].strip()
+        elif auth_state.get("phone"):
+            phone = auth_state["phone"].strip()
+
+        if not phone:
+            raise HTTPException(
+                status_code=400, 
+                detail="Please enter your Telegram phone number with country code (e.g. +1234567890)."
+            )
+
+        # Normalize phone: remove spaces, dashes, ensure '+'
+        cleaned_phone = phone.replace(" ", "").replace("-", "")
+        if not cleaned_phone.startswith("+"):
+            cleaned_phone = "+" + cleaned_phone
+        phone = cleaned_phone
+
+        api_id = (req.api_id if req and req.api_id else None) or creds.get("api_id") or api_creds["api_id"]
+        api_hash = (req.api_hash.strip() if req and req.api_hash else None) or creds.get("api_hash") or api_creds["api_hash"]
+
+        # Persist phone number & any custom API credentials immediately
+        if req and (req.api_id or req.api_hash):
+            Config.save_credentials(api_id, api_hash, phone)
+        elif phone:
+            Config.save_phone(phone)
+
         force_new = req.force_new if req else False
 
         try:
@@ -845,7 +882,7 @@ def create_app(engine: SuperBanEngine):
                         await engine.client.disconnect()
                     except Exception:
                         pass
-                    engine.client = TelegramClient(StringSession(), creds["api_id"], creds["api_hash"])
+                    engine.client = TelegramClient(StringSession(), api_id, api_hash)
                     await engine.client.connect()
                     res = await engine.client.send_code_request(phone)
                     auth_state["phone"] = phone
@@ -855,15 +892,33 @@ def create_app(engine: SuperBanEngine):
                 else:
                     raise e
         except Exception as e:
-            logger.error(f"Failed to send code: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            err_msg = str(e)
+            logger.error(f"Failed to send code: {err_msg}")
+            if "PHONE_NUMBER_INVALID" in err_msg:
+                err_msg = f"Phone number '{phone}' is invalid. Please check your country code and digits."
+            elif "FLOOD_WAIT" in err_msg:
+                err_msg = f"Telegram flood control: {err_msg}. Please wait or import your String Session directly."
+            elif "PHONE_NUMBER_BANNED" in err_msg:
+                err_msg = f"The phone number '{phone}' has been banned from Telegram."
+            raise HTTPException(status_code=400, detail=err_msg)
 
     class VerifyCodeReq(BaseModel):
         code: str
+        phone: Optional[str] = None
         password: Optional[str] = None
 
     @app.post("/api/auth/verify_code")
     async def verify_code(req: VerifyCodeReq):
+        code = req.code.strip().replace(" ", "").replace("-", "")
+        if not code:
+            raise HTTPException(status_code=400, detail="Verification code cannot be empty.")
+
+        phone_target = (req.phone.strip() if req.phone else None) or auth_state.get("phone") or (Config.get_credentials() or {}).get("phone")
+        if not phone_target:
+            raise HTTPException(status_code=400, detail="Missing phone number. Please request a new verification code.")
+
+        code_hash_target = auth_state.get("phone_code_hash") or getattr(engine.client, "_phone_code_hash", {}).get(phone_target)
+
         try:
             if not engine.client.is_connected():
                 await engine.client.connect()
@@ -871,12 +926,10 @@ def create_app(engine: SuperBanEngine):
             if req.password:
                 await engine.client.sign_in(password=req.password)
             else:
-                phone_target = auth_state.get("phone") or (Config.get_credentials() or {}).get("phone")
-                code_hash_target = auth_state.get("phone_code_hash") or getattr(engine.client, "_phone_code_hash", {}).get(phone_target)
                 try:
                     await engine.client.sign_in(
                         phone=phone_target,
-                        code=req.code,
+                        code=code,
                         phone_code_hash=code_hash_target
                     )
                 except SessionPasswordNeededError:
@@ -894,6 +947,9 @@ def create_app(engine: SuperBanEngine):
                     logger.info("Session string permanently committed to .env")
             except Exception as e:
                 logger.debug(f"Save string session note: {e}")
+
+            if phone_target:
+                Config.save_phone(phone_target)
 
             # Force clear dialogs cache so groups load immediately
             try:
@@ -916,22 +972,30 @@ def create_app(engine: SuperBanEngine):
         except PhoneCodeExpiredError:
             raise HTTPException(status_code=400, detail="The code has expired. Please request a new one.")
         except Exception as e:
-            logger.error(f"Sign in error: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            err_msg = str(e)
+            logger.error(f"Sign in error: {err_msg}")
+            if "SESSION_PASSWORD_NEEDED" in err_msg or "password" in err_msg.lower():
+                return {"status": "password_needed", "message": "2-Step Verification password is required."}
+            raise HTTPException(status_code=400, detail=err_msg)
 
     class ImportSessionReq(BaseModel):
         session_string: str
+        api_id: Optional[int] = None
+        api_hash: Optional[str] = None
 
     @app.post("/api/auth/import_session")
     async def import_session(req: ImportSessionReq):
         session_str = req.session_string.strip()
         if not session_str:
             raise HTTPException(status_code=400, detail="Session string cannot be empty")
-        creds = Config.get_credentials()
-        if not creds:
-            raise HTTPException(status_code=400, detail="Missing Telegram credentials in .env")
+        
+        creds = Config.get_credentials() or {}
+        api_creds = Config.get_api_credentials()
+        api_id = req.api_id or creds.get("api_id") or api_creds["api_id"]
+        api_hash = (req.api_hash.strip() if req.api_hash else None) or creds.get("api_hash") or api_creds["api_hash"]
+
         try:
-            test_client = TelegramClient(StringSession(session_str), creds["api_id"], creds["api_hash"])
+            test_client = TelegramClient(StringSession(session_str), api_id, api_hash)
             await test_client.connect()
             if not await test_client.is_user_authorized():
                 await test_client.disconnect()
@@ -941,13 +1005,17 @@ def create_app(engine: SuperBanEngine):
             await test_client.disconnect()
 
             Config.save_string_session(session_str)
+            if me and getattr(me, 'phone', None):
+                Config.save_phone(me.phone)
 
             try:
                 await engine.client.disconnect()
             except Exception:
                 pass
-            engine.client = TelegramClient(StringSession(session_str), creds["api_id"], creds["api_hash"])
+            engine.client = TelegramClient(StringSession(session_str), api_id, api_hash)
             await engine.client.connect()
+            if me:
+                engine._me_id = me.id
             await engine.get_dialogs(force=True)
 
             return {
