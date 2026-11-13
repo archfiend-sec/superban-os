@@ -1216,9 +1216,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   padding: 10px 14px;
   transition: background 0.15s ease, border-color 0.15s ease;
   animation: slideInMsg .16s ease-out;
-  contain: layout style paint;
-  content-visibility: auto;
-  contain-intrinsic-size: 0 85px;
+  contain: layout style;
   transform: translateZ(0);
 }
 @keyframes slideInMsg {
@@ -4440,10 +4438,12 @@ body.warroom-active {
   gap: 10px !important;
   padding: 14px 18px 28px 18px !important;
   scroll-behavior: auto !important;
+  overflow-anchor: auto !important;
   box-sizing: border-box !important;
   overscroll-behavior-y: contain !important;
   -webkit-overflow-scrolling: touch !important;
-  contain: layout paint !important;
+  transform: translateZ(0) !important;
+  will-change: scroll-position !important;
 }
 #tab-content-intel,
 #tab-content-ghost,
@@ -4469,9 +4469,7 @@ body.warroom-active {
   padding: 13px 16px !important;
   box-shadow: var(--apple-shadow-xs) !important;
   transition: background 0.12s ease, border-color 0.12s ease !important;
-  contain: layout style paint !important;
-  content-visibility: auto !important;
-  contain-intrinsic-size: 0 85px !important;
+  contain: layout style !important;
   transform: translateZ(0) !important;
 }
 @media (hover: hover) and (pointer: fine) {
@@ -5196,7 +5194,10 @@ body.warroom-active {
     gap: 8px !important;
     box-sizing: border-box !important;
     width: 100% !important;
-    contain: layout paint !important;
+    overflow-anchor: auto !important;
+    scroll-behavior: auto !important;
+    transform: translateZ(0) !important;
+    will-change: scroll-position !important;
   }
   .wiretap-card {
     padding: 11px 13px !important;
@@ -5205,9 +5206,7 @@ body.warroom-active {
     box-sizing: border-box !important;
     background: rgba(13, 17, 25, 0.85) !important;
     border: 1px solid var(--apple-glass-border) !important;
-    contain: layout style paint !important;
-    content-visibility: auto !important;
-    contain-intrinsic-size: 0 80px !important;
+    contain: layout style !important;
   }
   .wiretap-header {
     gap: 8px !important;
@@ -12125,6 +12124,75 @@ body.theme-light .kage-btn.secondary {
   }
 
   let lastWiretapScrollTop = 0;
+  let wiretapScrollRaf = null;
+  let isWiretapAnimating = false;
+  let isProgrammaticScroll = false;
+  let programmaticScrollTimer = null;
+  let touchStartY = 0;
+  let isTouchDragging = false;
+  let pendingScrollAfterTouch = false;
+  let mediaScrollTimer = null;
+
+  function cancelWiretapAnimation() {
+    if (wiretapScrollRaf) {
+      cancelAnimationFrame(wiretapScrollRaf);
+      wiretapScrollRaf = null;
+    }
+    isWiretapAnimating = false;
+  }
+
+  function smoothScrollWiretap(stream, targetTop, duration = 220) {
+    if (!stream) return;
+    const startTop = stream.scrollTop;
+    const distance = targetTop - startTop;
+
+    if (Math.abs(distance) <= 2) {
+      stream.scrollTop = targetTop;
+      lastWiretapScrollTop = targetTop;
+      return;
+    }
+
+    cancelWiretapAnimation();
+    isWiretapAnimating = true;
+    isProgrammaticScroll = true;
+
+    const startTime = performance.now();
+
+    function step(now) {
+      if (isTouchDragging || userScrolledUpWiretap) {
+        cancelWiretapAnimation();
+        isProgrammaticScroll = false;
+        return;
+      }
+
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Buttery cubic ease-out for 60-120 FPS high-refresh displays
+      const ease = 1 - Math.pow(1 - progress, 3);
+
+      // Dynamically track live bottom in case new messages or media arrive mid-glide
+      const liveTarget = stream.scrollHeight - stream.clientHeight;
+      const liveDistance = liveTarget - startTop;
+
+      stream.scrollTop = startTop + (liveDistance * ease);
+      lastWiretapScrollTop = stream.scrollTop;
+
+      if (progress < 1) {
+        wiretapScrollRaf = requestAnimationFrame(step);
+      } else {
+        stream.scrollTop = stream.scrollHeight - stream.clientHeight;
+        lastWiretapScrollTop = stream.scrollTop;
+        wiretapScrollRaf = null;
+        isWiretapAnimating = false;
+        if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
+        programmaticScrollTimer = setTimeout(() => {
+          isProgrammaticScroll = false;
+        }, 60);
+      }
+    }
+
+    wiretapScrollRaf = requestAnimationFrame(step);
+  }
 
   function scrollWiretapToBottom(force = false) {
     if (typeof activeCenterTab !== 'undefined' && activeCenterTab !== 'wiretap') return;
@@ -12132,175 +12200,156 @@ body.theme-light .kage-btn.secondary {
     const stream = document.getElementById('wiretap-stream');
     if (!stream) return;
 
+    const targetTop = stream.scrollHeight - stream.clientHeight;
+    if (targetTop < 0) return;
+
     if (force) {
       userScrolledUpWiretap = false;
-      isUserInteractingWithWiretap = false;
+      isTouchDragging = false;
+      pendingScrollAfterTouch = false;
       if (wiretapAutoScroll) {
         updateWiretapScrollButtons(true, 'SCROLL: AUTO');
       }
-      isProgrammaticScroll = true;
-      const targetTop = stream.scrollHeight - stream.clientHeight;
-      stream.scrollTop = targetTop;
-      lastWiretapScrollTop = stream.scrollTop;
-      if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
-      programmaticScrollTimer = setTimeout(() => {
-        isProgrammaticScroll = false;
-      }, 100);
+      smoothScrollWiretap(stream, targetTop, 240);
       return;
     }
 
-    // Never fight active user touch / gesture interactions
-    if (isUserInteractingWithWiretap) return;
+    // Never fight active user touch / drag gestures
+    if (isTouchDragging) {
+      pendingScrollAfterTouch = true;
+      return;
+    }
+
+    // Respect user scroll-up pause
     if (!wiretapAutoScroll || userScrolledUpWiretap) return;
 
-    if (wiretapScrollRaf) return; // Coalesce multiple message arrivals within the same frame (prevents layout thrashing)
+    const distFromBottom = targetTop - stream.scrollTop;
+    if (distFromBottom <= 2) {
+      stream.scrollTop = targetTop;
+      lastWiretapScrollTop = targetTop;
+      return;
+    }
 
-    wiretapScrollRaf = requestAnimationFrame(() => {
-      wiretapScrollRaf = null;
-      if (isUserInteractingWithWiretap || !wiretapAutoScroll || userScrolledUpWiretap) return;
+    // If large distance accumulated, leap near bottom and glide smoothly
+    if (distFromBottom > 800) {
+      stream.scrollTop = targetTop - 200;
+    }
 
-      const targetTop = stream.scrollHeight - stream.clientHeight;
-      const delta = targetTop - stream.scrollTop;
-      if (delta <= 1) return; // Already at bottom
-
-      isProgrammaticScroll = true;
-      const now = performance.now();
-      const timeSinceLastScroll = now - lastProgrammaticScrollTime;
-      lastProgrammaticScrollTime = now;
-
-      // If messages are arriving rapidly (burst < 180ms) or distance is large (> 450px),
-      // snap directly to avoid animation queue stutter.
-      // Otherwise, use buttery smooth 60-120fps glide for incoming messages.
-      if (delta < 450 && timeSinceLastScroll > 180) {
-        stream.scrollTo({ top: targetTop, behavior: 'smooth' });
-        if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
-        programmaticScrollTimer = setTimeout(() => {
-          isProgrammaticScroll = false;
-          lastWiretapScrollTop = stream.scrollTop;
-        }, 220);
-      } else {
-        stream.scrollTop = targetTop;
-        lastWiretapScrollTop = stream.scrollTop;
-        if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
-        programmaticScrollTimer = setTimeout(() => {
-          isProgrammaticScroll = false;
-        }, 60);
-      }
-    });
+    smoothScrollWiretap(stream, targetTop, 200);
   }
 
-  let mediaScrollRaf = null;
   function onWiretapMediaLoaded() {
     if (typeof activeCenterTab !== 'undefined' && activeCenterTab !== 'wiretap') return;
-    if (wiretapAutoScroll && !userScrolledUpWiretap && !isUserInteractingWithWiretap) {
-      if (mediaScrollRaf) return;
-      mediaScrollRaf = requestAnimationFrame(() => {
-        mediaScrollRaf = null;
+    if (wiretapAutoScroll && !userScrolledUpWiretap && !isTouchDragging) {
+      if (mediaScrollTimer) clearTimeout(mediaScrollTimer);
+      mediaScrollTimer = setTimeout(() => {
         scrollWiretapToBottom(false);
-      });
+      }, 35);
     }
   }
 
-  function checkWiretapScrollPosition(el) {
-    if (!el || isProgrammaticScroll) return;
-    if (el.scrollHeight <= el.clientHeight + 10) return;
+  function checkWiretapScrollPosition(stream) {
+    if (!stream || isProgrammaticScroll || isWiretapAnimating) return;
 
-    const currentScrollTop = el.scrollTop;
-    const distFromBottom = el.scrollHeight - currentScrollTop - el.clientHeight;
-    const isScrollingUpwards = currentScrollTop < (lastWiretapScrollTop - 6);
-    const isScrollingDownwards = currentScrollTop > (lastWiretapScrollTop + 6);
-    lastWiretapScrollTop = currentScrollTop;
+    const currentScrollTop = stream.scrollTop;
+    const maxScroll = stream.scrollHeight - stream.clientHeight;
+    if (maxScroll <= 10) return;
 
-    // Upward scroll detection: ONLY pause autoscroll if:
-    // 1. User is actively interacting with the stream (touch / mouse / wheel)
-    // 2. Meaningful upward movement (> 6px)
-    // 3. User is clearly away from the bottom (> 75px), preventing overscroll rubber-band bounce from pausing autoscroll
-    if (isScrollingUpwards && distFromBottom > 75 && isUserInteractingWithWiretap) {
-      if (!userScrolledUpWiretap) {
-        userScrolledUpWiretap = true;
-        if (wiretapAutoScroll) {
-          updateWiretapScrollButtons(false, 'SCROLL: PAUSED (RESUME ↓)');
-        }
-      }
-    } else if (distFromBottom <= 70) {
-      // Reached near bottom (within 70px): automatically re-engage autoscroll
+    const distFromBottom = maxScroll - currentScrollTop;
+
+    // Automatic resume: when user reaches within 85px of bottom, re-lock autoscroll
+    if (distFromBottom <= 85) {
       if (userScrolledUpWiretap) {
         userScrolledUpWiretap = false;
         if (wiretapAutoScroll) {
           updateWiretapScrollButtons(true, 'SCROLL: AUTO');
         }
       }
+    } else if (distFromBottom > 130 && isTouchDragging) {
+      // Pause autoscroll only if user intentionally drags away from the bottom (> 130px)
+      if (!userScrolledUpWiretap) {
+        userScrolledUpWiretap = true;
+        if (wiretapAutoScroll) {
+          updateWiretapScrollButtons(false, 'SCROLL: PAUSED (RESUME ↓)');
+        }
+      }
     }
+
+    lastWiretapScrollTop = currentScrollTop;
   }
 
-  let wiretapScrollCheckRaf = null;
   function initWiretapScrollListeners() {
     const stream = document.getElementById('wiretap-stream');
     if (!stream || stream._hasScrollListeners) return;
     stream._hasScrollListeners = true;
 
-    const onInteractionStart = () => {
-      isUserInteractingWithWiretap = true;
-      if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
-    };
+    // Mobile touch gestures: track drag vs simple tap
+    stream.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+      isTouchDragging = false;
+      cancelWiretapAnimation();
+    }, { passive: true });
 
-    const onInteractionEnd = () => {
+    stream.addEventListener('touchmove', (e) => {
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - touchStartY;
+      if (Math.abs(deltaY) > 8) {
+        isTouchDragging = true;
+      }
+      checkWiretapScrollPosition(stream);
+    }, { passive: true });
+
+    const onTouchEnd = () => {
       if (wiretapTouchTimer) clearTimeout(wiretapTouchTimer);
       wiretapTouchTimer = setTimeout(() => {
-        isUserInteractingWithWiretap = false;
+        isTouchDragging = false;
         checkWiretapScrollPosition(stream);
-        // If user was touching and released within 75px of the bottom,
-        // snap smoothly to bottom to maintain autoscroll lock
+
+        // If user released near bottom and autoscroll is enabled, smoothly snap to bottom
         if (wiretapAutoScroll && !userScrolledUpWiretap) {
           const dist = stream.scrollHeight - stream.scrollTop - stream.clientHeight;
-          if (dist <= 75) {
+          if (dist <= 100 || pendingScrollAfterTouch) {
+            pendingScrollAfterTouch = false;
             scrollWiretapToBottom(false);
           }
         }
-      }, 120);
+      }, 140);
     };
 
-    stream.addEventListener('touchstart', onInteractionStart, { passive: true });
-    stream.addEventListener('touchmove', onInteractionStart, { passive: true });
-    stream.addEventListener('touchend', onInteractionEnd, { passive: true });
-    stream.addEventListener('touchcancel', onInteractionEnd, { passive: true });
+    stream.addEventListener('touchend', onTouchEnd, { passive: true });
+    stream.addEventListener('touchcancel', onTouchEnd, { passive: true });
 
-    // Wheel event listener for desktop mouse and trackpad
+    // Desktop Mouse & Trackpad Wheel Handling
     stream.addEventListener('wheel', (e) => {
-      onInteractionStart();
-      if (e.deltaY < -2) {
-        // Direct upward wheel scroll
+      cancelWiretapAnimation();
+      if (e.deltaY < -4) {
+        // Scrolling up -> reading history
         const dist = stream.scrollHeight - stream.scrollTop - stream.clientHeight;
-        if (dist > 50) {
+        if (dist > 85) {
           userScrolledUpWiretap = true;
-          isProgrammaticScroll = false;
           if (wiretapAutoScroll) {
             updateWiretapScrollButtons(false, 'SCROLL: PAUSED (RESUME ↓)');
           }
         }
-      } else if (e.deltaY > 2) {
-        // Downward wheel scroll - check if near bottom
+      } else if (e.deltaY > 4) {
+        // Scrolling down -> moving towards bottom
         const dist = stream.scrollHeight - stream.scrollTop - stream.clientHeight;
-        if (dist <= 70) {
+        if (dist <= 85) {
           userScrolledUpWiretap = false;
           if (wiretapAutoScroll) {
             updateWiretapScrollButtons(true, 'SCROLL: AUTO');
           }
         }
       }
-      onInteractionEnd();
     }, { passive: true });
 
-    stream.addEventListener('mousedown', onInteractionStart, { passive: true });
-    stream.addEventListener('mouseup', onInteractionEnd, { passive: true });
-
+    // Passive scroll listener (smooth momentum deceleration)
     stream.addEventListener('scroll', () => {
-      if (isProgrammaticScroll) return;
-      if (wiretapScrollCheckRaf) return;
-      wiretapScrollCheckRaf = requestAnimationFrame(() => {
-        wiretapScrollCheckRaf = null;
-        checkWiretapScrollPosition(stream);
-      });
+      if (isProgrammaticScroll || isWiretapAnimating) {
+        lastWiretapScrollTop = stream.scrollTop;
+        return;
+      }
+      checkWiretapScrollPosition(stream);
     }, { passive: true });
   }
 
