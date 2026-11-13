@@ -437,5 +437,129 @@ class TestKageFunctionalityRepair(unittest.TestCase):
 
         print("  ✅ PASS: Real moving speed & ETA calculation mathematically verified.")
 
+    # ═══════════════════════════════════════════════════════
+    #  8. CONCURRENT DEEP SCAN DEDUPLICATION (ANTI-BUTTON-MASHING)
+    # ═══════════════════════════════════════════════════════
+    def test_08_concurrent_deep_scan_requests_deduplicated(self):
+        """Verify button mashing / concurrent duplicate requests to /api/messages/deep_scan are safely deduplicated."""
+        async def run_test():
+            gid = 8877665544
+            mock_entity = MagicMock(id=gid, title="Mash Protection Group")
+            self.mock_client.get_entity = AsyncMock(return_value=mock_entity)
+
+            Config.save_owner_pin("1337")
+            auth_res = await self.client.request(
+                "POST",
+                "/api/owner/verify",
+                json_data={"pin": "1337"},
+                headers={"x-forwarded-for": "127.0.0.1"}
+            )
+            auth_token = auth_res.json()["token"]
+            auth_headers = {"x-owner-token": auth_token}
+
+            # Fire 5 concurrent requests representing rapid user clicks / button mashing
+            tasks = [
+                self.client.request(
+                    "POST",
+                    "/api/messages/deep_scan",
+                    json_data={"group_id": gid, "limit": 100000},
+                    headers=auth_headers
+                )
+                for _ in range(5)
+            ]
+            responses = await asyncio.gather(*tasks)
+
+            # All requests should return 200 OK
+            for resp in responses:
+                self.assertEqual(resp.status, 200)
+
+            results = [r.json() for r in responses]
+            statuses = [r.get("status") for r in results]
+
+            # Exactly one request starts the job, the others detect it is already running
+            self.assertIn("started", statuses, "At least one request must successfully start the scan")
+            self.assertIn("already_running", statuses, "Duplicate mashed taps must return 'already_running'")
+            self.assertEqual(statuses.count("started"), 1, "Only exactly ONE background scan task must be started")
+            self.assertEqual(statuses.count("already_running"), 4, "Remaining 4 duplicate taps must be safely suppressed")
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: Deep scan button mashing deduplicated — exactly 1 task launched, 4 duplicate taps suppressed.")
+
+    # ═══════════════════════════════════════════════════════
+    #  9. CONCURRENT ROSTER SCAN DEDUPLICATION (ANTI-BUTTON-MASHING)
+    # ═══════════════════════════════════════════════════════
+    def test_09_concurrent_roster_scan_deduplicated(self):
+        """Verify rapid clicking on /api/scan reuses in-flight task rather than spawning parallel MTProto loops."""
+        async def run_test():
+            gid = 3344556677
+            mock_entity = MagicMock(id=gid, title="Roster Scan Group")
+            self.mock_client.get_entity = AsyncMock(return_value=mock_entity)
+
+            Config.save_owner_pin("1337")
+            auth_res = await self.client.request(
+                "POST",
+                "/api/owner/verify",
+                json_data={"pin": "1337"},
+                headers={"x-forwarded-for": "127.0.0.1"}
+            )
+            auth_token = auth_res.json()["token"]
+            auth_headers = {"x-owner-token": auth_token}
+
+            call_count = 0
+            async def slow_inspect(entity, limit=2000):
+                nonlocal call_count
+                call_count += 1
+                await asyncio.sleep(0.05)
+                return [{"id": 1, "full_name": "Test Member", "username": "test"}]
+
+            self.engine.inspect_group_members = slow_inspect
+
+            # Fire 4 concurrent requests simulating repeated button taps
+            tasks = [
+                self.client.request(
+                    "POST",
+                    "/api/scan",
+                    json_data={"group_id": gid, "limit": 2000},
+                    headers=auth_headers
+                )
+                for _ in range(4)
+            ]
+            responses = await asyncio.gather(*tasks)
+
+            for resp in responses:
+                self.assertEqual(resp.status, 200)
+
+            # inspect_group_members must have been called only ONCE for all 4 concurrent requests!
+            self.assertEqual(call_count, 1, f"Expected 1 underlying inspection call, but got {call_count}")
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: Roster scan button mashing deduplicated — 4 concurrent requests shared 1 task.")
+
+    # ═══════════════════════════════════════════════════════
+    #  10. FRONTEND ANTI-BUTTON-MASHING DEFENSE SHIELD
+    # ═══════════════════════════════════════════════════════
+    def test_10_anti_button_mashing_frontend_shield_present(self):
+        """Verify global click debouncer, capture-phase interceptor, and button busy states exist in frontend."""
+        html_path = Path(__file__).resolve().parent.parent / "web" / "static" / "index.html"
+        self.assertTrue(html_path.exists())
+        with open(html_path, "r", encoding="utf-8") as f:
+            html = f.read()
+
+        # Capture-phase listener and cooldown
+        self.assertIn("initAntiButtonMashing", html)
+        self.assertIn("CLICK_COOLDOWN_MS", html)
+        self.assertIn("kage-mash-blocked", html)
+        self.assertIn("btn-locked-busy", html)
+        self.assertIn("setButtonBusy", html)
+
+        # Action-specific button locks
+        self.assertIn("isDeepScanStarting", html)
+        self.assertIn("isReconRunning", html)
+        self.assertIn("isSyncingSavedChat", html)
+        self.assertIn("isRestoringSavedChat", html)
+        self.assertIn("isSubmittingOwnerPin", html)
+
+        print("  ✅ PASS: Frontend anti-button-mashing shield verified across global capture listener and button locks.")
+
 if __name__ == "__main__":
     unittest.main()

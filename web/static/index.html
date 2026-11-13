@@ -6165,6 +6165,22 @@ body.theme-light .kage-btn.secondary {
   border: 1px solid rgba(0, 0, 0, 0.18) !important;
 }
 
+/* ── ANTI-BUTTON-MASHING FEEDBACK ── */
+.kage-mash-blocked {
+  animation: kageMashShake 0.22s ease-in-out !important;
+  opacity: 0.8 !important;
+}
+@keyframes kageMashShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+.btn-locked-busy {
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  opacity: 0.75 !important;
+}
+
 </style>
 </head>
 
@@ -6779,7 +6795,7 @@ body.theme-light .kage-btn.secondary {
             <button type="button" onclick="start100kScan(100000)" id="btn-deep-scan-100k" class="kage-action-btn" style="background: linear-gradient(135deg, #059669, #10b981); color: #fff; border: 1px solid #34d399; font-weight: 700; box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);">
               <i data-lucide="zap" style="width: 14px; height: 14px;"></i> ⚡ 100K REPUTATION SCAN
             </button>
-            <button type="button" onclick="start100kScan(10000)" class="kage-sub-btn" title="Quick scan of recent 10,000 messages">
+            <button type="button" onclick="start100kScan(10000)" id="btn-deep-scan-10k" class="kage-sub-btn" title="Quick scan of recent 10,000 messages">
               ⚡ 10K QUICK
             </button>
             <button type="button" onclick="runMemberRecon()" id="btn-run-recon" class="kage-sub-btn">
@@ -6791,7 +6807,7 @@ body.theme-light .kage-btn.secondary {
             <button type="button" onclick="restoreSavedChatCloudDB()" id="btn-saved-chat-restore" class="kage-sub-btn" style="color: #38B98C; border-color: rgba(56,185,140,0.4);" title="Instant restore of group intelligence database directly from Telegram Saved Messages ('me')">
               <i data-lucide="cloud-download" style="width: 12px; height: 12px;"></i> 📥 RESTORE CLOUD DB
             </button>
-            <button type="button" onclick="exportReconMembers()" class="kage-sub-btn">
+            <button type="button" onclick="exportReconMembers()" id="btn-export-recon" class="kage-sub-btn">
               <i data-lucide="download" style="width: 12px; height: 12px;"></i> CSV Export
             </button>
           </div>
@@ -9166,6 +9182,64 @@ body.theme-light .kage-btn.secondary {
 <!-- TELEGRAM WAR ROOM ENGINE LOGIC -->
 <script>
 
+  // ═══════════════════════════════════════════════════════════════
+  //   GLOBAL ANTI-BUTTON-MASHING & CONCURRENCY DEFENSE SHIELD
+  // ═══════════════════════════════════════════════════════════════
+  (function initAntiButtonMashing() {
+    const CLICK_COOLDOWN_MS = 500; // Minimum interval between taps on same button
+    const activeLocks = new WeakMap();
+
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('button, [role="button"], .kage-action-btn, .kage-sub-btn, .hud-action-btn, .flt-btn, .cta, .act-pill');
+      if (!btn) return;
+
+      // Check if button is explicitly disabled or already busy
+      if (btn.disabled || btn.getAttribute('aria-busy') === 'true' || btn.classList.contains('btn-locked-busy')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return false;
+      }
+
+      const now = Date.now();
+      const lastClick = activeLocks.get(btn) || 0;
+
+      if (now - lastClick < CLICK_COOLDOWN_MS) {
+        // Continuous tapping / button mashing detected!
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        // Subtle micro-feedback (visual ripple/haptic cue without breaking UI)
+        btn.classList.add('kage-mash-blocked');
+        setTimeout(() => btn.classList.remove('kage-mash-blocked'), 220);
+        return false;
+      }
+
+      activeLocks.set(btn, now);
+    }, true); // Capture phase to intercept before inline onclick or other listeners!
+  })();
+
+  function setButtonBusy(btn, isBusy, busyText = null) {
+    if (!btn) return;
+    if (isBusy) {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.classList.add('btn-locked-busy');
+      if (!btn.dataset.origHtml) btn.dataset.origHtml = btn.innerHTML;
+      if (busyText) {
+        btn.innerHTML = `<span class="loading-spin" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> ${busyText}`;
+      }
+    } else {
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      btn.classList.remove('btn-locked-busy');
+      if (btn.dataset.origHtml) {
+        btn.innerHTML = btn.dataset.origHtml;
+        delete btn.dataset.origHtml;
+      }
+      if (typeof safeCreateIcons === 'function') safeCreateIcons(btn);
+    }
+  }
+
   let ws = null;
   let selectedIds = new Set();
   let scannedMembers = [];
@@ -11168,7 +11242,9 @@ body.theme-light .kage-btn.secondary {
     if (e.target.id === 'broadcast-modal') e.target.style.display = 'none';
   }
 
+  let isDispatchingBroadcast = false;
   async function dispatchBroadcastCampaign() {
+    if (isDispatchingBroadcast) return;
     const groupId = getActiveGroupId();
     if (!groupId) return alert("Select a target entity first.");
 
@@ -11182,7 +11258,9 @@ body.theme-light .kage-btn.secondary {
     if (targetList.length === 0) return alert("No target participants selected. Run scan first.");
 
     playZenSound('clack');
-    document.getElementById('btn-start-broadcast').disabled = true;
+    const startBtn = document.getElementById('btn-start-broadcast');
+    isDispatchingBroadcast = true;
+    if (startBtn) setButtonBusy(startBtn, true, 'LAUNCHING...');
     document.getElementById('broadcast-progress-container').style.display = 'block';
 
     try {
@@ -11196,6 +11274,14 @@ body.theme-light .kage-btn.secondary {
         })
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Broadcast request failed");
+
+      if (data.status === 'already_running') {
+        showToast("⚠️ " + (data.message || "Broadcast outreach already in progress."), "info");
+        if (startBtn) setButtonBusy(startBtn, false);
+        return;
+      }
+
       const campaignId = data.campaign_id;
       showToast(`⚡ Broadcast campaign launched for ${data.total_targets} members!`);
 
@@ -11228,7 +11314,7 @@ body.theme-light .kage-btn.secondary {
             if (activeCamp.status === 'completed' || processed >= total) {
               clearInterval(pollInterval);
               if (progLabel) progLabel.innerText = 'Campaign Completed';
-              document.getElementById('btn-start-broadcast').disabled = false;
+              if (startBtn) setButtonBusy(startBtn, false);
               showToast(`✓ Drip outreach successfully completed! (${sent} sent, ${failed} failed)`);
             }
           }
@@ -11239,7 +11325,9 @@ body.theme-light .kage-btn.secondary {
 
     } catch (e) {
       alert("Broadcast error: " + e.message);
-      document.getElementById('btn-start-broadcast').disabled = false;
+      if (startBtn) setButtonBusy(startBtn, false);
+    } finally {
+      isDispatchingBroadcast = false;
     }
   }
 
@@ -14197,6 +14285,10 @@ body.theme-light .kage-btn.secondary {
           deepScanPollInterval = null;
           const panel = document.getElementById('deep-scan-progress-panel');
           if (panel) panel.style.display = 'none';
+          const btn100k = document.getElementById('btn-deep-scan-100k');
+          const btn10k = document.getElementById('btn-deep-scan-10k');
+          if (btn100k) setButtonBusy(btn100k, false);
+          if (btn10k) setButtonBusy(btn10k, false);
           if (data.status === 'ERROR' || data.status === 'FAILED') {
             showToast("Deep scan error: " + (data.error || "Unknown error"), "error");
           }
@@ -14214,15 +14306,33 @@ body.theme-light .kage-btn.secondary {
     }
     const panel = document.getElementById('deep-scan-progress-panel');
     if (panel) panel.style.display = 'none';
+    const btn100k = document.getElementById('btn-deep-scan-100k');
+    const btn10k = document.getElementById('btn-deep-scan-10k');
+    if (btn100k) setButtonBusy(btn100k, false);
+    if (btn10k) setButtonBusy(btn10k, false);
     showToast("⚠️ Deep scan error: " + (data.error || "Failed to complete scan"), "error");
   }
 
+  let isDeepScanStarting = false;
   async function start100kScan(limit = 100000) {
+    if (isDeepScanStarting) return;
     const gid = getActiveGroupId();
     if (!gid) {
       showToast("Select a target group first", "error");
       return;
     }
+
+    const btn100k = document.getElementById('btn-deep-scan-100k');
+    const btn10k = document.getElementById('btn-deep-scan-10k');
+    isDeepScanStarting = true;
+    if (limit >= 50000) {
+      if (btn100k) setButtonBusy(btn100k, true, 'STARTING SCAN...');
+      if (btn10k) setButtonBusy(btn10k, true);
+    } else {
+      if (btn10k) setButtonBusy(btn10k, true, 'STARTING...');
+      if (btn100k) setButtonBusy(btn100k, true);
+    }
+
     const panel = document.getElementById('deep-scan-progress-panel');
     if (panel) panel.style.display = 'block';
     
@@ -14250,11 +14360,22 @@ body.theme-light .kage-btn.secondary {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to start scan");
+
+      if (data.status === 'already_running') {
+        showToast(`⚡ Deep scan already actively running! Attaching live telemetry...`, "info");
+        startDeepScanPolling(gid);
+        return;
+      }
+
       showToast(`⚡ Deep scan initiated for ${limit.toLocaleString()} messages!`, "success");
       startDeepScanPolling(gid);
     } catch (e) {
       showToast("Deep scan error: " + e.message, "error");
       if (panel) panel.style.display = 'none';
+      if (btn100k) setButtonBusy(btn100k, false);
+      if (btn10k) setButtonBusy(btn10k, false);
+    } finally {
+      isDeepScanStarting = false;
     }
   }
 
@@ -14265,6 +14386,8 @@ body.theme-light .kage-btn.secondary {
       clearInterval(deepScanPollInterval);
       deepScanPollInterval = null;
     }
+    const btn100k = document.getElementById('btn-deep-scan-100k');
+    const btn10k = document.getElementById('btn-deep-scan-10k');
     try {
       await fetch('/api/messages/deep_scan/cancel', {
         method: 'POST',
@@ -14276,20 +14399,23 @@ body.theme-light .kage-btn.secondary {
       if (panel) panel.style.display = 'none';
     } catch (e) {
       showToast("Cancel error: " + e.message, "error");
+    } finally {
+      if (btn100k) setButtonBusy(btn100k, false);
+      if (btn10k) setButtonBusy(btn10k, false);
     }
   }
 
+  let isSyncingSavedChat = false;
   async function syncSavedChatCloudDB() {
+    if (isSyncingSavedChat) return;
     const gid = getActiveGroupId();
     if (!gid) {
       showToast("Select a target group first", "error");
       return;
     }
     const btn = document.getElementById('btn-saved-chat-sync');
-    if (btn) {
-      btn.innerHTML = '<span class="loading-spin"></span> Syncing...';
-      btn.disabled = true;
-    }
+    isSyncingSavedChat = true;
+    if (btn) setButtonBusy(btn, true, 'Syncing...');
     try {
       const res = await fetch('/api/saved_chat/sync', {
         method: 'POST',
@@ -14298,19 +14424,22 @@ body.theme-light .kage-btn.secondary {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Sync failed");
+      if (data.status === 'already_syncing') {
+        showToast("☁️ Cloud sync already actively in progress for this group.", "info");
+        return;
+      }
       showToast(`☁️ Cloud Vault Synced! Backup dispatched to Saved Messages (${data.total_members} members, ${data.file_size_kb} KB)`, "success");
     } catch (e) {
       showToast("Cloud sync error: " + e.message, "error");
     } finally {
-      if (btn) {
-        btn.innerHTML = '<i data-lucide="cloud-upload" style="width: 12px; height: 12px;"></i> ☁️ SYNC TO SAVED CHAT';
-        btn.disabled = false;
-        safeCreateIcons(btn);
-      }
+      isSyncingSavedChat = false;
+      if (btn) setButtonBusy(btn, false);
     }
   }
 
+  let isRestoringSavedChat = false;
   async function restoreSavedChatCloudDB() {
+    if (isRestoringSavedChat) return;
     const gid = getActiveGroupId();
     if (!gid) {
       showToast("Select a target group first", "error");
@@ -14325,10 +14454,8 @@ body.theme-light .kage-btn.secondary {
     if (!confirmed) return;
 
     const btn = document.getElementById('btn-saved-chat-restore');
-    if (btn) {
-      btn.innerHTML = '<span class="loading-spin"></span> Restoring...';
-      btn.disabled = true;
-    }
+    isRestoringSavedChat = true;
+    if (btn) setButtonBusy(btn, true, 'Restoring...');
     try {
       const res = await fetch('/api/saved_chat/restore', {
         method: 'POST',
@@ -14337,16 +14464,17 @@ body.theme-light .kage-btn.secondary {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Restore failed");
+      if (data.status === 'already_restoring') {
+        showToast("📥 Cloud restore already actively in progress for this group.", "info");
+        return;
+      }
       showToast(`📥 Cloud Database Restored! Imported ${data.restored_members} members from Saved Messages.`, "success");
       await loadGroupReputationGrid();
     } catch (e) {
       showToast("Cloud restore error: " + e.message, "error");
     } finally {
-      if (btn) {
-        btn.innerHTML = '<i data-lucide="cloud-download" style="width: 12px; height: 12px;"></i> 📥 RESTORE CLOUD DB';
-        btn.disabled = false;
-        safeCreateIcons(btn);
-      }
+      isRestoringSavedChat = false;
+      if (btn) setButtonBusy(btn, false);
     }
   }
 
@@ -14413,6 +14541,10 @@ body.theme-light .kage-btn.secondary {
       clearInterval(deepScanPollInterval);
       deepScanPollInterval = null;
     }
+    const btn100k = document.getElementById('btn-deep-scan-100k');
+    const btn10k = document.getElementById('btn-deep-scan-10k');
+    if (btn100k) setButtonBusy(btn100k, false);
+    if (btn10k) setButtonBusy(btn10k, false);
     const scanned = data.total_scanned || data.scanned || 0;
     const members = data.unique_members || 0;
     showToast(`🏆 100K Deep Scan Complete! Profiled ${members.toLocaleString()} members across ${scanned.toLocaleString()} messages.`, "success");
@@ -14459,7 +14591,9 @@ body.theme-light .kage-btn.secondary {
     return false;
   }
 
+  let isReconRunning = false;
   async function runMemberRecon() {
+    if (isReconRunning) return;
     const gid = getActiveGroupId();
     if (!gid) {
       showToast("Select a target group first", "error");
@@ -14467,8 +14601,8 @@ body.theme-light .kage-btn.secondary {
     }
     const btn = document.getElementById('btn-run-recon');
     const wrap = document.getElementById('recon-table-wrap');
-    btn.innerHTML = '<span class="loading-spin"></span> Scanning...';
-    btn.disabled = true;
+    isReconRunning = true;
+    if (btn) setButtonBusy(btn, true, 'SCANNING...');
 
     try {
       // First, check if we already have 100k indexed reputation data
@@ -14488,12 +14622,11 @@ body.theme-light .kage-btn.secondary {
       renderReconTable(cachedReconMembers);
       showToast(`🎯 Profiled ${cachedReconMembers.length} members with forensic intelligence!`, 'success');
     } catch (e) {
-      wrap.innerHTML = `<div style="color: var(--vermilion); padding: 20px;">Scan failed: ${escapeHtml(e.message)}</div>`;
+      if (wrap) wrap.innerHTML = `<div style="color: var(--vermilion); padding: 20px;">Scan failed: ${escapeHtml(e.message)}</div>`;
       showToast("Recon error: " + e.message, "error");
     } finally {
-      btn.innerHTML = '<i data-lucide="scan" style="width: 14px; height: 14px;"></i> 🔍 SCAN MEMBERS';
-      btn.disabled = false;
-      safeCreateIcons();
+      isReconRunning = false;
+      if (btn) setButtonBusy(btn, false);
     }
   }
 
@@ -14667,7 +14800,17 @@ body.theme-light .kage-btn.secondary {
     return `"${s.replace(/"/g, '""')}"`;
   }
 
+  let isExportingRecon = false;
   function exportReconMembers() {
+    if (isExportingRecon) return;
+    isExportingRecon = true;
+    const btn = document.getElementById('btn-export-recon');
+    if (btn) setButtonBusy(btn, true, 'EXPORTING...');
+    setTimeout(() => {
+      isExportingRecon = false;
+      if (btn) setButtonBusy(btn, false);
+    }, 1500);
+
     const gid = getActiveGroupId();
     if (gid) {
       window.location.href = `/api/export/members?group_id=${gid}&format=csv`;
@@ -17635,7 +17778,9 @@ body.theme-light .kage-btn.secondary {
     safeCreateIcons();
   }
 
+  let isSubmittingOwnerPin = false;
   async function submitOwnerPin() {
+    if (isSubmittingOwnerPin) return;
     const userInput = document.getElementById('owner-username-input');
     const pinInput = document.getElementById('owner-pin-input');
     const errBox = document.getElementById('owner-error-msg');
@@ -17654,11 +17799,8 @@ body.theme-light .kage-btn.secondary {
     }
 
     if (errBox) errBox.style.display = 'none';
-    const origBtnHtml = btn ? btn.innerHTML : '';
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = `<span style="display:inline-block; width:12px; height:12px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.6s linear infinite; margin-right:8px; vertical-align:middle;"></span> VERIFYING CLEARANCE...`;
-    }
+    isSubmittingOwnerPin = true;
+    if (btn) setButtonBusy(btn, true, 'VERIFYING CLEARANCE...');
 
     try {
       const res = await fetch('/api/owner/verify', {
@@ -17709,11 +17851,8 @@ body.theme-light .kage-btn.secondary {
         pinInput.focus();
       }
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = origBtnHtml;
-        safeCreateIcons();
-      }
+      isSubmittingOwnerPin = false;
+      if (btn) setButtonBusy(btn, false);
     }
   }
 

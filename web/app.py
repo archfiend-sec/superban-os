@@ -1131,6 +1131,13 @@ def create_app(engine: SuperBanEngine):
                 }
             )
 
+    # Concurrency & In-Flight Operation Locks (Anti-Button-Mashing Shields)
+    _active_roster_scans: Dict[int, asyncio.Task] = {}
+    _active_deep_scans_in_flight: Set[int] = set()
+    _active_saved_syncs: Set[int] = set()
+    _active_saved_restores: Set[int] = set()
+    _active_broadcast_groups: Set[int] = set()
+
     class ScanRequest(BaseModel):
         group_id: int
         limit: int = 2000
@@ -1141,13 +1148,26 @@ def create_app(engine: SuperBanEngine):
         if not entity:
             raise HTTPException(status_code=404, detail="Target group not found")
 
+        # Anti-Button-Mashing: Deduplicate concurrent requests for the same group
+        if req.group_id in _active_roster_scans and not _active_roster_scans[req.group_id].done():
+            try:
+                members = await _active_roster_scans[req.group_id]
+                return {"group_id": req.group_id, "total": len(members), "members": members, "status": "deduplicated"}
+            except Exception as e:
+                logger.error(f"Deduplicated scan error: {e}")
+                raise HTTPException(status_code=400, detail=str(e))
+
+        scan_task = asyncio.create_task(engine.inspect_group_members(entity, limit=req.limit))
+        _active_roster_scans[req.group_id] = scan_task
         try:
-            members = await engine.inspect_group_members(entity, limit=req.limit)
+            members = await scan_task
             cached_members[req.group_id] = members
             return {"group_id": req.group_id, "total": len(members), "members": members}
         except Exception as e:
             logger.error(f"Scan group error: {e}")
             raise HTTPException(status_code=400, detail=str(e))
+        finally:
+            _active_roster_scans.pop(req.group_id, None)
 
     # ═══════════════════════════════════════════════════════
     #   100,000 MESSAGE DEEP SCAN & REPUTATION SUITE
@@ -1158,13 +1178,46 @@ def create_app(engine: SuperBanEngine):
 
     @app.post("/api/messages/deep_scan")
     async def start_deep_scan(req: DeepScanReq):
-        """Initiate background deep scan of up to 100,000 messages to extract rich member reputation."""
+        """Initiate background deep scan with concurrency protection against button mashing."""
         entity = await engine.get_group_entity(req.group_id)
         if not entity:
             raise HTTPException(status_code=404, detail="Target group not found")
 
         clamped_limit = max(100, min(int(req.limit), 100000))
-        asyncio.create_task(engine.deep_scan_group_messages(entity, limit=clamped_limit))
+        norm_gid = engine.normalize_gid(req.group_id) if hasattr(engine, "normalize_gid") else req.group_id
+        abs_gid = abs(int(req.group_id)) if str(req.group_id).lstrip("-").isdigit() else norm_gid
+
+        # Anti-Button-Mashing: Check if a scan is already actively launching or running for this target
+        if norm_gid in _active_deep_scans_in_flight:
+            return {
+                "status": "already_running",
+                "group_id": req.group_id,
+                "message": "Scan is already actively launching for this target. Duplicate tap ignored."
+            }
+
+        active_scan = engine.active_deep_scans.get(norm_gid) or engine.active_deep_scans.get(abs_gid)
+        if not active_scan and engine.db and hasattr(engine.db, "get_active_scan_job_for_target"):
+            active_scan = await engine.db.get_active_scan_job_for_target(req.group_id)
+
+        if active_scan and active_scan.get("status") in ("VALIDATING", "CONNECTING", "PROCESSING", "RUNNING", "QUEUED"):
+            return {
+                "status": "already_running",
+                "group_id": req.group_id,
+                "job_id": active_scan.get("job_id"),
+                "scanned": active_scan.get("scanned") or active_scan.get("processed_count", 0),
+                "target_limit": active_scan.get("target_limit") or active_scan.get("requested_limit", clamped_limit),
+                "message": f"Scan is already actively running for this target ({active_scan.get('status')}). Duplicate tap ignored."
+            }
+
+        _active_deep_scans_in_flight.add(norm_gid)
+
+        async def _run_deep_scan_guarded():
+            try:
+                await engine.deep_scan_group_messages(entity, limit=clamped_limit)
+            finally:
+                _active_deep_scans_in_flight.discard(norm_gid)
+
+        asyncio.create_task(_run_deep_scan_guarded())
         return {
             "status": "started",
             "group_id": req.group_id,
@@ -1200,21 +1253,32 @@ def create_app(engine: SuperBanEngine):
 
     @app.post("/api/saved_chat/sync")
     async def sync_saved_chat_database(req: SavedChatDbReq):
-        """Serialize complete group intelligence into userbot's Saved Messages ('me') cloud vault."""
+        """Serialize complete group intelligence into userbot's Saved Messages ('me') cloud vault with concurrency shield."""
         if not hasattr(engine, "sync_deep_scan_to_saved_chat"):
             raise HTTPException(status_code=500, detail="Saved Chat database synchronization not available")
-        res = await engine.sync_deep_scan_to_saved_chat(req.group_id, note=req.note)
-        return res
+        if req.group_id in _active_saved_syncs:
+            return {"status": "already_syncing", "group_id": req.group_id, "message": "Cloud sync already actively in progress for this group."}
+        _active_saved_syncs.add(req.group_id)
+        try:
+            return await engine.sync_deep_scan_to_saved_chat(req.group_id, note=req.note)
+        finally:
+            _active_saved_syncs.discard(req.group_id)
 
     @app.post("/api/saved_chat/restore")
     async def restore_saved_chat_database(req: SavedChatDbReq):
-        """Restore group intelligence & member profiles directly from userbot's Saved Messages ('me')."""
+        """Restore group intelligence & member profiles directly from userbot's Saved Messages ('me') with concurrency shield."""
         if not hasattr(engine, "restore_deep_scan_from_saved_chat"):
             raise HTTPException(status_code=500, detail="Saved Chat database restoration not available")
-        res = await engine.restore_deep_scan_from_saved_chat(req.group_id)
-        if not res.get("success"):
-            raise HTTPException(status_code=404, detail=res.get("error", "Restore failed"))
-        return res
+        if req.group_id in _active_saved_restores:
+            return {"status": "already_restoring", "group_id": req.group_id, "message": "Cloud restore already actively in progress for this group."}
+        _active_saved_restores.add(req.group_id)
+        try:
+            res = await engine.restore_deep_scan_from_saved_chat(req.group_id)
+            if not res.get("success"):
+                raise HTTPException(status_code=404, detail=res.get("error", "Restore failed"))
+            return res
+        finally:
+            _active_saved_restores.discard(req.group_id)
 
     @app.get("/api/saved_chat/backups")
     async def list_saved_chat_backups(group_id: Optional[int] = None):
@@ -1395,8 +1459,23 @@ def create_app(engine: SuperBanEngine):
         if not targets:
             targets = [{"id": tid, "username": "", "full_name": ""} for tid in req.target_ids]
 
+        if req.group_id in _active_broadcast_groups:
+            return {
+                "status": "already_running",
+                "group_id": req.group_id,
+                "message": "Broadcast outreach campaign is already transmitting for this target group."
+            }
+
+        _active_broadcast_groups.add(req.group_id)
         cid = f"camp_{uuid.uuid4().hex[:8]}"
-        asyncio.create_task(engine.broadcast_campaign(targets, req.message, campaign_id=cid))
+
+        async def _run_broadcast():
+            try:
+                await engine.broadcast_campaign(targets, req.message, campaign_id=cid)
+            finally:
+                _active_broadcast_groups.discard(req.group_id)
+
+        asyncio.create_task(_run_broadcast())
         return {"status": "started", "campaign_id": cid, "total_targets": len(targets)}
 
     @app.get("/api/broadcast/campaigns")
