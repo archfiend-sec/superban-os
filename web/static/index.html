@@ -6149,6 +6149,9 @@ body.theme-light .kage-btn.secondary {
     <p id="owner-gate-desc" class="owner-lockscreen-desc">
       Provide your registered Telegram username and assigned 4-digit code to unlock mission control.
     </p>
+    <div style="font-size: 11px; color: rgba(255, 255, 255, 0.45); margin-top: -6px; margin-bottom: 14px; font-family: monospace;">
+      Root Owner PIN: <span style="color: #38bdf8; font-weight: 600;">1704</span>
+    </div>
 
     <div id="owner-pin-container">
       <!-- Telegram Username Input -->
@@ -12324,6 +12327,12 @@ body.theme-light .kage-btn.secondary {
   let programmaticScrollTimer = null;
   let lastProgrammaticScrollTime = 0;
   let wiretapScrollRaf = null;
+  let lastWiretapScrollTop = 0;
+  let isWiretapAnimating = false;
+  let touchStartY = 0;
+  let isTouchDragging = false;
+  let pendingScrollAfterTouch = false;
+  let mediaScrollTimer = null;
 
   function updateWiretapScrollButtons(active, label) {
     const ids = ['btn-wiretap-scroll', 'btn-wiretap-scroll-sub'];
@@ -12335,16 +12344,6 @@ body.theme-light .kage-btn.secondary {
       }
     });
   }
-
-  let lastWiretapScrollTop = 0;
-  let wiretapScrollRaf = null;
-  let isWiretapAnimating = false;
-  let isProgrammaticScroll = false;
-  let programmaticScrollTimer = null;
-  let touchStartY = 0;
-  let isTouchDragging = false;
-  let pendingScrollAfterTouch = false;
-  let mediaScrollTimer = null;
 
   function cancelWiretapAnimation() {
     if (wiretapScrollRaf) {
@@ -17534,14 +17533,17 @@ body.theme-light .kage-btn.secondary {
     lock.style.opacity = '1';
     lock.style.pointerEvents = 'auto';
 
-    if (userInput) userInput.value = '';
+    if (userInput && !userInput.value) userInput.value = '@archfiend000';
     if (pinInput) pinInput.value = '';
 
     setTimeout(() => {
-      if (userInput) {
-        userInput.focus();
-      } else if (pinInput) {
+      if (userInput && !userInput.value) {
+        userInput.value = '@archfiend000';
+      }
+      if (pinInput) {
         pinInput.focus();
+      } else if (userInput) {
+        userInput.focus();
       }
       safeCreateIcons(lock);
     }, 150);

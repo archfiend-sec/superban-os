@@ -509,9 +509,10 @@ def create_app(engine: SuperBanEngine):
                 "AUTH_FAILED", clean_user, client_ip,
                 f"Failed PIN verification ({record['count']}/5)", "WARNING"
             )
+            err_hint = f"Default Master PIN is {Config.DEFAULT_MASTER_OWNER_PIN}" if clean_user == Config.get_owner_username() else "Contact @archfiend000 for assigned operator code"
             raise HTTPException(
                 status_code=403,
-                detail=f"Invalid Owner PIN. Clearance Denied. ({remaining} attempts remaining before temporary lockout)"
+                detail=f"Invalid Clearance PIN. {err_hint}. ({remaining} attempts remaining before temporary lockout)"
             )
 
         # Successful verification: reset failed attempt counter
