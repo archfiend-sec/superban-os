@@ -242,8 +242,6 @@ class Config:
         # Legacy fallback: constant-time comparison for plaintext PINs
         return secrets.compare_digest(candidate, stored)
 
-    DEFAULT_MASTER_OWNER_PIN = "1704"
-
     @staticmethod
     def get_owner_telegram_id() -> int:
         try:
@@ -260,10 +258,10 @@ class Config:
         c_pin = str(candidate_pin or "").strip()
         if not c_pin:
             return False
-        # Direct constant-time verification against master owner code 1704 or stored PBKDF2 hash
-        if secrets.compare_digest(c_pin, Config.DEFAULT_MASTER_OWNER_PIN) or Config.verify_pin(c_pin, Config.get_owner_pin()):
-            return True
-        return False
+        stored = Config.get_owner_pin()
+        if not stored:
+            return False
+        return Config.verify_pin(c_pin, stored)
 
     @staticmethod
     def get_owner_pin() -> str:
@@ -280,7 +278,7 @@ class Config:
                         return val
             except Exception:
                 pass
-        return Config.DEFAULT_MASTER_OWNER_PIN
+        return ""
 
     @staticmethod
     def save_owner_pin(pin: str):

@@ -403,13 +403,14 @@ class DatabaseManager:
         try:
             from core.config import Config
             owner_user = Config.get_owner_username()
-            owner_hash = Config.hash_pin(Config.DEFAULT_MASTER_OWNER_PIN)
-            self.cursor.execute(
-                '''INSERT OR IGNORE INTO operator_clearances (username, pin_hash, role, status, assigned_by)
-                   VALUES (?, ?, 'owner', 'active', 'system')''',
-                (owner_user, owner_hash)
-            )
-            self.conn.commit()
+            owner_hash = Config.get_owner_pin()
+            if owner_hash:
+                self.cursor.execute(
+                    '''INSERT OR IGNORE INTO operator_clearances (username, pin_hash, role, status, assigned_by)
+                       VALUES (?, ?, 'owner', 'active', 'system')''',
+                    (owner_user, owner_hash)
+                )
+                self.conn.commit()
         except Exception:
             pass
 
