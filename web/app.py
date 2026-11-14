@@ -162,6 +162,7 @@ def create_app(engine: SuperBanEngine):
     OWNER_TOKENS: Dict[str, float] = {}
     global OPERATOR_SESSIONS
     FAILED_VERIFY_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+    FAILED_ACCOUNT_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
     OPERATIONAL_RATE_LIMITS: Dict[str, List[float]] = {}
 
     def get_client_ip(req_or_ws) -> str:
@@ -207,6 +208,23 @@ def create_app(engine: SuperBanEngine):
                 asyncio.create_task(db.record_security_event(event_type, username, client_ip, detail, severity))
         except Exception as e:
             logger.debug(f"Audit log dispatch skipped: {e}")
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        logger.error(f"Internal error on {request.method} {request.url.path}: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "An internal server error occurred."}
+        )
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        headers = dict(exc.headers or {})
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=headers
+        )
 
     @app.middleware("http")
     async def security_headers_and_limits_middleware(request: Request, call_next):
@@ -494,6 +512,23 @@ def create_app(engine: SuperBanEngine):
 
         if not candidate_pin:
             raise HTTPException(status_code=400, detail="Clearance code is required")
+
+        # Per-account lockout check (defense against distributed multi-IP brute forcing)
+        target_account = clean_user or "owner"
+        acct_record = FAILED_ACCOUNT_ATTEMPTS.get(target_account, {"count": 0, "lockout_until": 0.0, "last_attempt": 0.0})
+        if acct_record.get("lockout_until", 0.0) <= now and acct_record.get("count", 0) >= 10:
+            acct_record["count"] = 0
+            acct_record["lockout_until"] = 0.0
+            FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
+
+        if not is_loopback and acct_record["lockout_until"] > now:
+            retry_after = max(1, int(acct_record["lockout_until"] - now))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Security lockout active for account '{target_account}'. Try again in {retry_after} seconds.",
+                headers={"Retry-After": str(retry_after)}
+            )
+
         auth_success = False
         role = "operator"
 
@@ -515,6 +550,18 @@ def create_app(engine: SuperBanEngine):
             await asyncio.sleep(0.5)
             record["count"] += 1
             record["last_attempt"] = now
+            acct_record["count"] += 1
+            acct_record["last_attempt"] = now
+            if acct_record["count"] >= 10:
+                acct_record["lockout_until"] = now + 900
+                FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Security lockout active for account '{target_account}'. Try again in 900 seconds.",
+                    headers={"Retry-After": "900"}
+                )
+            FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
+
             if record["count"] >= 5:
                 record["lockout_until"] = now + 900  # 15-minute lockout
                 FAILED_VERIFY_ATTEMPTS[client_ip] = record
@@ -538,8 +585,9 @@ def create_app(engine: SuperBanEngine):
                 detail=f"Invalid clearance credentials. ({remaining} attempts remaining before temporary lockout)"
             )
 
-        # Successful verification: reset failed attempt counter
+        # Successful verification: reset failed attempt counters (both IP and Account)
         FAILED_VERIFY_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
+        FAILED_ACCOUNT_ATTEMPTS[target_account] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
         log_security_event_task(
             "AUTH_SUCCESS", clean_user, client_ip,
             f"Cleared with role '{role}'", "INFO"
