@@ -13,6 +13,7 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
         "file_name": "",
         "file_size": 0,
         "mime_type": "",
+        "is_video": False,
         "media_url": "",
         "fallback_text": ""
     }
@@ -31,8 +32,17 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
         info["file_size"] = getattr(f, 'size', 0) or 0
         info["mime_type"] = getattr(f, 'mime_type', '') or ''
 
+    info["is_video"] = bool(
+        info["mime_type"].startswith("video/") or 
+        (info["file_name"] or "").lower().endswith(('.webm', '.mp4', '.mov')) or
+        getattr(msg, 'video', None) or
+        getattr(msg, 'video_note', None)
+    )
+
     if getattr(msg, 'sticker', None):
         info["media_type"] = "sticker"
+        if 'webm' in info["mime_type"] or (info["file_name"] or "").lower().endswith('.webm'):
+            info["is_video"] = True
         emoji_disp = f" {info['media_emoji']}" if info['media_emoji'] else ""
         info["fallback_text"] = f"[🎨 Sticker{emoji_disp}]"
     elif getattr(msg, 'gif', None):
@@ -40,9 +50,12 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
         info["fallback_text"] = "[🎬 GIF Animation]"
     elif getattr(msg, 'video_note', None):
         info["media_type"] = "video_note"
+        info["is_video"] = True
         info["fallback_text"] = "[⭕ Round Video Note]"
     elif getattr(msg, 'video', None):
         info["media_type"] = "video"
+        info["is_video"] = True
+        info["fallback_text"] = "[📹 Video]"
         info["fallback_text"] = "[📹 Video]"
     elif getattr(msg, 'photo', None):
         info["media_type"] = "photo"

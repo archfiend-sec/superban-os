@@ -887,6 +887,8 @@ class SentinelShield:
                 "has_media": media_info["has_media"],
                 "media_type": media_info["media_type"],
                 "media_emoji": media_info["media_emoji"],
+                "mime_type": media_info.get("mime_type", ""),
+                "is_video": media_info.get("is_video", False),
                 "file_name": file_name or media_info["file_name"],
                 "media_url": media_info["media_url"],
                 "is_reply": bool(reply_info),
@@ -907,18 +909,22 @@ class SentinelShield:
                 m_path = ""
                 f_size = 0
                 f_hash = ""
+                raw_gid = str(abs(int(gid))) if gid else ""
+                bare_gid = raw_gid.replace("100", "", 1) if raw_gid.startswith("100") and len(raw_gid) > 5 else raw_gid
+                task_key = f"{bare_gid}_{ev.id}"
+
                 if ev.media:
                     try:
-                        f_sz = getattr(getattr(ev, 'file', None), 'size', 0)
-                        if f_sz and f_sz <= 15 * 1024 * 1024:
+                        f_sz = getattr(getattr(ev, 'file', None), 'size', 0) or 0
+                        if f_sz <= 25 * 1024 * 1024:
                             vdir = Path(__file__).resolve().parent.parent / "media_vault"
                             vdir.mkdir(parents=True, exist_ok=True)
                             ext = getattr(getattr(ev, 'file', None), 'ext', '') or '.bin'
                             clean_ext = ext if ext.startswith('.') else f".{ext}"
-                            fn = f"ghost_{abs(gid)}_{ev.id}{clean_ext}"
+                            fn = f"preview_{bare_gid}_{ev.id}{clean_ext}"
                             tf = vdir / fn
                             dl = await ev.download_media(file=str(tf))
-                            if dl and Path(dl).exists():
+                            if dl and Path(dl).exists() and Path(dl).stat().st_size > 0:
                                 m_path = str(dl)
                                 f_size = Path(dl).stat().st_size
                                 hasher = hashlib.sha256()
@@ -926,8 +932,29 @@ class SentinelShield:
                                     while chunk := mf.read(65536):
                                         hasher.update(chunk)
                                 f_hash = hasher.hexdigest()
+
+                                # Also save ghost_ for anti-delete vault consistency
+                                g_fn = vdir / f"ghost_{bare_gid}_{ev.id}{clean_ext}"
+                                if not g_fn.exists():
+                                    try:
+                                        import shutil
+                                        shutil.copy2(dl, g_fn)
+                                    except Exception:
+                                        pass
+
+                                # If it's a sticker (especially .tgs), pre-fetch thumbnail
+                                if minfo.get("media_type") == "sticker" and (clean_ext == '.tgs' or 'tgsticker' in (minfo.get("mime_type") or '')):
+                                    t_fn = vdir / f"thumb_{bare_gid}_{ev.id}.jpg"
+                                    if not t_fn.exists():
+                                        try:
+                                            await ev.download_media(file=str(t_fn), thumb=-1)
+                                        except Exception:
+                                            pass
                     except Exception as me:
                         logger.debug(f"Ghost media vault background note: {me}")
+                    finally:
+                        if self.engine and hasattr(self.engine, '_media_download_tasks'):
+                            self.engine._media_download_tasks.pop(task_key, None)
                 if self.db:
                     try:
                         await self.db.save_intercepted_message(
@@ -978,8 +1005,14 @@ class SentinelShield:
                             except Exception:
                                 pass
 
-            if self.db:
-                asyncio.create_task(_bg_save_media_vault(event, group_id, group_title, sender_id or 0, file_name, display_text, media_info))
+            raw_gid_val = str(abs(int(group_id))) if group_id else ""
+            bare_gid_val = raw_gid_val.replace("100", "", 1) if raw_gid_val.startswith("100") and len(raw_gid_val) > 5 else raw_gid_val
+            task_k = f"{bare_gid_val}_{msg_id}"
+            bg_media_task = asyncio.create_task(_bg_save_media_vault(event, group_id, group_title, sender_id or 0, file_name, display_text, media_info))
+            if self.engine:
+                if not hasattr(self.engine, '_media_download_tasks'):
+                    self.engine._media_download_tasks = {}
+                self.engine._media_download_tasks[task_k] = bg_media_task
 
             # Background OSINT & Intelligence tracking tasks (STRICT OPSEC: Skip userbot)
             extracted_entities = self._extract_entities(text, group_id, group_title, msg_id, sender_id or 0, full_name)

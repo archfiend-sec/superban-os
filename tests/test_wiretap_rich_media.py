@@ -294,6 +294,34 @@ class TestWiretapRichMedia(unittest.TestCase):
                 res_bad = await self.client.request("GET", "/api/media/preview/999888/777?thumb=false", headers=headers)
                 self.assertEqual(res_bad.status, 200)
 
+                # Polymorphic -100 prefix resolution check
+                res_poly = await self.client.request("GET", "/api/media/preview/100999888/777", headers=headers)
+                self.assertEqual(res_poly.status, 200)
+                self.assertEqual(res_poly.headers.get("content-type"), "image/webp")
+
+                # Video sticker (.webm) check
+                test_webm = vault_dir / "preview_999888_778.webm"
+                test_webm.write_bytes(b"\x1aE\xdf\xa3\x00\x00\x00\x00")
+                res_webm = await self.client.request("GET", "/api/media/preview/999888/778", headers=headers)
+                self.assertEqual(res_webm.status, 200)
+                self.assertEqual(res_webm.headers.get("content-type"), "video/webm")
+                if test_webm.exists():
+                    test_webm.unlink()
+
+                # In-flight download task awaiting
+                async def _delayed_writer():
+                    await asyncio.sleep(0.05)
+                    f = vault_dir / "preview_999888_779.mp4"
+                    f.write_bytes(b"\x00\x00\x00 ftypisom")
+
+                self.engine._media_download_tasks["999888_779"] = asyncio.create_task(_delayed_writer())
+                res_inflight = await self.client.request("GET", "/api/media/preview/999888/779", headers=headers)
+                self.assertEqual(res_inflight.status, 200)
+                self.assertEqual(res_inflight.headers.get("content-type"), "video/mp4")
+                inflight_f = vault_dir / "preview_999888_779.mp4"
+                if inflight_f.exists():
+                    inflight_f.unlink()
+
                 # Non-existent media returns 404
                 res_404 = await self.client.request("GET", "/api/media/preview/999888/99999999", headers=headers)
                 self.assertEqual(res_404.status, 404)

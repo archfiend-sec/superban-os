@@ -1413,6 +1413,12 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 .wiretap-sticker-img:hover {
   transform: scale(1.08);
 }
+video.wiretap-sticker-img {
+  display: block;
+  border-radius: 6px;
+  background: transparent;
+  outline: none;
+}
 .wiretap-sticker-fallback {
   font-size: 52px;
   line-height: 1;
@@ -13001,13 +13007,96 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
+  function handleMediaElementError(el, url, currentTag, emoji) {
+    if (!el) return;
+    const retryCount = parseInt(el.getAttribute('data-retries') || '0', 10);
+
+    // If an <img> fails, it's very often a .webm Telegram video sticker! Cross-fallback to <video>
+    if (currentTag === 'img' && retryCount === 0) {
+      el.setAttribute('data-retries', '1');
+      const video = document.createElement('video');
+      video.src = url;
+      video.className = 'wiretap-sticker-img wiretap-sticker-video';
+      video.autoplay = true;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.preload = 'auto';
+      video.onerror = () => handleMediaElementError(video, url, 'video', emoji);
+      video.onloadeddata = () => {
+        if (window.onWiretapMediaLoaded) onWiretapMediaLoaded();
+      };
+      if (el.parentNode) {
+        el.parentNode.replaceChild(video, el);
+        return;
+      }
+    }
+
+    // Transient 404 retry while background MTProto worker finishes caching
+    if (retryCount < 2) {
+      el.setAttribute('data-retries', String(retryCount + 1));
+      setTimeout(() => {
+        const sep = url.includes('?') ? '&' : '?';
+        const cleanUrl = url.replace(/([?&])_t=\d+/, '');
+        el.src = cleanUrl + sep + `_t=${Date.now()}`;
+      }, 1000 * (retryCount + 1));
+      return;
+    }
+
+    // Retries exhausted: show fallback emoji
+    el.style.display = 'none';
+    if (el.nextElementSibling && el.nextElementSibling.classList.contains('wiretap-sticker-fallback')) {
+      el.nextElementSibling.style.display = 'flex';
+    }
+  }
+
+  function handleGifError(el, url, currentTag) {
+    if (!el) return;
+    const retryCount = parseInt(el.getAttribute('data-retries') || '0', 10);
+
+    // If <video> fails, it might be an image/gif! Cross-fallback to <img>
+    if (currentTag === 'video' && retryCount === 0) {
+      el.setAttribute('data-retries', '1');
+      const img = document.createElement('img');
+      img.src = url;
+      img.className = 'wiretap-media-img wiretap-gif-player';
+      img.loading = 'lazy';
+      img.alt = 'GIF Animation';
+      img.onerror = () => handleGifError(img, url, 'img');
+      img.onload = () => {
+        if (window.onWiretapMediaLoaded) onWiretapMediaLoaded();
+      };
+      if (el.parentNode) {
+        el.parentNode.replaceChild(img, el);
+        return;
+      }
+    }
+
+    // Transient 404 retry
+    if (retryCount < 2) {
+      el.setAttribute('data-retries', String(retryCount + 1));
+      setTimeout(() => {
+        const sep = url.includes('?') ? '&' : '?';
+        const cleanUrl = url.replace(/([?&])_t=\d+/, '');
+        el.src = cleanUrl + sep + `_t=${Date.now()}`;
+      }, 1000 * (retryCount + 1));
+      return;
+    }
+
+    el.style.display = 'none';
+    const fallback = el.parentNode ? el.parentNode.querySelector('.wiretap-gif-fallback') : null;
+    if (fallback) fallback.style.display = 'block';
+  }
+
   function renderWiretapMediaHtml(data) {
     if (!data.has_media && !data.media_type) return '';
 
     const type = data.media_type || '';
     let mediaUrl = data.media_url || '';
     if (!mediaUrl && data.message_id && data.group_id) {
-      mediaUrl = `/api/media/preview/${Math.abs(data.group_id)}/${data.message_id}`;
+      const bareGid = String(Math.abs(data.group_id)).replace(/^100/, '');
+      mediaUrl = `/api/media/preview/${bareGid}/${data.message_id}`;
     }
     if (mediaUrl) {
       const tok = (sessionStorage.getItem('owner_token') || '').trim();
@@ -13021,15 +13110,27 @@ body.theme-light .kage-btn.secondary {
 
     let html = '';
     if (type === 'sticker') {
+      const isVideoSticker = Boolean(
+        data.is_video ||
+        (data.mime_type && data.mime_type.includes('webm')) ||
+        (data.file_name && data.file_name.toLowerCase().endsWith('.webm')) ||
+        (mediaUrl && mediaUrl.toLowerCase().includes('.webm'))
+      );
+
       html = `
         <div class="wiretap-media-box wiretap-sticker-box">
           <div class="wiretap-sticker-inner">
-            ${mediaUrl ? `
-              <img src="${mediaUrl}" class="wiretap-sticker-img" loading="lazy" alt="Sticker ${escapeQuote(emoji)}"
-                   onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';"
-                   onload="onWiretapMediaLoaded()">
+            ${mediaUrl ? (isVideoSticker ? `
+              <video src="${mediaUrl}" class="wiretap-sticker-img wiretap-sticker-video" autoplay loop muted playsinline preload="auto"
+                     onerror="handleMediaElementError(this, '${escapeQuote(mediaUrl)}', 'video', '${escapeQuote(emoji)}')"
+                     onloadeddata="onWiretapMediaLoaded()"></video>
               <div class="wiretap-sticker-fallback" style="display: none;">${escapeHtml(emoji || '🎨')}</div>
             ` : `
+              <img src="${mediaUrl}" class="wiretap-sticker-img" loading="lazy" alt="Sticker ${escapeQuote(emoji)}"
+                   onerror="handleMediaElementError(this, '${escapeQuote(mediaUrl)}', 'img', '${escapeQuote(emoji)}')"
+                   onload="onWiretapMediaLoaded()">
+              <div class="wiretap-sticker-fallback" style="display: none;">${escapeHtml(emoji || '🎨')}</div>
+            `) : `
               <div class="wiretap-sticker-fallback">${escapeHtml(emoji || '🎨')}</div>
             `}
           </div>
@@ -13037,9 +13138,23 @@ body.theme-light .kage-btn.secondary {
         </div>
       `;
     } else if (type === 'gif') {
+      const isImgGif = Boolean(
+        (data.mime_type && data.mime_type.includes('image/gif')) ||
+        (data.file_name && data.file_name.toLowerCase().endsWith('.gif')) ||
+        (mediaUrl && mediaUrl.toLowerCase().includes('.gif'))
+      );
       html = `
         <div class="wiretap-media-box">
-          <video src="${mediaUrl}" class="wiretap-media-video wiretap-gif-player" autoplay loop muted playsinline preload="metadata" onloadeddata="onWiretapMediaLoaded()"></video>
+          ${mediaUrl ? (isImgGif ? `
+            <img src="${mediaUrl}" class="wiretap-media-img wiretap-gif-player" loading="lazy" alt="GIF Animation"
+                 onerror="handleGifError(this, '${escapeQuote(mediaUrl)}', 'img')"
+                 onload="onWiretapMediaLoaded()">
+          ` : `
+            <video src="${mediaUrl}" class="wiretap-media-video wiretap-gif-player" autoplay loop muted playsinline preload="auto"
+                   onerror="handleGifError(this, '${escapeQuote(mediaUrl)}', 'video')"
+                   onloadeddata="onWiretapMediaLoaded()"></video>
+          `) : ''}
+          <div class="wiretap-gif-fallback" style="display: none; padding: 12px; text-align: center; color: var(--muted); font-size: 11px;">🎬 [GIF Animation]</div>
           <span class="wiretap-media-badge gif-badge">🎬 GIF ANIMATION</span>
         </div>
       `;

@@ -132,6 +132,7 @@ class SuperBanEngine:
         # Native PyTgCalls WebRTC Engine
         self.call_py: Optional[Any] = None
         self._call_py_started = False
+        self._media_download_tasks: Dict[str, asyncio.Task] = {}
 
         # Real-Time Autonomous Sentinel
         self.sentinel = SentinelShield(self.client, self.db, engine=self)
@@ -1675,8 +1676,11 @@ class SuperBanEngine:
                     "has_media": media_info["has_media"],
                     "media_type": media_info["media_type"],
                     "media_emoji": media_info["media_emoji"],
+                    "mime_type": media_info.get("mime_type", ""),
+                    "is_video": media_info.get("is_video", False),
                     "file_name": media_info["file_name"],
                     "media_url": media_info["media_url"],
+                    "group_id": gid,
                     "is_reply": bool(reply_info),
                     "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
                     "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
@@ -1813,17 +1817,34 @@ class SuperBanEngine:
 
     async def get_media_preview_file(self, group_id: int, message_id: int, prefer_thumb: bool = False) -> Optional[str]:
         """Fetch or retrieve cached media preview (photo, sticker, gif, video, voice, doc) for wiretap."""
-        norm_gid = abs(int(group_id))
+        raw_gid = str(abs(int(group_id))) if group_id else ""
+        bare_gid = raw_gid.replace("100", "", 1) if raw_gid.startswith("100") and len(raw_gid) > 5 else raw_gid
+        full_gid = f"100{bare_gid}"
+        gid_variants = {raw_gid, bare_gid, full_gid}
+
         vault_dir = Path(__file__).resolve().parent.parent / "media_vault"
         vault_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1. Check if already cached in media_vault
-        for prefix in (f"ghost_{norm_gid}_{message_id}.", f"preview_{norm_gid}_{message_id}.", f"thumb_{norm_gid}_{message_id}."):
-            for f in vault_dir.iterdir():
-                if f.name.startswith(prefix) and f.is_file() and f.stat().st_size > 0:
+        # 1. Fast cache check across all polymorphic group_id variants
+        target_prefixes = tuple(f"{p}_{gv}_{message_id}." for p in ("ghost", "preview", "thumb") for gv in gid_variants)
+        for f in vault_dir.iterdir():
+            if f.is_file() and f.stat().st_size > 0:
+                if f.name.startswith(target_prefixes) or f.name.endswith(f"_{message_id}{f.suffix}"):
                     return str(f.resolve())
 
-        # 2. If not cached, fetch via Telegram client if connected
+        # 2. Check if a background download task is currently in-flight
+        task_key = f"{bare_gid}_{message_id}"
+        if hasattr(self, '_media_download_tasks') and task_key in self._media_download_tasks:
+            try:
+                await asyncio.wait_for(asyncio.shield(self._media_download_tasks[task_key]), timeout=4.5)
+                for f in vault_dir.iterdir():
+                    if f.is_file() and f.stat().st_size > 0:
+                        if f.name.startswith(target_prefixes) or f.name.endswith(f"_{message_id}{f.suffix}"):
+                            return str(f.resolve())
+            except Exception:
+                pass
+
+        # 3. If not cached, fetch via Telegram client if connected
         if not self.client or not self.client.is_connected():
             return None
 
@@ -1832,29 +1853,52 @@ class SuperBanEngine:
             if not entity:
                 return None
             msg = await self.client.get_messages(entity, ids=message_id)
-            if not msg or not msg.media:
+            if not msg or not getattr(msg, 'media', None):
                 return None
 
             f_size = getattr(getattr(msg, 'file', None), 'size', 0) or 0
             ext = getattr(getattr(msg, 'file', None), 'ext', '') or ''
             mime = getattr(getattr(msg, 'file', None), 'mime_type', '') or ''
-
-            download_thumb = prefer_thumb
-            if getattr(msg, 'sticker', None):
-                if 'tgsticker' in mime or ext.lower() == '.tgs':
-                    download_thumb = True
-            elif f_size > 15 * 1024 * 1024:
-                download_thumb = True
+            is_sticker = bool(getattr(msg, 'sticker', None))
+            is_tgs = is_sticker and ('tgsticker' in mime or ext.lower() == '.tgs')
 
             clean_ext = ext if ext.startswith('.') else f".{ext}" if ext else ".jpg"
-            if download_thumb:
-                target_file = vault_dir / f"thumb_{norm_gid}_{message_id}.jpg"
-                downloaded = await self.client.download_media(msg, file=str(target_file), thumb=-1)
-            else:
-                target_file = vault_dir / f"preview_{norm_gid}_{message_id}{clean_ext}"
+            target_file = vault_dir / f"preview_{bare_gid}_{message_id}{clean_ext}"
+
+            downloaded = None
+            if is_tgs or prefer_thumb:
+                thumb_target = vault_dir / f"thumb_{bare_gid}_{message_id}.jpg"
+                try:
+                    downloaded = await self.client.download_media(msg, file=str(thumb_target), thumb=-1)
+                except Exception:
+                    downloaded = None
+                if not downloaded:
+                    try:
+                        downloaded = await self.client.download_media(msg, file=str(thumb_target), thumb=0)
+                    except Exception:
+                        downloaded = None
+                if not downloaded and getattr(getattr(msg, 'media', None), 'document', None):
+                    doc = msg.media.document
+                    if getattr(doc, 'thumbs', None) and len(doc.thumbs) > 0:
+                        for th in reversed(doc.thumbs):
+                            try:
+                                downloaded = await self.client.download_media(th, file=str(thumb_target))
+                                if downloaded:
+                                    break
+                            except Exception:
+                                pass
+
+            if not downloaded:
                 downloaded = await self.client.download_media(msg, file=str(target_file))
 
             if downloaded and Path(downloaded).exists() and Path(downloaded).stat().st_size > 0:
+                ghost_copy = vault_dir / f"ghost_{bare_gid}_{message_id}{Path(downloaded).suffix}"
+                if not ghost_copy.exists():
+                    try:
+                        import shutil
+                        shutil.copy2(downloaded, ghost_copy)
+                    except Exception:
+                        pass
                 return str(Path(downloaded).resolve())
         except Exception as e:
             logger.debug(f"Failed to fetch media preview for {group_id}/{message_id}: {e}")
