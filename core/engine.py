@@ -64,6 +64,7 @@ from core.rate_limiter import AdaptiveRateLimiter
 from core.forensics import ForensicInspector
 from core.sentinel import SentinelShield
 from core.config import Config
+from core.roles import ParticipantRole, normalize_telegram_role, format_role_badge
 from core.media import extract_media_info, extract_reply_info, extract_reactions_info, extract_reactions_from_obj
 
 logger = logging.getLogger("SuperBanEngine")
@@ -250,25 +251,72 @@ class SuperBanEngine:
                 return g["entity"]
         return None
 
+    async def get_group_roles_map(self, group_entity, force_refresh: bool = False) -> Dict[int, Dict[str, Any]]:
+        """Fetch authoritative group administrator and owner roles with 5-minute caching."""
+        gid = getattr(group_entity, 'id', str(group_entity))
+        if not hasattr(self, '_group_roles_cache'):
+            self._group_roles_cache = {}
+        cached = self._group_roles_cache.get(gid)
+        if not force_refresh and cached and (time.time() - cached['time'] < 300):
+            return cached['roles']
+
+        roles_map: Dict[int, Dict[str, Any]] = {}
+        try:
+            # 1. Supergroups & Channels: ChannelParticipantsAdmins returns ALL admins and the creator
+            async for admin_user in self.client.iter_participants(group_entity, filter=ChannelParticipantsAdmins):
+                p_tl = getattr(admin_user, 'participant', None)
+                norm = normalize_telegram_role(p_tl)
+                roles_map[admin_user.id] = norm
+            self._group_roles_cache[gid] = {'roles': roles_map, 'time': time.time()}
+            if not hasattr(self, '_admins_cache'):
+                self._admins_cache = {}
+            self._admins_cache[gid] = {'admins': set(roles_map.keys()), 'time': time.time()}
+        except Exception as e:
+            logger.warning(f"Authoritative admin discovery warning: {e}")
+            # 2. Basic chat fallback: GetFullChatRequest
+            try:
+                from telethon.tl.functions.messages import GetFullChatRequest
+                chat_id = getattr(group_entity, 'chat_id', getattr(group_entity, 'id', None))
+                if chat_id:
+                    full_chat_res = await self.client(GetFullChatRequest(chat_id))
+                    participants = getattr(getattr(full_chat_res, 'full_chat', None), 'participants', None)
+                    p_list = getattr(participants, 'participants', []) if participants else []
+                    for p in p_list:
+                        uid = getattr(p, 'user_id', None)
+                        if uid:
+                            norm = normalize_telegram_role(p)
+                            if norm.get("is_admin") or norm.get("is_owner"):
+                                roles_map[uid] = norm
+                    if roles_map:
+                        self._group_roles_cache[gid] = {'roles': roles_map, 'time': time.time()}
+            except Exception as e2:
+                logger.debug(f"Basic chat admin discovery note: {e2}")
+
+            if cached:
+                return cached['roles']
+        return roles_map
+
     async def get_admins(self, group_entity) -> Set[int]:
         """Fetch protected group administrators with 5-minute caching."""
-        gid = getattr(group_entity, 'id', str(group_entity))
-        if not hasattr(self, '_admins_cache'):
-            self._admins_cache = {}
-        cached = self._admins_cache.get(gid)
-        if cached and (time.time() - cached['time'] < 300):
-            return cached['admins']
+        roles_map = await self.get_group_roles_map(group_entity)
+        return set(roles_map.keys())
 
-        admins = set()
+    async def get_participant_role(self, group_entity, user_id: int) -> Dict[str, Any]:
+        """Determine authoritative role for a specific user in a target group."""
         try:
-            async for admin in self.client.iter_participants(group_entity, filter=ChannelParticipantsAdmins):
-                admins.add(admin.id)
-            self._admins_cache[gid] = {'admins': admins, 'time': time.time()}
+            roles_map = await self.get_group_roles_map(group_entity)
+            if user_id in roles_map:
+                return roles_map[user_id]
+
+            if hasattr(self.client, 'get_permissions'):
+                perms = await self.client.get_permissions(group_entity, user_id)
+                if perms:
+                    return normalize_telegram_role(perms)
         except Exception as e:
-            logger.warning(f"Admin discovery warning: {e}")
-            if cached:
-                return cached['admins']
-        return admins
+            logger.debug(f"Individual participant role lookup note: {e}")
+
+        # If user is in group but not an administrator/creator, they are a confirmed MEMBER
+        return normalize_telegram_role("member")
 
     async def get_recent_chat_messages(self, group_entity, limit: int = 100) -> List[Dict[str, Any]]:
         """Fetch recent message history for AI synthesis and intelligence forensics."""
@@ -2450,8 +2498,9 @@ class SuperBanEngine:
                 except Exception as e:
                     logger.warning(f"Auto-join to voice call failed: {e}")
 
-            # Discover protected group admins to cross-reference
-            admin_set = await self.get_admins(group_entity)
+            # Discover protected group admins and creators with authoritative role mapping
+            roles_map = await self.get_group_roles_map(group_entity)
+            admin_set = set(roles_map.keys())
 
             # Discover current user ID for reliable self-detection
             me_id = None
@@ -2554,7 +2603,20 @@ class SuperBanEngine:
                     except Exception:
                         pass
 
-                is_admin = bool(uid in admin_set or getattr(p, 'volume_by_admin', False))
+                # Authoritative Telegram group role determination:
+                # NEVER infer administrator status from voice-chat participation or volume_by_admin
+                # (volume_by_admin only indicates an admin previously adjusted this participant's volume).
+                if uid in roles_map:
+                    role_info = roles_map[uid]
+                else:
+                    role_info = normalize_telegram_role("member")
+
+                is_owner = role_info.get("is_owner", False)
+                is_admin = role_info.get("is_admin", False)
+                is_restricted = role_info.get("is_restricted", False)
+                role_str = role_info.get("role", "MEMBER")
+                role_title = role_info.get("custom_title", "")
+                role_verified = role_info.get("is_verified", True)
 
                 if is_speaking and self.db:
                     asyncio.create_task(self.db.record_vc_speaker_activity(
@@ -2574,7 +2636,12 @@ class SuperBanEngine:
                     "is_verified": bool(getattr(u, 'verified', False)),
                     "is_scam": bool(getattr(u, 'scam', False)),
                     "is_fake": bool(getattr(u, 'fake', False)),
+                    "is_owner": is_owner,
                     "is_admin": is_admin,
+                    "is_restricted": is_restricted,
+                    "role": role_str,
+                    "role_title": role_title,
+                    "role_verified": role_verified,
                     "is_self": bool(getattr(p, 'is_self', False) or (me_id and uid == me_id)),
                     "muted": bool(p.muted),
                     "is_speaking": is_speaking,
@@ -2685,9 +2752,13 @@ class SuperBanEngine:
             pass
 
         res = await self.client(phone.GetGroupCallRequest(call=call_input, limit=100))
+        admins = await self.get_admins(group_entity)
         muted_count = 0
         for p in res.participants:
             if getattr(p, 'is_self', False):
+                continue
+            uid = getattr(p.peer, 'user_id', None)
+            if uid and uid in admins:
                 continue
             if not getattr(p, 'muted', False):
                 try:

@@ -2536,8 +2536,23 @@ def create_app(engine: SuperBanEngine):
             "trust_level": group_rep.get("reputation_tier", "NEUTRAL CITIZEN") if group_rep else "NEUTRAL CITIZEN",
             "trust_color": group_rep.get("reputation_color", "#38bdf8") if group_rep else "#38bdf8",
             "vintage": "Standard Account",
-            "risk_flags": group_rep.get("risk_flags", []) if group_rep else []
+            "risk_flags": group_rep.get("risk_flags", []) if group_rep else [],
+            "role": "MEMBER",
+            "is_owner": False,
+            "is_admin": False,
+            "is_restricted": False,
+            "role_title": "",
+            "role_verified": False
         }
+
+        role_info = {}
+        if group_id and hasattr(engine, 'get_participant_role'):
+            try:
+                g_entity = await engine.get_group_entity(group_id)
+                if g_entity:
+                    role_info = await engine.get_participant_role(g_entity, user_id)
+            except Exception as e:
+                logger.debug(f"OSINT role lookup note: {e}")
 
         mutual_chats = []
         try:
@@ -2573,6 +2588,12 @@ def create_app(engine: SuperBanEngine):
             "is_bot": bool(getattr(u, 'bot', False)) or (group_rep and group_rep.get("is_bot", False)),
             "is_scam": bool(getattr(u, 'scam', False)),
             "is_fake": bool(getattr(u, 'fake', False)),
+            "role": role_info.get("role") or forensic_info.get("role", "MEMBER"),
+            "role_title": role_info.get("custom_title") or forensic_info.get("role_title", ""),
+            "is_owner": role_info.get("is_owner", forensic_info.get("is_owner", False)),
+            "is_admin": role_info.get("is_admin", forensic_info.get("is_admin", False)),
+            "is_restricted": role_info.get("is_restricted", forensic_info.get("is_restricted", False)),
+            "role_verified": role_info.get("is_verified", forensic_info.get("role_verified", True)),
             "trust_score": forensic_info.get("trust_score", 70),
             "trust_level": forensic_info.get("trust_level", "NEUTRAL CITIZEN"),
             "trust_color": forensic_info.get("trust_color", "#38bdf8"),

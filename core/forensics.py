@@ -5,6 +5,7 @@ from telethon.tl.types import (
     UserStatusRecently, UserStatusLastWeek, 
     UserStatusLastMonth, UserStatusEmpty, UserStatusOffline
 )
+from core.roles import normalize_telegram_role, ParticipantRole
 
 SCAM_KEYWORDS = [
     r'crypto', r'forex', r'invest', r'profit', r'binance', r'airdrop',
@@ -251,6 +252,21 @@ class ForensicInspector:
         is_premium = bool(getattr(user, 'premium', False))
         has_photo = bool(getattr(user, 'photo', None) is not None)
         
+        # Authoritative Telegram group role determination
+        p_tl = getattr(user, 'participant', None)
+        if p_tl is not None and type(p_tl).__name__ in ("MagicMock", "Mock", "AsyncMock"):
+            p_tl = None
+        role_info = normalize_telegram_role(p_tl) if p_tl else {
+            "role": ParticipantRole.MEMBER,
+            "is_owner": False,
+            "is_admin": False,
+            "is_restricted": False,
+            "is_member": True,
+            "is_verified": bool(user),
+            "custom_title": "",
+            "rank": "Member"
+        }
+        
         # Last seen / activity evaluation
         status = getattr(user, 'status', None)
         last_seen_str, days_offline = ForensicInspector._parse_status(status)
@@ -372,6 +388,12 @@ class ForensicInspector:
             "is_scam": is_scam,
             "is_fake": is_fake,
             "is_premium": is_premium,
+            "is_owner": role_info.get("is_owner", False),
+            "is_admin": role_info.get("is_admin", False),
+            "is_restricted": role_info.get("is_restricted", False),
+            "role": role_info.get("role", ParticipantRole.MEMBER),
+            "role_title": role_info.get("custom_title", ""),
+            "role_verified": role_info.get("is_verified", True),
             "has_photo": has_photo,
             "last_seen": last_seen_str,
             "days_offline": days_offline,

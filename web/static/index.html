@@ -10135,6 +10135,15 @@ body.theme-light .kage-btn.secondary {
       }
 
       let badges = '';
+      if (m.is_owner || m.role === 'OWNER' || m.role === 'CREATOR') {
+        badges += ` <span class="badge" style="font-size: 8px; background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.45); font-weight: 700;">👑 OWNER</span>`;
+      } else if (m.is_admin || m.role === 'ADMIN' || m.role === 'ADMINISTRATOR') {
+        badges += ` <span class="badge badge-ember" style="font-size: 8px; font-weight: 700;">🛡️ ADMIN</span>`;
+      } else if (m.is_restricted || m.role === 'RESTRICTED') {
+        badges += ` <span class="badge badge-vermilion" style="font-size: 8px;">🚫 RESTRICTED</span>`;
+      } else if (m.role === 'UNVERIFIED' || m.role_verified === false) {
+        badges += ` <span class="badge badge-muted" style="font-size: 8px; opacity: 0.7;">❓ UNVERIFIED</span>`;
+      }
       if (m.is_bot) badges += ` <span style="color: #fbbf24; font-size: 10px;">[BOT]</span>`;
       if (m.is_premium) badges += ` <span style="color: var(--vermilion); font-size: 10px;">⭐</span>`;
 
@@ -10314,6 +10323,7 @@ body.theme-light .kage-btn.secondary {
     if (type === 'ghosts') scannedMembers.filter(m => m.ghost_score >= 60).forEach(m => selectedIds.add(m.id));
     else if (type === 'scam') scannedMembers.filter(m => m.scam_score >= 40).forEach(m => selectedIds.add(m.id));
     else if (type === 'bots') scannedMembers.filter(m => m.is_bot).forEach(m => selectedIds.add(m.id));
+    else if (type === 'admins') scannedMembers.filter(m => m.is_admin || m.is_owner || m.role === 'ADMIN' || m.role === 'OWNER').forEach(m => selectedIds.add(m.id));
     else if (type === 'inactive30') scannedMembers.filter(m => m.days_offline !== null && m.days_offline >= 30).forEach(m => selectedIds.add(m.id));
     else if (type === 'all') scannedMembers.forEach(m => selectedIds.add(m.id));
     updateSelectedCount();
@@ -11805,10 +11815,20 @@ body.theme-light .kage-btn.secondary {
       }
       const ssrcTag = `<div class="text-muted" style="font-size: 9px; font-family: monospace; margin-top: 2px;">SSRC: ${p.source || '—'}</div>`;
 
-      // Profile forensic badges
+      // Authoritative Telegram role badges (OWNER, ADMIN, RESTRICTED, UNVERIFIED, MEMBER)
       let roleBadges = '';
-      if (p.is_admin) {
-        roleBadges += `<span class="badge badge-ember" style="font-size: 8px; margin-left: 3px;">👑 ADMIN</span>`;
+      if (p.is_owner || p.role === 'OWNER' || p.role === 'CREATOR') {
+        const ownerTitle = p.role_title ? `👑 OWNER [${escapeHtml(p.role_title)}]` : '👑 OWNER';
+        roleBadges += `<span class="badge" style="font-size: 8px; margin-left: 3px; background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.45); font-weight: 700;">${ownerTitle}</span>`;
+      } else if (p.is_admin || p.role === 'ADMIN' || p.role === 'ADMINISTRATOR') {
+        const adminTitle = p.role_title ? `🛡️ ADMIN [${escapeHtml(p.role_title)}]` : '🛡️ ADMIN';
+        roleBadges += `<span class="badge badge-ember" style="font-size: 8px; margin-left: 3px; font-weight: 700;">${adminTitle}</span>`;
+      } else if (p.is_restricted || p.role === 'RESTRICTED') {
+        roleBadges += `<span class="badge badge-vermilion" style="font-size: 8px; margin-left: 3px;">🚫 RESTRICTED</span>`;
+      } else if (p.role === 'UNVERIFIED' || p.role_verified === false) {
+        roleBadges += `<span class="badge badge-muted" style="font-size: 8px; margin-left: 3px; opacity: 0.7;">❓ UNVERIFIED</span>`;
+      } else {
+        roleBadges += `<span class="badge badge-muted" style="font-size: 8px; margin-left: 3px; opacity: 0.85;">MEMBER</span>`;
       }
       if (p.is_premium) {
         roleBadges += `<span class="badge" style="font-size: 8px; margin-left: 3px; background: rgba(147,51,234,0.2); color: #c084fc; border: 1px solid rgba(147,51,234,0.4);">💎 PREM</span>`;
@@ -12322,7 +12342,17 @@ body.theme-light .kage-btn.secondary {
     const initial = (p.full_name || 'U').charAt(0).toUpperCase();
 
     let badgesHtml = '';
-    if (p.is_admin) badgesHtml += '<span class="badge badge-ember" style="font-size: 9px;">👑 ADMIN</span> ';
+    if (p.is_owner || p.role === 'OWNER' || p.role === 'CREATOR') {
+      badgesHtml += `<span class="badge" style="font-size: 9px; background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.45); font-weight: 700;">👑 OWNER${p.role_title ? ' (' + escapeHtml(p.role_title) + ')' : ''}</span> `;
+    } else if (p.is_admin || p.role === 'ADMIN' || p.role === 'ADMINISTRATOR') {
+      badgesHtml += `<span class="badge badge-ember" style="font-size: 9px; font-weight: 700;">🛡️ ADMIN${p.role_title ? ' (' + escapeHtml(p.role_title) + ')' : ''}</span> `;
+    } else if (p.is_restricted || p.role === 'RESTRICTED') {
+      badgesHtml += `<span class="badge badge-vermilion" style="font-size: 9px;">🚫 RESTRICTED</span> `;
+    } else if (p.role === 'UNVERIFIED' || p.role_verified === false) {
+      badgesHtml += `<span class="badge badge-muted" style="font-size: 9px; opacity: 0.75;">❓ UNVERIFIED</span> `;
+    } else {
+      badgesHtml += `<span class="badge badge-muted" style="font-size: 9px;">MEMBER</span> `;
+    }
     if (p.is_premium) badgesHtml += '<span class="badge" style="font-size: 9px; background: rgba(147,51,234,0.2); color: #c084fc; border: 1px solid rgba(147,51,234,0.4);">💎 PREMIUM</span> ';
     if (p.is_bot) badgesHtml += '<span class="badge badge-muted" style="font-size: 9px;">🤖 BOT</span> ';
     if (p.is_verified) badgesHtml += '<span class="badge badge-emerald" style="font-size: 9px;">✓ VERIFIED</span> ';

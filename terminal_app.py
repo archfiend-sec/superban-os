@@ -615,7 +615,9 @@ class TerminalApp:
 
                     for p in participants:
                         badges = []
-                        if p.get("is_admin"): badges.append("👑")
+                        if p.get("is_owner") or p.get("role") == "OWNER": badges.append("👑")
+                        elif p.get("is_admin") or p.get("role") == "ADMIN": badges.append("🛡️")
+                        elif p.get("is_restricted") or p.get("role") == "RESTRICTED": badges.append("🚫")
                         if p.get("is_premium"): badges.append("💎")
                         if p.get("is_bot"): badges.append("🤖")
                         if p.get("is_verified"): badges.append("✓")
@@ -743,7 +745,7 @@ class TerminalApp:
                             f"[bold red]PHONE:[/bold red]           {match.get('phone') or 'Protected'}\n"
                             f"[bold red]PREMIUM:[/bold red]         {'💎 YES' if match.get('is_premium') else 'NO'}\n"
                             f"[bold red]BOT / VERIFIED:[/bold red]  {'🤖 BOT' if match.get('is_bot') else 'NO'} | {'✓ VERIFIED' if match.get('is_verified') else 'NO'}\n"
-                            f"[bold red]GROUP ROLE:[/bold red]      {'👑 ADMIN' if match.get('is_admin') else 'MEMBER'}\n"
+                            f"[bold red]GROUP ROLE:[/bold red]      {'👑 OWNER' if (match.get('is_owner') or match.get('role') == 'OWNER') else ('🛡️ ADMIN' if (match.get('is_admin') or match.get('role') == 'ADMIN') else ('🚫 RESTRICTED' if match.get('is_restricted') else ('❓ UNVERIFIED' if match.get('role') == 'UNVERIFIED' else 'MEMBER'))}\n"
                             f"[bold red]VOICE STATE:[/bold red]     {'🤐 MUTED' if match['muted'] else '🟢 SPEAKING'}\n"
                             f"[bold red]CAN SELF UNMUTE:[/bold red] {match.get('can_self_unmute')}\n"
                             f"[bold red]VOLUME LEVEL:[/bold red]    {match.get('volume') or 100}%\n"
