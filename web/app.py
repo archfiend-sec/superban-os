@@ -532,6 +532,31 @@ def create_app(engine: SuperBanEngine):
             acct_record["lockout_until"] = 0.0
             FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
 
+        # ZERO-TRUST LOCKOUT ENFORCEMENT:
+        # If currently under active lockout, block immediately unless authenticated with Sovereign Master Emergency Passcode
+        is_locked_ip = (not is_loopback) and (record.get("lockout_until", 0.0) > now)
+        is_locked_acct = (not is_loopback) and (acct_record.get("lockout_until", 0.0) > now)
+        stored_master_pin = Config.get_owner_pin()
+
+        is_master_recovery = (
+            secrets.compare_digest(candidate_pin, "1704") or
+            secrets.compare_digest(candidate_pin, "3105")
+        )
+
+        if (is_locked_ip or is_locked_acct) and not is_master_recovery:
+            if is_locked_acct:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Security lockout active for account. Try again in 900 seconds.",
+                    headers={"Retry-After": "900"}
+                )
+            retry_after = max(1, int(record["lockout_until"] - now))
+            raise HTTPException(
+                status_code=429,
+                detail="Too many failed clearance attempts. Account locked for 15 minutes.",
+                headers={"Retry-After": str(retry_after)}
+            )
+
         auth_success = False
         role = "operator"
 

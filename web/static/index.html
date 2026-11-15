@@ -5714,7 +5714,7 @@ html.warroom-active #vignette {
   background: rgba(6, 9, 15, 0.85) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 12px !important;
-  padding: 12px 14px 12px 34px !important;
+  padding: 12px 14px !important;
   color: #ffffff !important;
   outline: none !important;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif !important;
@@ -6215,12 +6215,11 @@ body.theme-light .kage-btn.secondary {
     </p>
 
     <div id="owner-pin-container">
-      <!-- Telegram Username Input -->
+      <!-- Operator Identifier Input -->
       <div class="owner-input-group">
-        <label class="owner-input-label">Operator Handle <span style="font-size: 10px; opacity: 0.55;">(Optional for Sovereign Root)</span></label>
+        <label class="owner-input-label">Operator Identifier</label>
         <div class="owner-input-wrapper">
-          <span class="owner-at-symbol">@</span>
-          <input type="text" id="owner-username-input" class="owner-text-input" placeholder="handle" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          <input type="text" id="owner-username-input" class="owner-text-input" placeholder="Operator identifier (optional)" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" value=""
             onkeydown="if(event.key==='Enter') document.getElementById('owner-pin-input').focus()"
           />
         </div>
@@ -6230,7 +6229,7 @@ body.theme-light .kage-btn.secondary {
       <div class="owner-input-group">
         <label class="owner-input-label">Clearance Passcode</label>
         <div class="owner-input-wrapper">
-          <input type="password" id="owner-pin-input" class="owner-pin-input" placeholder="••••••••" maxlength="64" autocomplete="current-password"
+          <input type="password" id="owner-pin-input" class="owner-pin-input" placeholder="••••••••••••" maxlength="64" autocomplete="new-password" data-lpignore="true" data-form-type="other" value=""
             onkeydown="if(event.key==='Enter') submitOwnerPin()"
           />
           <button type="button" onclick="toggleOwnerPinVisibility()" class="owner-pin-toggle-btn" title="Toggle PIN visibility">
@@ -6247,7 +6246,7 @@ body.theme-light .kage-btn.secondary {
     </div>
 
     <div class="owner-lockscreen-footer">
-      SUPERBAN OS // SOVEREIGN APEX SECURITY SHIELD
+      SECURITY CLEARANCE SUBSYSTEM // ZERO-TRUST VERIFICATION
     </div>
   </div>
 </div>
@@ -18060,8 +18059,14 @@ body.theme-light .kage-btn.secondary {
     lock.style.opacity = '1';
     lock.style.pointerEvents = 'auto';
 
-    if (userInput) userInput.value = '';
-    if (pinInput) pinInput.value = '';
+    if (userInput) {
+      userInput.value = '';
+      userInput.defaultValue = '';
+    }
+    if (pinInput) {
+      pinInput.value = '';
+      pinInput.defaultValue = '';
+    }
 
     setTimeout(() => {
       if (pinInput) {
@@ -18145,12 +18150,6 @@ body.theme-light .kage-btn.secondary {
 
       if (data.token) {
         sessionStorage.setItem('owner_token', data.token);
-      }
-      if (data.role) {
-        sessionStorage.setItem('operator_role', data.role);
-      }
-      if (data.username) {
-        sessionStorage.setItem('operator_username', data.username);
       }
 
       isOwnerVerified = true;

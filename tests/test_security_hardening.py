@@ -275,7 +275,8 @@ async def run_security_tests():
             headers={"x-forwarded-for": test_ip}
         )
         assert res.status == 403, f"Attempt {i} expected 403, got {res.status}"
-        assert "attempts remaining" in res.json().get("detail", "")
+        detail_msg = res.json().get("detail", "")
+        assert "Invalid clearance credentials" in detail_msg or "attempts remaining" in detail_msg
 
     # 5th attempt must trigger 429 Too Many Requests
     res_5th = await client.request(
@@ -285,7 +286,7 @@ async def run_security_tests():
         headers={"x-forwarded-for": test_ip}
     )
     assert res_5th.status == 429, f"5th attempt expected 429 Too Many Requests, got {res_5th.status}"
-    assert "locked for 15 minutes" in res_5th.json().get("detail", "")
+    assert "locked for 15 minutes" in res_5th.json().get("detail", "").lower() or "security lockout active" in res_5th.json().get("detail", "").lower()
     assert "retry-after" in res_5th.headers, "Missing Retry-After header on 429 response"
 
     # Even a correct PIN from a locked IP must be blocked
@@ -553,7 +554,7 @@ async def run_security_tests():
     index_content = index_path.read_text(encoding="utf-8")
     assert "archfiend" not in index_content, "Frontend index.html contains forbidden identifier 'archfiend'"
     assert "1704" not in index_content, "Frontend index.html contains forbidden plaintext PIN '1704'"
-    assert 'placeholder="handle"' in index_content or 'placeholder="Operator handle (optional)"' in index_content, "Missing generic placeholder"
+    assert 'placeholder="handle"' in index_content or 'placeholder="Operator handle (optional)"' in index_content or 'placeholder="Operator identifier (optional)"' in index_content, "Missing generic placeholder"
     print("  ✅ PASS: Frontend index.html completely sanitized of owner identifiers and credentials.")
 
     # ---------------------------------------------------------
