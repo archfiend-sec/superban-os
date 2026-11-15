@@ -26,14 +26,17 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
 
     info["has_media"] = True
     f = getattr(msg, 'file', None)
+    f_ext = ""
     if f:
         info["media_emoji"] = getattr(f, 'emoji', '') or ''
         info["file_name"] = getattr(f, 'name', '') or ''
         info["file_size"] = getattr(f, 'size', 0) or 0
         info["mime_type"] = getattr(f, 'mime_type', '') or ''
+        f_ext = (getattr(f, 'ext', '') or '').lower()
 
     info["is_video"] = bool(
         info["mime_type"].startswith("video/") or 
+        f_ext in ('.webm', '.mp4', '.mov') or
         (info["file_name"] or "").lower().endswith(('.webm', '.mp4', '.mov')) or
         getattr(msg, 'video', None) or
         getattr(msg, 'video_note', None)
@@ -41,12 +44,14 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
 
     if getattr(msg, 'sticker', None):
         info["media_type"] = "sticker"
-        if 'webm' in info["mime_type"] or (info["file_name"] or "").lower().endswith('.webm'):
+        if 'webm' in info["mime_type"] or f_ext == '.webm' or (info["file_name"] or "").lower().endswith('.webm'):
             info["is_video"] = True
         emoji_disp = f" {info['media_emoji']}" if info['media_emoji'] else ""
         info["fallback_text"] = f"[🎨 Sticker{emoji_disp}]"
     elif getattr(msg, 'gif', None):
         info["media_type"] = "gif"
+        if info["mime_type"].startswith("video/") or f_ext in ('.mp4', '.webm', '.mov') or not info["mime_type"].endswith('gif'):
+            info["is_video"] = True
         info["fallback_text"] = "[🎬 GIF Animation]"
     elif getattr(msg, 'video_note', None):
         info["media_type"] = "video_note"
@@ -55,7 +60,6 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
     elif getattr(msg, 'video', None):
         info["media_type"] = "video"
         info["is_video"] = True
-        info["fallback_text"] = "[📹 Video]"
         info["fallback_text"] = "[📹 Video]"
     elif getattr(msg, 'photo', None):
         info["media_type"] = "photo"

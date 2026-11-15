@@ -12941,7 +12941,10 @@ body.theme-light .kage-btn.secondary {
     const fetchId = ++activeWiretapFetchId;
 
     try {
-      const res = await fetch(`/api/messages?group_id=${gid}&limit=40`);
+      const abortCtrl = new AbortController();
+      const abortTimer = setTimeout(() => abortCtrl.abort(), 6500);
+      const res = await fetch(`/api/messages?group_id=${gid}&limit=40`, { signal: abortCtrl.signal });
+      clearTimeout(abortTimer);
       // If user switched to another group while fetching, discard response!
       if (fetchId !== activeWiretapFetchId) return;
 
@@ -13033,6 +13036,26 @@ body.theme-light .kage-btn.secondary {
       }
     }
 
+    // If <video> fails (e.g. format unsupported or video sticker decoding failure), fallback to static thumbnail image
+    if (currentTag === 'video' && retryCount <= 1) {
+      el.setAttribute('data-retries', '2');
+      const sep = url.includes('?') ? '&' : '?';
+      const thumbUrl = url.includes('thumb=') ? url : (url + sep + 'thumb=true');
+      const img = document.createElement('img');
+      img.src = thumbUrl;
+      img.className = 'wiretap-sticker-img';
+      img.loading = 'lazy';
+      img.alt = `Sticker ${emoji || ''}`;
+      img.onerror = () => handleMediaElementError(img, url, 'thumb_failed', emoji);
+      img.onload = () => {
+        if (window.onWiretapMediaLoaded) onWiretapMediaLoaded();
+      };
+      if (el.parentNode) {
+        el.parentNode.replaceChild(img, el);
+        return;
+      }
+    }
+
     // Transient 404 retry while background MTProto worker finishes caching
     if (retryCount < 2) {
       el.setAttribute('data-retries', String(retryCount + 1));
@@ -13064,6 +13087,26 @@ body.theme-light .kage-btn.secondary {
       img.loading = 'lazy';
       img.alt = 'GIF Animation';
       img.onerror = () => handleGifError(img, url, 'img');
+      img.onload = () => {
+        if (window.onWiretapMediaLoaded) onWiretapMediaLoaded();
+      };
+      if (el.parentNode) {
+        el.parentNode.replaceChild(img, el);
+        return;
+      }
+    }
+
+    // If video and image both fail, try thumbnail preview before showing fallback
+    if (retryCount === 1) {
+      el.setAttribute('data-retries', '2');
+      const sep = url.includes('?') ? '&' : '?';
+      const thumbUrl = url.includes('thumb=') ? url : (url + sep + 'thumb=true');
+      const img = document.createElement('img');
+      img.src = thumbUrl;
+      img.className = 'wiretap-media-img wiretap-gif-player';
+      img.loading = 'lazy';
+      img.alt = 'GIF Animation';
+      img.onerror = () => handleGifError(img, url, 'thumb_failed');
       img.onload = () => {
         if (window.onWiretapMediaLoaded) onWiretapMediaLoaded();
       };

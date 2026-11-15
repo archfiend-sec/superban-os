@@ -1825,24 +1825,42 @@ class SuperBanEngine:
         vault_dir = Path(__file__).resolve().parent.parent / "media_vault"
         vault_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1. Fast cache check across all polymorphic group_id variants
-        target_prefixes = tuple(f"{p}_{gv}_{message_id}." for p in ("ghost", "preview", "thumb") for gv in gid_variants)
-        for f in vault_dir.iterdir():
-            if f.is_file() and f.stat().st_size > 0:
-                if f.name.startswith(target_prefixes) or f.name.endswith(f"_{message_id}{f.suffix}"):
-                    return str(f.resolve())
-
-        # 2. Check if a background download task is currently in-flight
+        # 1. Check if a background download task is currently in-flight first to eliminate race conditions
         task_key = f"{bare_gid}_{message_id}"
         if hasattr(self, '_media_download_tasks') and task_key in self._media_download_tasks:
             try:
-                await asyncio.wait_for(asyncio.shield(self._media_download_tasks[task_key]), timeout=4.5)
-                for f in vault_dir.iterdir():
-                    if f.is_file() and f.stat().st_size > 0:
-                        if f.name.startswith(target_prefixes) or f.name.endswith(f"_{message_id}{f.suffix}"):
-                            return str(f.resolve())
+                await asyncio.wait_for(asyncio.shield(self._media_download_tasks[task_key]), timeout=3.5)
             except Exception:
                 pass
+
+        # 2. Browser-compatible cache check across all polymorphic group_id variants
+        target_prefixes = tuple(f"{p}_{gv}_{message_id}." for p in ("ghost", "preview", "thumb") for gv in gid_variants)
+        browser_renderable_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
+        found_thumbs = []
+        found_previews = []
+
+        for f in vault_dir.iterdir():
+            if f.is_file() and f.stat().st_size > 0:
+                if f.name.endswith(".tmp") or f.name.endswith(".bin"):
+                    continue
+                if f.name.startswith(target_prefixes):
+                    ext = f.suffix.lower()
+                    if ext in browser_renderable_exts:
+                        if f.name.startswith(tuple(f"thumb_{gv}_{message_id}." for gv in gid_variants)):
+                            found_thumbs.append(str(f.resolve()))
+                        else:
+                            found_previews.append(str(f.resolve()))
+
+        if prefer_thumb:
+            if found_thumbs:
+                return found_thumbs[0]
+            if found_previews:
+                return found_previews[0]
+        else:
+            if found_previews:
+                return found_previews[0]
+            if found_thumbs:
+                return found_thumbs[0]
 
         # 3. If not cached, fetch via Telegram client if connected
         if not self.client or not self.client.is_connected():
@@ -1866,15 +1884,16 @@ class SuperBanEngine:
             target_file = vault_dir / f"preview_{bare_gid}_{message_id}{clean_ext}"
 
             downloaded = None
-            if is_tgs or prefer_thumb:
+            if is_tgs or is_sticker or prefer_thumb:
                 thumb_target = vault_dir / f"thumb_{bare_gid}_{message_id}.jpg"
+                tmp_thumb = vault_dir / f"thumb_{bare_gid}_{message_id}_{secrets.token_hex(4)}.tmp"
                 try:
-                    downloaded = await self.client.download_media(msg, file=str(thumb_target), thumb=-1)
+                    downloaded = await self.client.download_media(msg, file=str(tmp_thumb), thumb=-1)
                 except Exception:
                     downloaded = None
                 if not downloaded:
                     try:
-                        downloaded = await self.client.download_media(msg, file=str(thumb_target), thumb=0)
+                        downloaded = await self.client.download_media(msg, file=str(tmp_thumb), thumb=0)
                     except Exception:
                         downloaded = None
                 if not downloaded and getattr(getattr(msg, 'media', None), 'document', None):
@@ -1882,14 +1901,25 @@ class SuperBanEngine:
                     if getattr(doc, 'thumbs', None) and len(doc.thumbs) > 0:
                         for th in reversed(doc.thumbs):
                             try:
-                                downloaded = await self.client.download_media(th, file=str(thumb_target))
+                                downloaded = await self.client.download_media(th, file=str(tmp_thumb))
                                 if downloaded:
                                     break
                             except Exception:
                                 pass
+                if downloaded and Path(downloaded).exists() and Path(downloaded).stat().st_size > 0:
+                    os.replace(downloaded, thumb_target)
+                    downloaded = str(thumb_target)
+                elif Path(tmp_thumb).exists():
+                    tmp_thumb.unlink(missing_ok=True)
 
-            if not downloaded:
-                downloaded = await self.client.download_media(msg, file=str(target_file))
+            if not downloaded and not is_tgs:
+                tmp_target = vault_dir / f"preview_{bare_gid}_{message_id}_{secrets.token_hex(4)}.tmp"
+                dl = await self.client.download_media(msg, file=str(tmp_target))
+                if dl and Path(dl).exists() and Path(dl).stat().st_size > 0:
+                    os.replace(dl, target_file)
+                    downloaded = str(target_file)
+                elif Path(tmp_target).exists():
+                    tmp_target.unlink(missing_ok=True)
 
             if downloaded and Path(downloaded).exists() and Path(downloaded).stat().st_size > 0:
                 ghost_copy = vault_dir / f"ghost_{bare_gid}_{message_id}{Path(downloaded).suffix}"

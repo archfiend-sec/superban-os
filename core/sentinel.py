@@ -921,10 +921,33 @@ class SentinelShield:
                             vdir.mkdir(parents=True, exist_ok=True)
                             ext = getattr(getattr(ev, 'file', None), 'ext', '') or '.bin'
                             clean_ext = ext if ext.startswith('.') else f".{ext}"
+                            is_sticker = minfo.get("media_type") == "sticker" or getattr(ev, 'sticker', None)
+                            is_tgs = is_sticker and (clean_ext == '.tgs' or 'tgsticker' in (minfo.get("mime_type") or ''))
+
+                            # For stickers and animated media, proactively pre-fetch high-res thumbnail first
+                            t_fn = vdir / f"thumb_{bare_gid}_{ev.id}.jpg"
+                            if (is_sticker or minfo.get("media_type") in ("gif", "video", "video_note")) and not t_fn.exists():
+                                tmp_tfn = vdir / f"thumb_{bare_gid}_{ev.id}_{secrets.token_hex(4)}.tmp"
+                                try:
+                                    t_dl = await ev.download_media(file=str(tmp_tfn), thumb=-1)
+                                    if not t_dl:
+                                        t_dl = await ev.download_media(file=str(tmp_tfn), thumb=0)
+                                    if t_dl and Path(t_dl).exists() and Path(t_dl).stat().st_size > 0:
+                                        os.replace(t_dl, t_fn)
+                                    elif Path(tmp_tfn).exists():
+                                        tmp_tfn.unlink(missing_ok=True)
+                                except Exception:
+                                    if Path(tmp_tfn).exists():
+                                        tmp_tfn.unlink(missing_ok=True)
+
+                            # Atomic download to avoid serving partial files to concurrent web requests
                             fn = f"preview_{bare_gid}_{ev.id}{clean_ext}"
                             tf = vdir / fn
-                            dl = await ev.download_media(file=str(tf))
+                            tmp_tf = vdir / f"preview_{bare_gid}_{ev.id}_{secrets.token_hex(4)}.tmp"
+                            dl = await ev.download_media(file=str(tmp_tf))
                             if dl and Path(dl).exists() and Path(dl).stat().st_size > 0:
+                                os.replace(dl, tf)
+                                dl = str(tf)
                                 m_path = str(dl)
                                 f_size = Path(dl).stat().st_size
                                 hasher = hashlib.sha256()
@@ -941,15 +964,8 @@ class SentinelShield:
                                         shutil.copy2(dl, g_fn)
                                     except Exception:
                                         pass
-
-                                # If it's a sticker (especially .tgs), pre-fetch thumbnail
-                                if minfo.get("media_type") == "sticker" and (clean_ext == '.tgs' or 'tgsticker' in (minfo.get("mime_type") or '')):
-                                    t_fn = vdir / f"thumb_{bare_gid}_{ev.id}.jpg"
-                                    if not t_fn.exists():
-                                        try:
-                                            await ev.download_media(file=str(t_fn), thumb=-1)
-                                        except Exception:
-                                            pass
+                            elif Path(tmp_tf).exists():
+                                tmp_tf.unlink(missing_ok=True)
                     except Exception as me:
                         logger.debug(f"Ghost media vault background note: {me}")
                     finally:

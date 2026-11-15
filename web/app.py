@@ -35,6 +35,10 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_VAULT_DIR = BASE_DIR / "media_vault"
 OPERATOR_SESSIONS: Dict[str, Dict[str, Any]] = {} # token -> {username, role, expires}
+OWNER_TOKENS: Dict[str, float] = {} # token -> expiry
+FAILED_VERIFY_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+FAILED_ACCOUNT_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+FAILED_WS_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
 
 # Ensure virtual environment bin (with ffmpeg), imageio_ffmpeg, and common paths are prioritized
 _kage_bin_dir = "/tmp/kage_bin"
@@ -159,11 +163,7 @@ def create_app(engine: SuperBanEngine):
     # ═══════════════════════════════════════════════════════
     #   OWNER & OPERATOR MULTI-USER CLEARANCE REGISTRY
     # ═══════════════════════════════════════════════════════
-    OWNER_TOKENS: Dict[str, float] = {}
-    global OPERATOR_SESSIONS
-    FAILED_VERIFY_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
-    FAILED_ACCOUNT_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
-    FAILED_WS_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+    global OWNER_TOKENS, OPERATOR_SESSIONS, FAILED_VERIFY_ATTEMPTS, FAILED_ACCOUNT_ATTEMPTS, FAILED_WS_ATTEMPTS
     OPERATIONAL_RATE_LIMITS: Dict[str, List[float]] = {}
 
     def get_client_ip(req_or_ws) -> str:
@@ -301,6 +301,16 @@ def create_app(engine: SuperBanEngine):
             or request.cookies.get("owner_token")
         )
         now = time.time()
+
+        # Periodic active pruning of expired tokens to prevent stale sessions in memory
+        if len(OWNER_TOKENS) > 50 or len(OPERATOR_SESSIONS) > 50:
+            for t, exp in list(OWNER_TOKENS.items()):
+                if exp < now:
+                    OWNER_TOKENS.pop(t, None)
+            for t, s in list(OPERATOR_SESSIONS.items()):
+                if s.get("expires", 0) < now:
+                    OPERATOR_SESSIONS.pop(t, None)
+
         session = OPERATOR_SESSIONS.get(token)
         is_authenticated = False
         user_role = "operator"
@@ -374,6 +384,16 @@ def create_app(engine: SuperBanEngine):
     async def get_owner_status(request: Request):
         token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
         now = time.time()
+
+        # Periodic active pruning of expired tokens to prevent stale sessions in memory
+        if len(OWNER_TOKENS) > 50 or len(OPERATOR_SESSIONS) > 50:
+            for t, exp in list(OWNER_TOKENS.items()):
+                if exp < now:
+                    OWNER_TOKENS.pop(t, None)
+            for t, s in list(OPERATOR_SESSIONS.items()):
+                if s.get("expires", 0) < now:
+                    OPERATOR_SESSIONS.pop(t, None)
+
         session = OPERATOR_SESSIONS.get(token)
         is_authenticated = False
         username = None
@@ -578,7 +598,7 @@ def create_app(engine: SuperBanEngine):
             retry_after = max(1, int(acct_record["lockout_until"] - now))
             raise HTTPException(
                 status_code=429,
-                detail=f"Security lockout active for account '{target_account}'. Try again in {retry_after} seconds.",
+                detail=f"Security lockout active for account. Try again in {retry_after} seconds.",
                 headers={"Retry-After": str(retry_after)}
             )
 
@@ -593,7 +613,7 @@ def create_app(engine: SuperBanEngine):
             FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
             raise HTTPException(
                 status_code=429,
-                detail=f"Security lockout active for account '{target_account}'. Try again in 900 seconds.",
+                detail="Security lockout active for account. Try again in 900 seconds.",
                 headers={"Retry-After": "900"}
             )
         FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
@@ -619,17 +639,6 @@ def create_app(engine: SuperBanEngine):
             status_code=403,
             detail="Invalid clearance credentials."
         )
-        
-        is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
-        response.set_cookie(
-            key="owner_token",
-            value=token,
-            max_age=7 * 86400,
-            httponly=True,
-            secure=is_secure,
-            samesite="lax"
-        )
-        return {"status": "authorized", "token": token, "username": clean_user or "owner", "role": role, "is_owner": (role == "owner")}
 
     @app.post("/api/owner/logout")
     async def logout_owner(request: Request, response: Response):
@@ -1637,12 +1646,25 @@ def create_app(engine: SuperBanEngine):
     @app.get("/api/messages")
     async def get_messages(group_id: int, limit: int = 35):
         try:
-            entity = await engine.get_group_entity(group_id)
+            entity = None
+            try:
+                entity = await asyncio.wait_for(engine.get_group_entity(group_id), timeout=3.5)
+            except Exception as ee:
+                logger.debug(f"Entity lookup timed out or failed for {group_id}: {ee}")
+                entity = None
+
             if not entity:
                 if engine.db and hasattr(engine.db, "get_stored_messages"):
                     return await engine.db.get_stored_messages(group_id, limit=limit)
                 return []
-            msgs = await engine.get_recent_messages(entity, limit=limit)
+
+            msgs = []
+            try:
+                msgs = await asyncio.wait_for(engine.get_recent_messages(entity, limit=limit), timeout=4.5)
+            except Exception as me:
+                logger.warning(f"Live get_recent_messages timed out/failed for {group_id}: {me}")
+                msgs = []
+
             if not msgs and engine.db and hasattr(engine.db, "get_stored_messages"):
                 return await engine.db.get_stored_messages(group_id, limit=limit)
             return msgs
