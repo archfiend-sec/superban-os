@@ -9,6 +9,7 @@ import secrets
 import shutil
 import subprocess
 import time
+import uuid
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request, Response
@@ -1310,17 +1311,19 @@ def create_app(engine: SuperBanEngine):
                 "message": f"Scan is already actively running for this target ({active_scan.get('status')}). Duplicate tap ignored."
             }
 
+        job_id = f"scan_{uuid.uuid4().hex[:12]}"
         _active_deep_scans_in_flight.add(norm_gid)
 
         async def _run_deep_scan_guarded():
             try:
-                await engine.deep_scan_group_messages(entity, limit=clamped_limit)
+                await engine.deep_scan_group_messages(entity, limit=clamped_limit, job_id=job_id)
             finally:
                 _active_deep_scans_in_flight.discard(norm_gid)
 
         asyncio.create_task(_run_deep_scan_guarded())
         return {
             "status": "started",
+            "job_id": job_id,
             "group_id": req.group_id,
             "target_limit": clamped_limit,
             "message": f"Deep message scan initialized for {clamped_limit:,} messages."

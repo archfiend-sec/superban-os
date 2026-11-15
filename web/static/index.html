@@ -6832,12 +6832,12 @@ body.theme-light .kage-btn.secondary {
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 10px;">
               <span class="loading-spin" style="width: 13px; height: 13px; border: 2px solid var(--signal-red); border-top-color: transparent;"></span>
-              <span style="font-size: 11px; font-weight: 600; color: var(--warm-white); letter-spacing: 0.14em; font-family: var(--font-mono);">DEEP REPUTATION SCAN IN PROGRESS</span>
+              <span id="deep-scan-status-title" style="font-size: 11px; font-weight: 600; color: var(--warm-white); letter-spacing: 0.14em; font-family: var(--font-mono);">DEEP REPUTATION SCAN IN PROGRESS</span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px; font-family: var(--font-mono);">
               <span id="deep-scan-speed-label" style="font-size: 11px; color: var(--intel-cyan); font-weight: 500;">Connecting...</span>
               <span id="deep-scan-eta-label" style="font-size: 11px; color: var(--steel-grey);">ETA: calculating...</span>
-              <button type="button" onclick="cancel100kScan()" class="btn-xs-outline" style="border-color: var(--signal-red); color: var(--signal-red); font-size: 9px; padding: 2px 8px;">ABORT</button>
+              <button type="button" id="btn-abort-deep-scan" onclick="cancel100kScan()" class="btn-xs-outline" style="border-color: var(--signal-red); color: var(--signal-red); font-size: 9px; padding: 2px 8px;">ABORT</button>
             </div>
           </div>
           <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; position: relative;">
@@ -6870,7 +6870,7 @@ body.theme-light .kage-btn.secondary {
               Select your preferred scan mode above to profile group participants, identify top chatters, filter lurkers, and generate forensic dossiers.
             </p>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-              <button type="button" onclick="start100kScan(100000)" class="kage-btn" style="padding: 10px 18px; font-size: 11.5px;">⚡ 100K Reputation Scan</button>
+              <button type="button" onclick="start100kScan(100000)" class="kage-btn btn-placeholder-100k" style="padding: 10px 18px; font-size: 11.5px;">⚡ 100K Reputation Scan</button>
               <button type="button" onclick="runMemberRecon()" class="kage-btn secondary" style="padding: 10px 18px; font-size: 11.5px;">Scan Current Roster</button>
             </div>
           </div>
@@ -9273,6 +9273,15 @@ body.theme-light .kage-btn.secondary {
       if (mobTitleEl) mobTitleEl.innerText = _cachedTitle;
       const titleEl = document.getElementById('hud-target-group-name');
       if (titleEl) titleEl.innerText = _cachedTitle;
+      if (currentSelectedGroupId && typeof syncDeepScanJobStatus === 'function') {
+        syncDeepScanJobStatus(currentSelectedGroupId);
+      }
+    });
+  } else {
+    window.addEventListener('DOMContentLoaded', () => {
+      if (currentSelectedGroupId && typeof syncDeepScanJobStatus === 'function') {
+        syncDeepScanJobStatus(currentSelectedGroupId);
+      }
     });
   }
 
@@ -9842,19 +9851,8 @@ body.theme-light .kage-btn.secondary {
     refreshVCStatus();
     if (typeof activeCenterTab !== 'undefined' && activeCenterTab === 'recon') {
       loadGroupReputationGrid();
-      fetch(`/api/messages/deep_scan/status?group_id=${val}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data && ['RUNNING', 'PROCESSING', 'CONNECTING', 'VALIDATING', 'QUEUED'].includes(data.status)) {
-            handleDeepScanProgress(data);
-            startDeepScanPolling(val);
-          } else {
-            const panel = document.getElementById('deep-scan-progress-panel');
-            if (panel) panel.style.display = 'none';
-          }
-        })
-        .catch(() => {});
     }
+    syncDeepScanJobStatus(val);
   }
 
   function getActiveGroupId() {
@@ -10052,6 +10050,7 @@ body.theme-light .kage-btn.secondary {
         syncDefconStatus(currentSelectedGroupId);
         refreshWiretap();
         refreshVCStatus();
+        syncDeepScanJobStatus(currentSelectedGroupId);
         if (scannedMembers.length === 0) {
           scanSelectedGroup();
         }
@@ -10748,6 +10747,9 @@ body.theme-light .kage-btn.secondary {
       wsReconnectAttempts = 0;
       lastWiretapActivityTime = Date.now();
       
+      const activeGid = typeof getActiveGroupId === 'function' ? getActiveGroupId() : null;
+      if (activeGid && typeof syncDeepScanJobStatus === 'function') syncDeepScanJobStatus(activeGid);
+
       // Real-time keep-alive heartbeat: prevents mobile 5G/WiFi carrier NAT freeze
       if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
       wsHeartbeatTimer = setInterval(() => {
@@ -14267,15 +14269,7 @@ body.theme-light .kage-btn.secondary {
       loadGroupReputationGrid();
       const gid = getActiveGroupId();
       if (gid) {
-        fetch(`/api/messages/deep_scan/status?group_id=${gid}`)
-          .then(r => r.json())
-          .then(data => {
-            if (data && ['RUNNING', 'PROCESSING', 'CONNECTING', 'VALIDATING', 'QUEUED'].includes(data.status)) {
-              handleDeepScanProgress(data);
-              startDeepScanPolling(gid);
-            }
-          })
-          .catch(() => {});
+        syncDeepScanJobStatus(gid);
       }
     }
     if (tab === 'intel') {
@@ -14523,7 +14517,263 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  //   UNIFIED SCAN STATE MACHINE & BUTTON CONTROLLER
+  //   States: IDLE | STARTING | RUNNING | PAUSED | STOPPING | COMPLETED | FAILED
+  // ═══════════════════════════════════════════════════════════════
+  let currentScanState = 'IDLE';
+  let currentScanActiveJobId = null;
+  let currentScanActiveTargetLimit = 100000;
+  let scanCompletedResetTimer = null;
   let deepScanPollInterval = null;
+  let isDeepScanStarting = false;
+
+  function mapBackendStatusToUnifiedScanState(status) {
+    if (!status) return 'IDLE';
+    const s = String(status).toUpperCase();
+    if (['STARTING', 'INITIALIZING'].includes(s)) return 'STARTING';
+    if (['RUNNING', 'PROCESSING', 'CONNECTING', 'VALIDATING', 'QUEUED'].includes(s)) return 'RUNNING';
+    if (['PAUSED', 'PAUSE'].includes(s)) return 'PAUSED';
+    if (['STOPPING', 'CANCELING', 'ABORTING'].includes(s)) return 'STOPPING';
+    if (['COMPLETED', 'FINISHED', 'DONE', 'SUCCESS'].includes(s)) return 'COMPLETED';
+    if (['FAILED', 'ERROR', 'CRASHED'].includes(s)) return 'FAILED';
+    if (['CANCELLED', 'ABORTED'].includes(s)) return 'IDLE';
+    return 'IDLE';
+  }
+
+  function updateScanButtonsState(unifiedState, data = {}) {
+    currentScanState = unifiedState;
+    if (data.job_id) currentScanActiveJobId = data.job_id;
+    if (data.total || data.target_limit || data.requested_limit) {
+      currentScanActiveTargetLimit = Number(data.total || data.target_limit || data.requested_limit);
+    }
+
+    if (scanCompletedResetTimer) {
+      clearTimeout(scanCompletedResetTimer);
+      scanCompletedResetTimer = null;
+    }
+
+    const btn100k = document.getElementById('btn-deep-scan-100k');
+    const btn10k = document.getElementById('btn-deep-scan-10k');
+    const panel = document.getElementById('deep-scan-progress-panel');
+    const titleEl = document.getElementById('deep-scan-status-title');
+    const abortBtn = document.getElementById('btn-abort-deep-scan');
+    const placeholders = document.querySelectorAll('.btn-placeholder-100k');
+
+    const scanned = Number(data.scanned || data.processed_count || 0);
+    const total = Number(data.total || data.target_limit || data.requested_limit || currentScanActiveTargetLimit || 100000);
+    const pct = data.percent !== undefined && data.percent !== null ?
+      Number(data.percent) :
+      (total > 0 ? Math.round((scanned / total) * 1000) / 10 : 0);
+    const clampedPct = Math.min(100, Math.max(0, pct));
+    const formattedPct = clampedPct.toFixed(clampedPct % 1 === 0 ? 0 : 1);
+
+    switch (unifiedState) {
+      case 'IDLE':
+        if (btn100k) {
+          btn100k.disabled = false;
+          btn100k.removeAttribute('aria-busy');
+          btn100k.classList.remove('btn-locked-busy');
+          btn100k.innerHTML = '<i data-lucide="zap" style="width: 14px; height: 14px;"></i> ⚡ 100K REPUTATION SCAN';
+          btn100k.style.background = 'linear-gradient(135deg, #059669, #10b981)';
+          btn100k.style.borderColor = '#34d399';
+          btn100k.style.boxShadow = '0 0 14px rgba(16, 185, 129, 0.35)';
+          btn100k.title = 'Start full 100,000 message deep reputation scan';
+        }
+        if (btn10k) {
+          btn10k.disabled = false;
+          btn10k.removeAttribute('aria-busy');
+          btn10k.classList.remove('btn-locked-busy');
+          btn10k.innerHTML = '⚡ 10K QUICK';
+          btn10k.title = 'Quick scan of recent 10,000 messages';
+        }
+        placeholders.forEach(p => {
+          p.disabled = false;
+          p.innerHTML = '⚡ 100K Reputation Scan';
+        });
+        if (panel && data.hide_panel !== false) {
+          panel.style.display = 'none';
+        }
+        break;
+
+      case 'STARTING':
+        if (btn100k) {
+          btn100k.disabled = true;
+          btn100k.setAttribute('aria-busy', 'true');
+          btn100k.classList.add('btn-locked-busy');
+          btn100k.innerHTML = '<span class="loading-spin" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> STARTING SCAN...';
+          btn100k.style.background = 'linear-gradient(135deg, #374151, #4b5563)';
+          btn100k.style.borderColor = '#6b7280';
+          btn100k.style.boxShadow = 'none';
+          btn100k.title = 'Initializing scan job on Telegram cluster...';
+        }
+        if (btn10k) {
+          btn10k.disabled = true;
+          btn10k.setAttribute('aria-busy', 'true');
+          btn10k.classList.add('btn-locked-busy');
+        }
+        placeholders.forEach(p => {
+          p.disabled = true;
+          p.innerHTML = '<span class="loading-spin" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:5px;"></span> Starting scan...';
+        });
+        if (panel) panel.style.display = 'block';
+        if (titleEl) titleEl.innerText = 'STARTING DEEP REPUTATION SCAN...';
+        if (abortBtn) abortBtn.disabled = false;
+        break;
+
+      case 'RUNNING':
+        if (btn100k) {
+          btn100k.disabled = true;
+          btn100k.setAttribute('aria-busy', 'true');
+          btn100k.classList.add('btn-locked-busy');
+          btn100k.innerHTML = `<span class="loading-spin" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> SCAN IN PROGRESS (${formattedPct}%)`;
+          btn100k.style.background = 'linear-gradient(135deg, #0284c7, #0ea5e9)';
+          btn100k.style.borderColor = '#38bdf8';
+          btn100k.style.boxShadow = '0 0 16px rgba(14, 165, 233, 0.45)';
+          btn100k.title = `Deep scan active: ${scanned.toLocaleString()} / ${total.toLocaleString()} (${formattedPct}%)`;
+        }
+        if (btn10k) {
+          btn10k.disabled = true;
+          btn10k.setAttribute('aria-busy', 'true');
+          btn10k.classList.add('btn-locked-busy');
+          btn10k.innerHTML = '⚡ SCANNING...';
+        }
+        placeholders.forEach(p => {
+          p.disabled = true;
+          p.innerHTML = `<span class="loading-spin" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:5px;"></span> Scan In Progress (${formattedPct}%)`;
+        });
+        if (panel) panel.style.display = 'block';
+        if (titleEl) titleEl.innerText = 'DEEP REPUTATION SCAN IN PROGRESS';
+        if (abortBtn) abortBtn.disabled = false;
+        break;
+
+      case 'PAUSED':
+        if (btn100k) {
+          btn100k.disabled = false;
+          btn100k.removeAttribute('aria-busy');
+          btn100k.classList.remove('btn-locked-busy');
+          btn100k.innerHTML = '▶️ RESUME SCAN';
+          btn100k.style.background = 'linear-gradient(135deg, #d97706, #f59e0b)';
+          btn100k.style.borderColor = '#fbbf24';
+          btn100k.style.boxShadow = '0 0 14px rgba(245, 158, 11, 0.35)';
+          btn100k.title = 'Resume paused reputation scan';
+        }
+        if (btn10k) {
+          btn10k.disabled = true;
+        }
+        if (panel) panel.style.display = 'block';
+        if (titleEl) titleEl.innerText = 'REPUTATION SCAN PAUSED';
+        break;
+
+      case 'STOPPING':
+        if (btn100k) {
+          btn100k.disabled = true;
+          btn100k.setAttribute('aria-busy', 'true');
+          btn100k.classList.add('btn-locked-busy');
+          btn100k.innerHTML = '<span class="loading-spin" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> STOPPING...';
+          btn100k.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
+          btn100k.style.borderColor = '#f87171';
+          btn100k.style.boxShadow = 'none';
+          btn100k.title = 'Aborting scan...';
+        }
+        if (btn10k) {
+          btn10k.disabled = true;
+        }
+        placeholders.forEach(p => {
+          p.disabled = true;
+          p.innerHTML = '<span class="loading-spin" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:5px;"></span> Stopping...';
+        });
+        if (panel) panel.style.display = 'block';
+        if (titleEl) titleEl.innerText = 'STOPPING SCAN...';
+        if (abortBtn) abortBtn.disabled = true;
+        break;
+
+      case 'COMPLETED':
+        if (btn100k) {
+          btn100k.disabled = true;
+          btn100k.removeAttribute('aria-busy');
+          btn100k.classList.remove('btn-locked-busy');
+          btn100k.innerHTML = '✓ SCAN COMPLETED';
+          btn100k.style.background = 'linear-gradient(135deg, #059669, #10b981)';
+          btn100k.style.borderColor = '#34d399';
+          btn100k.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.4)';
+          btn100k.title = 'Scan completed successfully';
+        }
+        if (btn10k) {
+          btn10k.disabled = true;
+          btn10k.innerHTML = '✓ DONE';
+        }
+        placeholders.forEach(p => {
+          p.disabled = true;
+          p.innerHTML = '✓ Scan Completed';
+        });
+        if (panel) panel.style.display = 'block';
+        if (titleEl) titleEl.innerText = 'SCAN COMPLETED';
+        // Auto-reset back to IDLE after 3 seconds so user can scan again
+        scanCompletedResetTimer = setTimeout(() => {
+          updateScanButtonsState('IDLE', { hide_panel: true });
+        }, 3000);
+        break;
+
+      case 'FAILED':
+        if (btn100k) {
+          btn100k.disabled = false;
+          btn100k.removeAttribute('aria-busy');
+          btn100k.classList.remove('btn-locked-busy');
+          btn100k.innerHTML = '⚠️ RETRY SCAN';
+          btn100k.style.background = 'linear-gradient(135deg, #b91c1c, #ef4444)';
+          btn100k.style.borderColor = '#f87171';
+          btn100k.style.boxShadow = '0 0 14px rgba(239, 68, 68, 0.4)';
+          btn100k.title = 'Scan encountered an error. Click to retry.';
+        }
+        if (btn10k) {
+          btn10k.disabled = false;
+          btn10k.removeAttribute('aria-busy');
+          btn10k.classList.remove('btn-locked-busy');
+          btn10k.innerHTML = '⚡ 10K QUICK';
+        }
+        placeholders.forEach(p => {
+          p.disabled = false;
+          p.innerHTML = '⚠️ Retry Scan';
+        });
+        if (panel) panel.style.display = 'block';
+        if (titleEl) titleEl.innerText = 'SCAN FAILED';
+        break;
+    }
+
+    if (typeof safeCreateIcons === 'function') safeCreateIcons();
+  }
+
+  async function syncDeepScanJobStatus(gid) {
+    if (!gid) return;
+    const cleanGid = String(gid).replace(/^-100/, '').replace(/^-/, '');
+    try {
+      let res = await fetch(`/api/messages/deep_scan/status?group_id=${gid}`);
+      if (!res.ok && cleanGid !== String(gid)) {
+        res = await fetch(`/api/messages/deep_scan/status?group_id=${cleanGid}`);
+      }
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data) return;
+
+      const unified = mapBackendStatusToUnifiedScanState(data.status);
+      if (unified === 'RUNNING') {
+        handleDeepScanProgress(data);
+        startDeepScanPolling(gid);
+      } else if (unified === 'STOPPING') {
+        updateScanButtonsState('STOPPING', data);
+        startDeepScanPolling(gid);
+      } else if (unified === 'COMPLETED' && currentScanState === 'RUNNING') {
+        handleDeepScanComplete(data);
+      } else if (unified === 'FAILED' && currentScanState === 'RUNNING') {
+        handleDeepScanError(data);
+      } else if (currentScanState !== 'STARTING' && currentScanState !== 'RUNNING') {
+        updateScanButtonsState('IDLE', { hide_panel: true });
+      }
+    } catch (e) {
+      console.debug("syncDeepScanJobStatus error:", e);
+    }
+  }
 
   function startDeepScanPolling(gid) {
     if (!gid) return;
@@ -14537,27 +14787,27 @@ body.theme-light .kage-btn.secondary {
         }
         if (!res.ok) return;
         const data = await res.json();
-        if (['RUNNING', 'PROCESSING', 'CONNECTING', 'VALIDATING', 'QUEUED'].includes(data.status)) {
+        const unified = mapBackendStatusToUnifiedScanState(data.status);
+        if (unified === 'RUNNING') {
           handleDeepScanProgress(data);
-        } else if (data.status === 'COMPLETED') {
+        } else if (unified === 'COMPLETED') {
           clearInterval(deepScanPollInterval);
           deepScanPollInterval = null;
           handleDeepScanComplete({
+            job_id: data.job_id,
             unique_members: data.unique_members || 0,
-            total_scanned: data.scanned || 0
+            total_scanned: data.scanned || data.processed_count || 0
           });
-        } else if (data.status === 'CANCELLED' || data.status === 'ERROR' || data.status === 'FAILED') {
+        } else if (unified === 'STOPPING') {
+          updateScanButtonsState('STOPPING', data);
+        } else if (unified === 'FAILED') {
           clearInterval(deepScanPollInterval);
           deepScanPollInterval = null;
-          const panel = document.getElementById('deep-scan-progress-panel');
-          if (panel) panel.style.display = 'none';
-          const btn100k = document.getElementById('btn-deep-scan-100k');
-          const btn10k = document.getElementById('btn-deep-scan-10k');
-          if (btn100k) setButtonBusy(btn100k, false);
-          if (btn10k) setButtonBusy(btn10k, false);
-          if (data.status === 'ERROR' || data.status === 'FAILED') {
-            showToast("Deep scan error: " + (data.error || "Unknown error"), "error");
-          }
+          handleDeepScanError(data);
+        } else if (data.status === 'CANCELLED' || data.status === 'IDLE') {
+          clearInterval(deepScanPollInterval);
+          deepScanPollInterval = null;
+          updateScanButtonsState('IDLE', { hide_panel: true });
         }
       } catch (e) {
         console.debug("Deep scan poll status error:", e);
@@ -14570,34 +14820,23 @@ body.theme-light .kage-btn.secondary {
       clearInterval(deepScanPollInterval);
       deepScanPollInterval = null;
     }
-    const panel = document.getElementById('deep-scan-progress-panel');
-    if (panel) panel.style.display = 'none';
-    const btn100k = document.getElementById('btn-deep-scan-100k');
-    const btn10k = document.getElementById('btn-deep-scan-10k');
-    if (btn100k) setButtonBusy(btn100k, false);
-    if (btn10k) setButtonBusy(btn10k, false);
-    showToast("⚠️ Deep scan error: " + (data.error || "Failed to complete scan"), "error");
+    updateScanButtonsState('FAILED', data);
+    showToast("⚠️ Deep scan error: " + (data && data.error ? data.error : "Failed to complete scan"), "error");
   }
 
-  let isDeepScanStarting = false;
   async function start100kScan(limit = 100000) {
-    if (isDeepScanStarting) return;
+    if (isDeepScanStarting || currentScanState === 'RUNNING' || currentScanState === 'STARTING' || currentScanState === 'STOPPING') {
+      showToast("A deep reputation scan is already active.", "info");
+      return;
+    }
     const gid = getActiveGroupId();
     if (!gid) {
       showToast("Select a target group first", "error");
       return;
     }
 
-    const btn100k = document.getElementById('btn-deep-scan-100k');
-    const btn10k = document.getElementById('btn-deep-scan-10k');
     isDeepScanStarting = true;
-    if (limit >= 50000) {
-      if (btn100k) setButtonBusy(btn100k, true, 'STARTING SCAN...');
-      if (btn10k) setButtonBusy(btn10k, true);
-    } else {
-      if (btn10k) setButtonBusy(btn10k, true, 'STARTING...');
-      if (btn100k) setButtonBusy(btn100k, true);
-    }
+    updateScanButtonsState('STARTING', { target_limit: limit, scanned: 0, percent: 0 });
 
     const panel = document.getElementById('deep-scan-progress-panel');
     if (panel) panel.style.display = 'block';
@@ -14629,17 +14868,18 @@ body.theme-light .kage-btn.secondary {
 
       if (data.status === 'already_running') {
         showToast(`⚡ Deep scan already actively running! Attaching live telemetry...`, "info");
+        updateScanButtonsState('RUNNING', data);
         startDeepScanPolling(gid);
         return;
       }
 
+      if (data.job_id) currentScanActiveJobId = data.job_id;
       showToast(`⚡ Deep scan initiated for ${limit.toLocaleString()} messages!`, "success");
+      updateScanButtonsState('RUNNING', { ...data, target_limit: limit, scanned: 0, percent: 0 });
       startDeepScanPolling(gid);
     } catch (e) {
       showToast("Deep scan error: " + e.message, "error");
-      if (panel) panel.style.display = 'none';
-      if (btn100k) setButtonBusy(btn100k, false);
-      if (btn10k) setButtonBusy(btn10k, false);
+      updateScanButtonsState('FAILED', { error: e.message });
     } finally {
       isDeepScanStarting = false;
     }
@@ -14648,12 +14888,11 @@ body.theme-light .kage-btn.secondary {
   async function cancel100kScan() {
     const gid = getActiveGroupId();
     if (!gid) return;
+    updateScanButtonsState('STOPPING');
     if (deepScanPollInterval) {
       clearInterval(deepScanPollInterval);
       deepScanPollInterval = null;
     }
-    const btn100k = document.getElementById('btn-deep-scan-100k');
-    const btn10k = document.getElementById('btn-deep-scan-10k');
     try {
       await fetch('/api/messages/deep_scan/cancel', {
         method: 'POST',
@@ -14661,13 +14900,10 @@ body.theme-light .kage-btn.secondary {
         body: JSON.stringify({ group_id: parseInt(gid), limit: 100000 })
       });
       showToast("Deep scan cancelled.", "info");
-      const panel = document.getElementById('deep-scan-progress-panel');
-      if (panel) panel.style.display = 'none';
+      updateScanButtonsState('IDLE', { hide_panel: true });
     } catch (e) {
       showToast("Cancel error: " + e.message, "error");
-    } finally {
-      if (btn100k) setButtonBusy(btn100k, false);
-      if (btn10k) setButtonBusy(btn10k, false);
+      updateScanButtonsState('IDLE', { hide_panel: true });
     }
   }
 
@@ -14745,14 +14981,21 @@ body.theme-light .kage-btn.secondary {
   }
 
   function handleDeepScanProgress(data) {
+    if (!data) return;
+    const unified = mapBackendStatusToUnifiedScanState(data.status);
+    updateScanButtonsState(unified === 'IDLE' ? 'RUNNING' : unified, data);
+
     const panel = document.getElementById('deep-scan-progress-panel');
     if (panel) panel.style.display = 'block';
 
-    const scanned = data.scanned || 0;
-    const total = data.total || data.target_limit || 100000;
-    const pct = data.percent !== undefined ? data.percent : (total > 0 ? Math.round((scanned / total) * 1000) / 10 : 0);
+    const scanned = Number(data.scanned || data.processed_count || 0);
+    const total = Number(data.total || data.target_limit || data.requested_limit || currentScanActiveTargetLimit || 100000);
+    const pct = data.percent !== undefined && data.percent !== null ?
+      Number(data.percent) :
+      (total > 0 ? Math.round((scanned / total) * 1000) / 10 : 0);
+    const clampedPct = Math.min(100, Math.max(0, pct));
     const fill = document.getElementById('deep-scan-progress-fill');
-    if (fill) fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+    if (fill) fill.style.width = clampedPct + '%';
 
     if (scanned > 0 && (scanned === 500 || scanned === 1000 || scanned === 2500 || scanned % 2500 === 0)) {
       loadGroupReputationGrid();
@@ -14767,13 +15010,14 @@ body.theme-light .kage-btn.secondary {
       } else if (scanned === 0) {
         countLbl.innerText = `Ingesting MTProto stream for ${total.toLocaleString()} messages...`;
       } else {
-        countLbl.innerText = `Scanned ${scanned.toLocaleString()} / ${total.toLocaleString()} messages (${pct}%)`;
+        const formattedPct = clampedPct.toFixed(clampedPct % 1 === 0 ? 0 : 1);
+        countLbl.innerText = `Scanned ${scanned.toLocaleString()} / ${total.toLocaleString()} messages (${formattedPct}%)`;
       }
     }
 
     const memLbl = document.getElementById('deep-scan-members-label');
     if (memLbl) {
-      const uMem = data.unique_members || 0;
+      const uMem = Number(data.unique_members || 0);
       memLbl.innerText = `${uMem.toLocaleString()} unique members profiled`;
     }
 
@@ -14782,8 +15026,8 @@ body.theme-light .kage-btn.secondary {
       if (data.status === 'VALIDATING') spdLbl.innerText = 'Validating...';
       else if (data.status === 'CONNECTING') spdLbl.innerText = 'Connecting...';
       else {
-        const spd = data.speed || 0;
-        spdLbl.innerText = spd > 0 ? `${spd} msgs/sec` : `Streaming...`;
+        const spd = Number(data.speed || 0);
+        spdLbl.innerText = spd > 0 ? `${spd.toFixed(1)} msgs/sec` : `Streaming...`;
       }
     }
 
@@ -14807,17 +15051,10 @@ body.theme-light .kage-btn.secondary {
       clearInterval(deepScanPollInterval);
       deepScanPollInterval = null;
     }
-    const btn100k = document.getElementById('btn-deep-scan-100k');
-    const btn10k = document.getElementById('btn-deep-scan-10k');
-    if (btn100k) setButtonBusy(btn100k, false);
-    if (btn10k) setButtonBusy(btn10k, false);
-    const scanned = data.total_scanned || data.scanned || 0;
+    updateScanButtonsState('COMPLETED', data);
+    const scanned = data.total_scanned || data.scanned || data.processed_count || 0;
     const members = data.unique_members || 0;
     showToast(`🏆 100K Deep Scan Complete! Profiled ${members.toLocaleString()} members across ${scanned.toLocaleString()} messages.`, "success");
-    const panel = document.getElementById('deep-scan-progress-panel');
-    if (panel) {
-      setTimeout(() => { panel.style.display = 'none'; }, 3000);
-    }
     await loadGroupReputationGrid();
   }
 
@@ -14970,7 +15207,7 @@ body.theme-light .kage-btn.secondary {
               Select your preferred scan mode above to profile group participants, identify top chatters, filter lurkers, and generate forensic dossiers.
             </p>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-              <button type="button" onclick="start100kScan(100000)" class="kage-btn" style="padding: 10px 18px; font-size: 11.5px;">⚡ 100K Reputation Scan</button>
+              <button type="button" onclick="start100kScan(100000)" class="kage-btn btn-placeholder-100k" style="padding: 10px 18px; font-size: 11.5px;">⚡ 100K Reputation Scan</button>
               <button type="button" onclick="runMemberRecon()" class="kage-btn secondary" style="padding: 10px 18px; font-size: 11.5px;">Scan Current Roster</button>
             </div>
           </div>

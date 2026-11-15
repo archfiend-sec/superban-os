@@ -855,6 +855,146 @@ class Test100kReputationEngine(unittest.TestCase):
         asyncio.run(run_test())
         print("  ✅ PASS: Saved Chat ('me') decentralized cloud database backup & restore fully operational.")
 
+    def test_10_scan_button_state_synchronization_and_unified_lifecycle(self):
+        """Test unified scan state machine, button synchronization, deduplication, and active job telemetry."""
+        async def run_test():
+            group_id = -10099887766
+            norm_gid = 99887766
+            target_title = "Apex Recon Channel"
+
+            # Create mock entity
+            mock_entity = MagicMock()
+            mock_entity.id = norm_gid
+            mock_entity.title = target_title
+
+            mock_client = MagicMock()
+            mock_client.is_connected = MagicMock(return_value=True)
+
+            engine = SuperBanEngine(client=mock_client, db=self.db)
+            engine.get_group_entity = AsyncMock(return_value=mock_entity)
+
+            app = create_app(engine)
+            client = InProcessAsgiClient(app)
+
+            token = "test-scan-state-token"
+            OPERATOR_SESSIONS[token] = {
+                "role": "owner",
+                "username": "archfiend000",
+                "expires": time.time() + 86400
+            }
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "X-Owner-Token": token,
+                "Cookie": f"session_token={token}"
+            }
+
+            # 1. State: IDLE
+            status_resp = await client.request("GET", f"/api/messages/deep_scan/status?group_id={group_id}", headers=headers)
+            self.assertEqual(status_resp.status, 200)
+            status_data = status_resp.json()
+            self.assertEqual(status_data["status"], "IDLE")
+            self.assertEqual(status_data["scanned"], 0)
+
+            # 2. State: STARTING / Active Job Initiation
+            start_resp = await client.request(
+                "POST", "/api/messages/deep_scan",
+                headers=headers,
+                json_data={"group_id": group_id, "limit": 100000}
+            )
+            self.assertEqual(start_resp.status, 200)
+            start_data = start_resp.json()
+            self.assertEqual(start_data["status"], "started")
+            self.assertIn("job_id", start_data)
+            active_job_id = start_data["job_id"]
+
+            # 3. State: Active Scan & Duplicate Click Prevention (Already Running)
+            engine.active_deep_scans[norm_gid] = {
+                "job_id": active_job_id,
+                "job_type": "100k_reputation",
+                "group_id": group_id,
+                "norm_group_id": norm_gid,
+                "group_title": target_title,
+                "scanned": 1601,
+                "total": 100000,
+                "target_limit": 100000,
+                "percent": 1.6,
+                "speed": 334.6,
+                "eta_seconds": 294,
+                "unique_members": 42,
+                "status": "PROCESSING",
+                "start_time": time.time() - 4.8,
+                "last_activity": time.time(),
+                "error": None
+            }
+
+            dup_resp = await client.request(
+                "POST", "/api/messages/deep_scan",
+                headers=headers,
+                json_data={"group_id": group_id, "limit": 100000}
+            )
+            self.assertEqual(dup_resp.status, 200)
+            dup_data = dup_resp.json()
+            self.assertEqual(dup_data["status"], "already_running")
+            self.assertEqual(dup_data.get("job_id"), active_job_id)
+
+            # 4. State: RUNNING / Telemetry Synchronized from Same Active Job
+
+            poll_resp = await client.request("GET", f"/api/messages/deep_scan/status?group_id={group_id}", headers=headers)
+            self.assertEqual(poll_resp.status, 200)
+            poll_data = poll_resp.json()
+            self.assertEqual(poll_data["job_id"], active_job_id)
+            self.assertEqual(poll_data["scanned"], 1601)
+            self.assertEqual(poll_data["total"], 100000)
+            self.assertEqual(poll_data["percent"], 1.6)
+            self.assertEqual(poll_data["speed"], 334.6)
+            self.assertEqual(poll_data["status"], "PROCESSING")
+            self.assertEqual(poll_data["unique_members"], 42)
+
+            # 5. State: STOPPING / Cancel
+            cancel_resp = await client.request(
+                "POST", "/api/messages/deep_scan/cancel",
+                headers=headers,
+                json_data={"group_id": group_id}
+            )
+            self.assertEqual(cancel_resp.status, 200)
+            cancel_data = cancel_resp.json()
+            self.assertEqual(cancel_data["status"], "scan_cancelled")
+
+            # Check status after cancel
+            post_cancel_resp = await client.request("GET", f"/api/messages/deep_scan/status?group_id={group_id}", headers=headers)
+            self.assertEqual(post_cancel_resp.status, 200)
+            post_cancel_data = post_cancel_resp.json()
+            self.assertIn(post_cancel_data["status"], ("CANCELLED", "IDLE"))
+
+            # 6. Verify HTML Unified Scan State Controller
+            html_path = ROOT_DIR / "web" / "static" / "index.html"
+            with open(html_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+
+            # Verify unified state handler
+            self.assertIn("function updateScanButtonsState(unifiedState, data = {})", html_content)
+            self.assertIn("function mapBackendStatusToUnifiedScanState(status)", html_content)
+            self.assertIn("function syncDeepScanJobStatus(gid)", html_content)
+
+            # Verify all required button labels
+            self.assertIn("STARTING SCAN...", html_content)
+            self.assertIn("SCAN IN PROGRESS", html_content)
+            self.assertIn("RESUME SCAN", html_content)
+            self.assertIn("STOPPING...", html_content)
+            self.assertIn("SCAN COMPLETED", html_content)
+            self.assertIn("RETRY SCAN", html_content)
+
+            # Verify telemetry element IDs
+            self.assertIn('id="deep-scan-status-title"', html_content)
+            self.assertIn('id="btn-abort-deep-scan"', html_content)
+            self.assertIn('id="deep-scan-speed-label"', html_content)
+            self.assertIn('id="deep-scan-eta-label"', html_content)
+            self.assertIn('id="deep-scan-counts-label"', html_content)
+            self.assertIn('id="deep-scan-members-label"', html_content)
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: Deep reputation scan button state synchronization & unified lifecycle verified.")
+
 
 if __name__ == "__main__":
     print("=" * 75)

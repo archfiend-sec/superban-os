@@ -983,27 +983,53 @@ class SuperBanEngine:
         norm_gid = self.normalize_gid(group_id)
         abs_gid = abs(int(group_id)) if str(group_id).lstrip("-").isdigit() else norm_gid
         mem_info = self.active_deep_scans.get(norm_gid) or self.active_deep_scans.get(abs_gid)
-        if mem_info and mem_info.get("status") in ("VALIDATING", "CONNECTING", "PROCESSING", "RUNNING"):
-            return mem_info
+        if mem_info and mem_info.get("status") in ("VALIDATING", "CONNECTING", "PROCESSING", "RUNNING", "CANCELLED", "FAILED"):
+            # Ensure unified metrics contract
+            target_tot = mem_info.get("target_limit") or mem_info.get("total") or 100000
+            scanned_cnt = mem_info.get("scanned", 0)
+            calc_pct = round((scanned_cnt / target_tot) * 100, 1) if target_tot > 0 else 0.0
+            return {
+                "job_id": mem_info.get("job_id"),
+                "job_type": mem_info.get("job_type", "reputation_scan"),
+                "group_id": group_id,
+                "norm_group_id": norm_gid,
+                "group_title": mem_info.get("group_title", f"Group {group_id}"),
+                "scanned": scanned_cnt,
+                "total": target_tot,
+                "target_limit": target_tot,
+                "percent": mem_info.get("percent", calc_pct),
+                "speed": mem_info.get("speed", 0.0),
+                "eta_seconds": mem_info.get("eta_seconds"),
+                "unique_members": mem_info.get("unique_members", 0),
+                "status": mem_info.get("status", "PROCESSING"),
+                "start_time": mem_info.get("start_time"),
+                "last_activity": time.time(),
+                "error": mem_info.get("error")
+            }
 
         # Check SQLite scan_jobs for active job
         if self.db and hasattr(self.db, "get_active_scan_job_for_target"):
             active_db_job = await self.db.get_active_scan_job_for_target(group_id)
             if active_db_job:
+                tot = active_db_job.get("requested_limit", 100000)
+                scanned_cnt = active_db_job.get("processed_count", 0)
+                calc_pct = round((scanned_cnt / tot) * 100, 1) if tot > 0 else 0.0
                 return {
                     "job_id": active_db_job["job_id"],
                     "job_type": active_db_job["job_type"],
                     "group_id": group_id,
                     "norm_group_id": norm_gid,
                     "group_title": active_db_job.get("target_title", f"Group {group_id}"),
-                    "scanned": active_db_job.get("processed_count", 0),
-                    "total": active_db_job.get("requested_limit", 100000),
-                    "target_limit": active_db_job.get("requested_limit", 100000),
-                    "percent": active_db_job.get("percent", 0.0),
+                    "scanned": scanned_cnt,
+                    "total": tot,
+                    "target_limit": tot,
+                    "percent": active_db_job.get("percent", calc_pct),
                     "speed": active_db_job.get("speed", 0.0),
                     "eta_seconds": active_db_job.get("eta_seconds"),
                     "unique_members": active_db_job.get("unique_members", 0),
                     "status": active_db_job.get("status", "PROCESSING"),
+                    "start_time": active_db_job.get("started_at"),
+                    "last_activity": active_db_job.get("heartbeat_at") or active_db_job.get("updated_at"),
                     "error": active_db_job.get("error_info")
                 }
 
@@ -1011,28 +1037,65 @@ class SuperBanEngine:
         if self.db and hasattr(self.db, "get_latest_scan_job_for_target"):
             latest_db_job = await self.db.get_latest_scan_job_for_target(group_id)
             if latest_db_job:
+                tot = latest_db_job.get("requested_limit", 100000)
+                scanned_cnt = latest_db_job.get("processed_count", 0)
+                calc_pct = round((scanned_cnt / tot) * 100, 1) if tot > 0 else 0.0
                 return {
                     "job_id": latest_db_job["job_id"],
                     "job_type": latest_db_job["job_type"],
                     "group_id": group_id,
                     "norm_group_id": norm_gid,
                     "group_title": latest_db_job.get("target_title", f"Group {group_id}"),
-                    "scanned": latest_db_job.get("processed_count", 0),
-                    "total": latest_db_job.get("requested_limit", 100000),
-                    "target_limit": latest_db_job.get("requested_limit", 100000),
-                    "percent": latest_db_job.get("percent", 0.0),
+                    "scanned": scanned_cnt,
+                    "total": tot,
+                    "target_limit": tot,
+                    "percent": latest_db_job.get("percent", calc_pct),
                     "speed": latest_db_job.get("speed", 0.0),
                     "eta_seconds": latest_db_job.get("eta_seconds"),
                     "unique_members": latest_db_job.get("unique_members", 0),
                     "status": latest_db_job.get("status", "IDLE"),
+                    "start_time": latest_db_job.get("started_at"),
+                    "last_activity": latest_db_job.get("completed_at") or latest_db_job.get("updated_at"),
                     "error": latest_db_job.get("error_info")
                 }
 
-        return mem_info or {
+        if mem_info:
+            target_tot = mem_info.get("target_limit") or mem_info.get("total") or 100000
+            scanned_cnt = mem_info.get("scanned", 0)
+            calc_pct = round((scanned_cnt / target_tot) * 100, 1) if target_tot > 0 else 0.0
+            return {
+                "job_id": mem_info.get("job_id"),
+                "job_type": mem_info.get("job_type", "reputation_scan"),
+                "group_id": group_id,
+                "norm_group_id": norm_gid,
+                "group_title": mem_info.get("group_title", f"Group {group_id}"),
+                "scanned": scanned_cnt,
+                "total": target_tot,
+                "target_limit": target_tot,
+                "percent": mem_info.get("percent", calc_pct),
+                "speed": mem_info.get("speed", 0.0),
+                "eta_seconds": mem_info.get("eta_seconds"),
+                "unique_members": mem_info.get("unique_members", 0),
+                "status": mem_info.get("status", "IDLE"),
+                "start_time": mem_info.get("start_time"),
+                "last_activity": time.time(),
+                "error": mem_info.get("error")
+            }
+
+        return {
+            "job_id": None,
             "status": "IDLE",
             "group_id": group_id,
             "scanned": 0,
-            "target_limit": 100000
+            "total": 100000,
+            "target_limit": 100000,
+            "percent": 0.0,
+            "speed": 0.0,
+            "eta_seconds": None,
+            "unique_members": 0,
+            "start_time": None,
+            "last_activity": None,
+            "error": None
         }
 
     # ═══════════════════════════════════════════════════════
