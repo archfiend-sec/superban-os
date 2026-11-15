@@ -2664,9 +2664,9 @@ def create_app(engine: SuperBanEngine):
         graph = await engine.db.get_social_graph(group_id=group_id, limit=limit)
         my_id = getattr(engine, '_me_id', None)
         if my_id and graph:
-            graph["nodes"] = [n for n in graph.get("nodes", []) if n.get("id") != my_id]
+            graph["nodes"] = [n for n in graph.get("nodes", []) if n.get("id") != my_id and n.get("user_id") != my_id]
             graph["links"] = [l for l in graph.get("links", []) if l.get("source") != my_id and l.get("target") != my_id]
-            graph["top_influencers"] = [i for i in graph.get("top_influencers", []) if i.get("user_id") != my_id]
+            graph["top_influencers"] = [i for i in graph.get("top_influencers", []) if i.get("id") != my_id and i.get("user_id") != my_id]
             graph["node_count"] = len(graph["nodes"])
             graph["edge_count"] = len(graph["links"])
         return graph

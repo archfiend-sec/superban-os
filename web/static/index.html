@@ -5488,6 +5488,10 @@ html.warroom-active #vignette {
   #social-graph-canvas {
     touch-action: none !important;
     width: 100% !important;
+    height: 100% !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
   }
   .graph-influencers-wrap {
     min-height: 220px !important;
@@ -8367,7 +8371,7 @@ body.theme-light .kage-btn.secondary {
     <!-- Cockpit: Graph Canvas vs Top Influencers -->
     <div class="graph-modal-cockpit" style="flex: 1; display: grid; grid-template-columns: 1fr 280px; gap: 14px; min-height: 0; overflow: hidden;">
       <!-- Interactive HTML5 Graph Canvas -->
-      <div id="social-graph-container" style="position: relative; border: 1px solid var(--line-soft); border-radius: 4px; background: #05070a; overflow: hidden; display: flex; flex-direction: column;">
+      <div id="social-graph-container" style="position: relative; border: 1px solid var(--line-soft); border-radius: 4px; background: #05070a; overflow: hidden; display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 480px; flex: 1 1 auto;">
         <!-- Top Status Tags -->
         <div style="position: absolute; top: 12px; left: 12px; z-index: 10; display: flex; gap: 8px; pointer-events: none;">
           <span id="graph-stats-tag" class="badge badge-muted" style="font-size: 9px; pointer-events: auto;">0 Nodes / 0 Edges</span>
@@ -8389,7 +8393,7 @@ body.theme-light .kage-btn.secondary {
           <div id="graph-tooltip-details" style="font-size: 9px; color: var(--muted); margin-top: 4px; line-height: 1.4;"></div>
         </div>
 
-        <canvas id="social-graph-canvas" width="800" height="520" style="width: 100%; height: 100%; display: block; cursor: grab;"></canvas>
+        <canvas id="social-graph-canvas" style="width: 100% !important; height: 100% !important; flex: 1 1 auto; min-width: 0; min-height: 0; display: block; cursor: grab; touch-action: none;"></canvas>
       </div>
 
       <!-- Top Influencer Roster -->
@@ -16901,13 +16905,73 @@ body.theme-light .kage-btn.secondary {
   let graphPanStart = { x: 0, y: 0 };
   let graphAnimId = null;
 
+  function syncSocialGraphDimensions() {
+    const canvas = document.getElementById('social-graph-canvas');
+    const container = document.getElementById('social-graph-container');
+    if (!canvas || !container) return { w: 800, h: 520, dpr: 1 };
+    const cRect = container.getBoundingClientRect();
+    const w = Math.max(Math.floor(cRect.width), 320);
+    const h = Math.max(Math.floor(cRect.height), 260);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const bufW = Math.round(w * dpr);
+    const bufH = Math.round(h * dpr);
+    if (canvas.width !== bufW || canvas.height !== bufH) {
+      canvas.width = bufW;
+      canvas.height = bufH;
+    }
+    return { w, h, dpr };
+  }
+
+  function autoFitSocialGraph() {
+    const canvas = document.getElementById('social-graph-canvas');
+    const container = document.getElementById('social-graph-container');
+    if (!canvas || !container || !graphNodes || graphNodes.length === 0) {
+      graphScale = 1.0;
+      graphPanX = 0;
+      graphPanY = 0;
+      updateGraphZoomLabel();
+      return;
+    }
+    const { w, h } = syncSocialGraphDimensions();
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    for (const n of graphNodes) {
+      const radius = n.r || 24;
+      minX = Math.min(minX, n.x - radius - 20);
+      maxX = Math.max(maxX, n.x + radius + 20);
+      minY = Math.min(minY, n.y - radius - 20);
+      maxY = Math.max(maxY, n.y + radius + 32);
+    }
+
+    const graphW = Math.max(maxX - minX, 100);
+    const graphH = Math.max(maxY - minY, 100);
+    const graphCenterX = (minX + maxX) / 2;
+    const graphCenterY = (minY + maxY) / 2;
+
+    const padX = Math.max(w * 0.08, 36);
+    const padY = Math.max(h * 0.08, 36);
+    const availW = Math.max(w - padX * 2, 80);
+    const availH = Math.max(h - padY * 2, 80);
+
+    const fitScale = Math.min(availW / graphW, availH / graphH);
+    graphScale = Math.max(0.35, Math.min(fitScale, 1.25));
+
+    graphPanX = (w / 2) - (graphCenterX * graphScale);
+    graphPanY = (h / 2) - (graphCenterY * graphScale);
+
+    updateGraphZoomLabel();
+    if (typeof window.wakeGraphSim === 'function') window.wakeGraphSim();
+  }
+
   function openGraphModal() {
     const m = document.getElementById('graph-modal');
     if (m) {
       m.style.display = 'flex';
-      setTimeout(() => {
+      requestAnimationFrame(() => {
+        syncSocialGraphDimensions();
         refreshSocialGraph();
-      }, 60);
+      });
     }
   }
 
@@ -16946,9 +17010,7 @@ body.theme-light .kage-btn.secondary {
     // Smooth camera center on target node
     const canvas = document.getElementById('social-graph-canvas');
     if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const w = rect.width || 800;
-      const h = rect.height || 520;
+      const { w, h } = syncSocialGraphDimensions();
       graphPanX = (w / 2) - (target.x * graphScale);
       graphPanY = (h / 2) - (target.y * graphScale);
     }
@@ -16993,7 +17055,7 @@ body.theme-light .kage-btn.secondary {
       focusBanner.style.display = 'flex';
       focusBanner.innerHTML = `
         <span style="color: #38bdf8; font-weight: bold;">🎯 ISOLATED:</span>
-        <span style="color: #ffffff; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(node.label)}</span>
+        <span style="color: #ffffff; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(node.label || 'User #' + node.id)}</span>
         <span style="color: #f472b6; font-size: 9px;">(${node.degree} edges)</span>
         <button type="button" onclick="openOSINTModal(${node.id})" class="act-pill" style="font-size: 8.5px; padding: 1px 6px; margin-left: 2px;">Dossier</button>
         <button type="button" onclick="clearGraphSelection()" class="btn-xs-outline" style="font-size: 8.5px; padding: 1px 5px; color: var(--muted); border-color: var(--line);">✕ Show All</button>
@@ -17010,9 +17072,10 @@ body.theme-light .kage-btn.secondary {
   function zoomSocialGraph(factor) {
     const canvas = document.getElementById('social-graph-canvas');
     if (!canvas) return;
-    const newScale = Math.max(0.3, Math.min(graphScale * factor, 4.5));
-    const cx = canvas.clientWidth / 2;
-    const cy = canvas.clientHeight / 2;
+    const { w, h } = syncSocialGraphDimensions();
+    const newScale = Math.max(0.25, Math.min(graphScale * factor, 4.0));
+    const cx = w / 2;
+    const cy = h / 2;
     graphPanX = cx - (cx - graphPanX) * (newScale / graphScale);
     graphPanY = cy - (cy - graphPanY) * (newScale / graphScale);
     graphScale = newScale;
@@ -17021,16 +17084,22 @@ body.theme-light .kage-btn.secondary {
   }
 
   function resetSocialGraphView() {
-    graphScale = 1.0;
-    graphPanX = 0;
-    graphPanY = 0;
-    updateGraphZoomLabel();
-    if (typeof window.wakeGraphSim === 'function') window.wakeGraphSim();
+    autoFitSocialGraph();
   }
 
   function updateGraphZoomLabel() {
     const lbl = document.getElementById('graph-zoom-label');
     if (lbl) lbl.innerText = `${Math.round(graphScale * 100)}%`;
+  }
+
+  function formatInfluencerName(inf) {
+    const raw = inf && (inf.label || inf.name || inf.first_name || '');
+    const trimmed = typeof raw === 'string' ? raw.trim() : '';
+    if (trimmed && trimmed.toLowerCase() !== 'none' && trimmed.toLowerCase() !== 'null' && trimmed.toLowerCase() !== 'undefined') {
+      return trimmed;
+    }
+    const uid = inf && (inf.id || inf.user_id);
+    return uid ? `User #${uid}` : 'Anonymous Operative';
   }
 
   async function refreshSocialGraph() {
@@ -17049,18 +17118,22 @@ body.theme-light .kage-btn.secondary {
           if (!data.top_influencers || data.top_influencers.length === 0) {
             infList.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">No interaction paths mapped yet.</div>`;
           } else {
-            infList.innerHTML = data.top_influencers.map((inf, i) => `
+            infList.innerHTML = data.top_influencers.map((inf, i) => {
+              const displayName = formatInfluencerName(inf);
+              const edgesCount = inf.degree || 0;
+              return `
               <div id="graph-inf-item-${inf.id}" class="graph-inf-item" style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-radius: 4px; padding: 7px 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s ease;" onclick="selectGraphNodeById(${inf.id})" title="Click to isolate & highlight in network graph">
                 <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; min-width: 0; flex: 1;">
                   <span style="font-size: 10px; color: #fbbf24; font-weight: bold; flex-shrink: 0;">#${i+1}</span>
-                  <span style="font-size: 11px; color: var(--bone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">${escapeHtml(inf.label)}</span>
+                  <span style="font-size: 11px; color: var(--bone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">${escapeHtml(displayName)}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                  <span class="badge" style="background: rgba(236,72,153,0.15); color: #f472b6; border: 1px solid #ec4899; font-size: 8px;">${inf.degree} EDGES</span>
+                  <span class="badge" style="background: rgba(236,72,153,0.15); color: #f472b6; border: 1px solid #ec4899; font-size: 8px;">${edgesCount} EDGES</span>
                   <button type="button" onclick="event.stopPropagation(); openOSINTModal(${inf.id})" class="act-pill" style="font-size: 8.5px; padding: 2px 6px;" title="View deep OSINT profile">OSINT</button>
                 </div>
               </div>
-            `).join('');
+            `;
+            }).join('');
           }
         }
 
@@ -17072,35 +17145,42 @@ body.theme-light .kage-btn.secondary {
   }
 
   function getInitials(name) {
-    if (!name) return 'U';
-    const cleaned = name.trim().replace(/[^\w\s]/gi, '');
-    const parts = cleaned.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+    if (!name || typeof name !== 'string') return 'OP';
+    const trimmed = name.trim();
+    if (!trimmed) return 'OP';
+    const cleaned = trimmed.replace(/[\u200B-\u200D\uFEFF\u0000-\u001F]/g, '');
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+      const w1 = words[0].replace(/[^\p{L}\p{N}]/gu, '');
+      const w2 = words[1].replace(/[^\p{L}\p{N}]/gu, '');
+      if (w1 && w2) return (w1[0] + w2[0]).toUpperCase();
     }
-    if (cleaned.length >= 2) {
-      return cleaned.slice(0, 2).toUpperCase();
-    }
-    return (name.trim().slice(0, 2) || 'U').toUpperCase();
+    const letters = cleaned.replace(/[^\p{L}\p{N}]/gu, '');
+    if (letters.length >= 2) return letters.slice(0, 2).toUpperCase();
+    if (letters.length === 1) return letters.toUpperCase();
+    const chars = Array.from(cleaned).filter(c => c.trim().length > 0);
+    if (chars.length >= 2) return chars.slice(0, 2).join('');
+    return (chars[0] || 'OP');
   }
 
   function initSocialGraphCanvas(nodes, links) {
     const canvas = document.getElementById('social-graph-canvas');
-    if (!canvas) return;
+    const container = document.getElementById('social-graph-container');
+    if (!canvas || !container) return;
 
-    // Retina display resolution scaling
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    const w = rect.width || 800;
-    const h = rect.height || 520;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
+    // Attach ResizeObserver to container to handle all window, split, or modal resizing
+    if (window.ResizeObserver && !container._kageGraphRO) {
+      const ro = new ResizeObserver(() => {
+        if (graphSimRunning) {
+          syncSocialGraphDimensions();
+          if (typeof window.wakeGraphSim === 'function') window.wakeGraphSim();
+        }
+      });
+      ro.observe(container);
+      container._kageGraphRO = ro;
+    }
 
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-
+    const { w, h, dpr } = syncSocialGraphDimensions();
     const cx = w / 2;
     const cy = h / 2;
 
@@ -17112,10 +17192,11 @@ body.theme-light .kage-btn.secondary {
       const angle = (i / totalNodes) * Math.PI * 2;
       const radiusDist = 180 + (i % 3) * 55;
       const deg = n.degree || 1;
+      const cleanLabel = formatInfluencerName(n);
       const node = {
         id: n.id,
-        label: n.label || `User #${n.id}`,
-        initials: getInitials(n.label),
+        label: cleanLabel,
+        initials: getInitials(cleanLabel),
         degree: deg,
         r: Math.min(Math.max(16 + deg * 2, 18), 30),
         x: cx + Math.cos(angle) * radiusDist,
@@ -17132,6 +17213,9 @@ body.theme-light .kage-btn.secondary {
       target: nodeMap[l.target],
       weight: l.weight || 1
     })).filter(l => l.source && l.target);
+
+    // Auto-fit & center nodes inside canvas viewport
+    autoFitSocialGraph();
 
     // Zoom & Pan Mouse Handlers
     let dragStartPos = { x: 0, y: 0 };
@@ -17344,6 +17428,10 @@ body.theme-light .kage-btn.secondary {
     function runSim() {
       if (!graphSimRunning) return;
 
+      const { w, h, dpr } = syncSocialGraphDimensions();
+      const cx = w / 2;
+      const cy = h / 2;
+
       // 1. Strong electrostatic repulsion (prevents clumping)
       for (let i = 0; i < graphNodes.length; i++) {
         for (let j = i + 1; j < graphNodes.length; j++) {
@@ -17394,6 +17482,9 @@ body.theme-light .kage-btn.secondary {
       }
 
       // 4. Render with Zoom & Pan transform
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = '#05070a';
       ctx.fillRect(0, 0, w, h);
@@ -17402,13 +17493,13 @@ body.theme-light .kage-btn.secondary {
       ctx.translate(graphPanX, graphPanY);
       ctx.scale(graphScale, graphScale);
 
-      // Cyber Dot Matrix Background Grid
+      // Cyber Dot Matrix Background Grid - fully dynamic over entire viewport
       ctx.fillStyle = 'rgba(255,255,255,0.06)';
       const gridStep = 45;
-      const minX = Math.floor((-graphPanX / graphScale) / gridStep) * gridStep - gridStep;
-      const minY = Math.floor((-graphPanY / graphScale) / gridStep) * gridStep - gridStep;
-      const maxX = minX + (w / graphScale) + gridStep * 2;
-      const maxY = minY + (h / graphScale) + gridStep * 2;
+      const minX = Math.floor((-graphPanX / graphScale) / gridStep) * gridStep - gridStep * 2;
+      const minY = Math.floor((-graphPanY / graphScale) / gridStep) * gridStep - gridStep * 2;
+      const maxX = minX + (w / graphScale) + gridStep * 4;
+      const maxY = minY + (h / graphScale) + gridStep * 4;
       for (let gx = minX; gx < maxX; gx += gridStep) {
         for (let gy = minY; gy < maxY; gy += gridStep) {
           ctx.fillRect(gx, gy, 1.5, 1.5);
@@ -17469,7 +17560,6 @@ body.theme-light .kage-btn.secondary {
           } else if (isConnected) {
             alpha = 0.65;
           } else {
-            // User requested: "highlight only its circle or hide everyone else in the mobile phone"
             alpha = 0.03;
           }
         } else if (hoveredGraphNode) {
@@ -17523,7 +17613,7 @@ body.theme-light .kage-btn.secondary {
 
         // Name badge pill underneath: only show if no isolation or is self or connected
         if (!selectedGraphNode || isSelf || isConnected) {
-          const cleanName = (n.label || '').slice(0, 14);
+          const cleanName = (n.label || '').slice(0, 16);
           ctx.font = '10px monospace';
           const textWidth = ctx.measureText(cleanName).width;
           const pillW = textWidth + 14;
@@ -17590,13 +17680,13 @@ body.theme-light .kage-btn.secondary {
     const statsEl = document.getElementById('graph-tooltip-stats');
     const detailsEl = document.getElementById('graph-tooltip-details');
 
-    if (nameEl) nameEl.innerText = node.label;
+    if (nameEl) nameEl.innerText = node.label || `User #${node.id}`;
     if (statsEl) statsEl.innerText = `⚡ ${node.degree} Connected Interactions`;
 
     const partners = [];
     for (let l of graphLinks) {
-      if (l.source === node && l.target) partners.push(`${l.target.label} (${l.weight}x)`);
-      else if (l.target === node && l.source) partners.push(`${l.source.label} (${l.weight}x)`);
+      if (l.source === node && l.target) partners.push(`${l.target.label || 'User #' + l.target.id} (${l.weight}x)`);
+      else if (l.target === node && l.source) partners.push(`${l.source.label || 'User #' + l.source.id} (${l.weight}x)`);
     }
 
     if (detailsEl) {

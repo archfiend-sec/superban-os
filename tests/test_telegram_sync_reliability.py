@@ -509,6 +509,73 @@ class TestTelegramSyncReliabilityAndSecurity(unittest.IsolatedAsyncioTestCase):
         finally:
             tmp_file.unlink(missing_ok=True)
 
+    async def test_11_social_graph_fallback_and_enrichment(self):
+        """Verify that social graph topology eliminates blank influencer names and enriches known users."""
+        db_path = Path("/tmp/test_social_graph.db")
+        db = DatabaseManager(db_path)
+        gid = 998877
+
+        # 1. Record interaction with blank source name and None target name
+        interactions = [
+            (gid, 4001, "", 4002, None, "reply", 101, "2026-11-15 12:00:00"),
+            (gid, 4001, "", 4003, "   ", "mention", 102, "2026-11-15 12:05:00")
+        ]
+        await db.batch_record_social_interactions(interactions)
+
+        # 2. Enrich 4001 in user_cross_profiles
+        members = [
+            {
+                "user_id": 4001,
+                "full_name": "Ghost Operative",
+                "username": "ghost_op",
+                "message_count": 50,
+                "is_premium": False,
+                "is_verified": False
+            }
+        ]
+        await db.batch_update_user_cross_profiles(gid, "War Room", members)
+
+        # 3. Retrieve social graph
+        graph = await db.get_social_graph(group_id=gid)
+        self.assertEqual(graph["edge_count"], 2)
+        self.assertEqual(graph["node_count"], 3)
+
+        # 4. Verify all nodes have non-empty, sanitized labels
+        for n in graph["nodes"]:
+            self.assertTrue(bool(n.get("label")), f"Node {n['id']} has empty label")
+            self.assertNotEqual(n["label"].strip(), "", f"Node {n['id']} label is whitespace")
+            self.assertIn("user_id", n)
+            self.assertEqual(n["id"], n["user_id"])
+
+        # 5. Verify user 4001 was enriched from user_cross_profiles
+        node_4001 = next(n for n in graph["nodes"] if n["id"] == 4001)
+        self.assertEqual(node_4001["label"], "Ghost Operative")
+
+        # 6. Verify top influencers list has no blank labels
+        for inf in graph["top_influencers"]:
+            self.assertTrue(bool(inf.get("label")), "Influencer has empty label")
+            self.assertNotEqual(inf["label"].strip(), "")
+
+        db.conn.close()
+        db_path.unlink(missing_ok=True)
+
+    async def test_12_social_graph_api_endpoint_sanitization(self):
+        """Verify that /api/graph/social returns clean, sanitized top influencers with no blank labels."""
+        import secrets
+        tok = secrets.token_hex(32)
+        OWNER_TOKENS[tok] = time.time() + 3600
+        client = InProcessAsgiClient(app)
+        res = await client.request("GET", "/api/graph/social?limit=50", headers={"X-Owner-Token": tok})
+        self.assertEqual(res.status, 200)
+        data = res.json()
+        self.assertIn("nodes", data)
+        self.assertIn("links", data)
+        self.assertIn("top_influencers", data)
+
+        for inf in data["top_influencers"]:
+            label = inf.get("label", "")
+            self.assertTrue(bool(label and label.strip()), f"Influencer {inf} has blank label")
+
 
 if __name__ == "__main__":
     unittest.main()

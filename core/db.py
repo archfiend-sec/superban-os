@@ -2080,10 +2080,18 @@ class DatabaseManager:
 
             for r in rows:
                 s_id, s_name, t_id, t_name, w = r[0], r[1], r[2], r[3], r[4]
+                clean_s = (s_name or "").strip()
+                if not clean_s or clean_s.lower() in ("none", "null", "undefined"):
+                    clean_s = f"User #{s_id}"
+
+                clean_t = (t_name or "").strip()
+                if not clean_t or clean_t.lower() in ("none", "null", "undefined"):
+                    clean_t = f"User #{t_id}"
+
                 if s_id not in nodes_dict:
-                    nodes_dict[s_id] = {"id": s_id, "label": s_name, "degree": 0}
+                    nodes_dict[s_id] = {"id": s_id, "user_id": s_id, "label": clean_s, "degree": 0}
                 if t_id not in nodes_dict:
-                    nodes_dict[t_id] = {"id": t_id, "label": t_name, "degree": 0}
+                    nodes_dict[t_id] = {"id": t_id, "user_id": t_id, "label": clean_t, "degree": 0}
 
                 nodes_dict[s_id]["degree"] += w
                 nodes_dict[t_id]["degree"] += w
@@ -2093,6 +2101,28 @@ class DatabaseManager:
                     "target": t_id,
                     "weight": w
                 })
+
+            # Check if any nodes have placeholder/missing names and enrich from user_cross_profiles
+            missing_uids = [
+                uid for uid, n in nodes_dict.items()
+                if not n.get("label") or n["label"] == f"User #{uid}" or n["label"].lower() in ("none", "null")
+            ]
+            if missing_uids:
+                try:
+                    placeholders = ",".join("?" for _ in missing_uids)
+                    self.cursor.execute(
+                        f"SELECT user_id, current_name, current_username FROM user_cross_profiles WHERE user_id IN ({placeholders})",
+                        missing_uids
+                    )
+                    for row in self.cursor.fetchall():
+                        uid = row[0]
+                        cname = (row[1] or "").strip()
+                        cuser = (row[2] or "").strip()
+                        resolved = cname or (f"@{cuser}" if cuser else "")
+                        if resolved and uid in nodes_dict:
+                            nodes_dict[uid]["label"] = resolved
+                except Exception:
+                    pass
 
             nodes_list = list(nodes_dict.values())
             nodes_list.sort(key=lambda n: n["degree"], reverse=True)
