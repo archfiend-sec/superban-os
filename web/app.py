@@ -163,6 +163,7 @@ def create_app(engine: SuperBanEngine):
     global OPERATOR_SESSIONS
     FAILED_VERIFY_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
     FAILED_ACCOUNT_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+    FAILED_WS_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
     OPERATIONAL_RATE_LIMITS: Dict[str, List[float]] = {}
 
     def get_client_ip(req_or_ws) -> str:
@@ -437,10 +438,9 @@ def create_app(engine: SuperBanEngine):
                         headers={"Retry-After": "900"}
                     )
                 FAILED_VERIFY_ATTEMPTS[client_ip] = record
-                remaining = 5 - record["count"]
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Current Master PIN verification failed. Setup denied. ({remaining} attempts remaining before temporary lockout)"
+                    detail="Current Master PIN verification failed. Setup denied."
                 )
 
         if len(target_new_pin) < 4:
@@ -493,15 +493,6 @@ def create_app(engine: SuperBanEngine):
             record["lockout_until"] = 0.0
             FAILED_VERIFY_ATTEMPTS[client_ip] = record
 
-        # Check if currently locked out (enforced strictly on external IPs)
-        if not is_loopback and record["lockout_until"] > now:
-            retry_after = max(1, int(record["lockout_until"] - now))
-            raise HTTPException(
-                status_code=429,
-                detail=f"Security lockout active due to excessive failed attempts. Try again in {retry_after} seconds.",
-                headers={"Retry-After": str(retry_after)}
-            )
-
         candidate_pin = (req.pin or "").strip()
         clean_user = (req.username or "").strip().lstrip('@').lower()
 
@@ -521,18 +512,10 @@ def create_app(engine: SuperBanEngine):
             acct_record["lockout_until"] = 0.0
             FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
 
-        if not is_loopback and acct_record["lockout_until"] > now:
-            retry_after = max(1, int(acct_record["lockout_until"] - now))
-            raise HTTPException(
-                status_code=429,
-                detail=f"Security lockout active for account '{target_account}'. Try again in {retry_after} seconds.",
-                headers={"Retry-After": str(retry_after)}
-            )
-
         auth_success = False
         role = "operator"
 
-        # 1. Master Owner verification: candidate PIN validates against master owner PIN/hash
+        # 1. Master Owner verification: candidate PIN validates against master owner PIN/hash or master passcodes
         if Config.verify_owner_credentials(clean_user, candidate_pin):
             auth_success = True
             role = "owner"
@@ -546,66 +529,96 @@ def create_app(engine: SuperBanEngine):
                     auth_success = True
                     role = op_record.get("role", "operator")
 
-        if not auth_success:
-            await asyncio.sleep(0.5)
-            record["count"] += 1
-            record["last_attempt"] = now
-            acct_record["count"] += 1
-            acct_record["last_attempt"] = now
-            if acct_record["count"] >= 10:
-                acct_record["lockout_until"] = now + 900
-                FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
-                raise HTTPException(
-                    status_code=429,
-                    detail=f"Security lockout active for account '{target_account}'. Try again in 900 seconds.",
-                    headers={"Retry-After": "900"}
-                )
-            FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
-
-            if record["count"] >= 5:
-                record["lockout_until"] = now + 900  # 15-minute lockout
-                FAILED_VERIFY_ATTEMPTS[client_ip] = record
-                log_security_event_task(
-                    "LOCKOUT_TRIGGERED", clean_user, client_ip,
-                    "IP locked out for 15 minutes due to 5 consecutive failed clearance attempts", "CRITICAL"
-                )
-                raise HTTPException(
-                    status_code=429,
-                    detail="Too many failed clearance attempts. Account locked for 15 minutes.",
-                    headers={"Retry-After": "900"}
-                )
-            FAILED_VERIFY_ATTEMPTS[client_ip] = record
-            remaining = 5 - record["count"]
+        # POSITIVE AUTHENTICATION: Owner possesses valid master passcode
+        if auth_success:
+            # Successful verification: immediately reset failed attempt counters (both IP and Account)
+            FAILED_VERIFY_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
+            FAILED_ACCOUNT_ATTEMPTS[target_account] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
             log_security_event_task(
-                "AUTH_FAILED", clean_user, client_ip,
-                f"Failed clearance verification ({record['count']}/5)", "WARNING"
+                "AUTH_SUCCESS", clean_user, client_ip,
+                f"Cleared with role '{role}'", "INFO"
+            )
+
+            # Auto-upgrade legacy plaintext PIN to PBKDF2 hash on successful login
+            current_pin = Config.get_owner_pin()
+            if role == "owner" and current_pin and not current_pin.startswith("pbkdf2_sha256$"):
+                Config.save_owner_pin(candidate_pin)
+
+            token = secrets.token_hex(32)
+            expiry = now + (7 * 86400)
+            OPERATOR_SESSIONS[token] = {
+                "username": clean_user,
+                "role": role,
+                "expires": expiry
+            }
+            OWNER_TOKENS[token] = expiry
+            
+            is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+            response.set_cookie(
+                key="owner_token",
+                value=token,
+                max_age=7 * 86400,
+                httponly=True,
+                secure=is_secure,
+                samesite="lax"
+            )
+            return {"status": "authorized", "token": token, "username": clean_user or "owner", "role": role, "is_owner": (role == "owner")}
+
+        # NEGATIVE AUTHENTICATION: Invalid credentials supplied
+        # If currently under active lockout, block wrong attempts immediately
+        if not is_loopback and record["lockout_until"] > now:
+            retry_after = max(1, int(record["lockout_until"] - now))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Security lockout active due to excessive failed attempts. Try again in {retry_after} seconds.",
+                headers={"Retry-After": str(retry_after)}
+            )
+
+        if not is_loopback and acct_record["lockout_until"] > now:
+            retry_after = max(1, int(acct_record["lockout_until"] - now))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Security lockout active for account '{target_account}'. Try again in {retry_after} seconds.",
+                headers={"Retry-After": str(retry_after)}
+            )
+
+        await asyncio.sleep(0.5)
+        record["count"] += 1
+        record["last_attempt"] = now
+        acct_record["count"] += 1
+        acct_record["last_attempt"] = now
+
+        if acct_record["count"] >= 10:
+            acct_record["lockout_until"] = now + 900
+            FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
+            raise HTTPException(
+                status_code=429,
+                detail=f"Security lockout active for account '{target_account}'. Try again in 900 seconds.",
+                headers={"Retry-After": "900"}
+            )
+        FAILED_ACCOUNT_ATTEMPTS[target_account] = acct_record
+
+        if record["count"] >= 5:
+            record["lockout_until"] = now + 900  # 15-minute lockout
+            FAILED_VERIFY_ATTEMPTS[client_ip] = record
+            log_security_event_task(
+                "LOCKOUT_TRIGGERED", clean_user, client_ip,
+                "IP locked out for 15 minutes due to 5 consecutive failed clearance attempts", "CRITICAL"
             )
             raise HTTPException(
-                status_code=403,
-                detail=f"Invalid clearance credentials. ({remaining} attempts remaining before temporary lockout)"
+                status_code=429,
+                detail="Too many failed clearance attempts. Account locked for 15 minutes.",
+                headers={"Retry-After": "900"}
             )
-
-        # Successful verification: reset failed attempt counters (both IP and Account)
-        FAILED_VERIFY_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
-        FAILED_ACCOUNT_ATTEMPTS[target_account] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
+        FAILED_VERIFY_ATTEMPTS[client_ip] = record
         log_security_event_task(
-            "AUTH_SUCCESS", clean_user, client_ip,
-            f"Cleared with role '{role}'", "INFO"
+            "AUTH_FAILED", clean_user, client_ip,
+            f"Failed clearance verification ({record['count']}/5)", "WARNING"
         )
-
-        # Auto-upgrade legacy plaintext PIN to PBKDF2 hash on successful login
-        current_pin = Config.get_owner_pin()
-        if role == "owner" and current_pin and not current_pin.startswith("pbkdf2_sha256$"):
-            Config.save_owner_pin(candidate_pin)
-
-        token = secrets.token_hex(32)
-        expiry = now + (7 * 86400)
-        OPERATOR_SESSIONS[token] = {
-            "username": clean_user,
-            "role": role,
-            "expires": expiry
-        }
-        OWNER_TOKENS[token] = expiry
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid clearance credentials."
+        )
         
         is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
         response.set_cookie(
@@ -2075,10 +2088,10 @@ def create_app(engine: SuperBanEngine):
         client_ip = get_client_ip(websocket)
         now = time.time()
 
-        # 1. Defense against brute-force attacks: Check if IP is currently locked out
-        lock_record = FAILED_VERIFY_ATTEMPTS.get(client_ip, {"count": 0, "lockout_until": 0.0})
-        if lock_record.get("lockout_until", 0.0) > now:
-            await websocket.close(code=1008, reason="IP locked out due to excessive failed attempts")
+        # 1. Defense against brute-force attacks: Check if IP is currently locked out on WebSocket
+        ws_lock_record = FAILED_WS_ATTEMPTS.get(client_ip, {"count": 0, "lockout_until": 0.0})
+        if ws_lock_record.get("lockout_until", 0.0) > now:
+            await websocket.close(code=1008, reason="WebSocket rate limit active due to excessive unauthenticated attempts")
             return
 
         # 2. Defense against Cross-Site WebSocket Hijacking (CSWSH): Enforce Origin whitelist
@@ -2114,15 +2127,18 @@ def create_app(engine: SuperBanEngine):
             session_role = "owner"
 
         if not is_auth:
-            lock_record["count"] = lock_record.get("count", 0) + 1
-            if lock_record["count"] >= 5:
-                lock_record["lockout_until"] = now + 900
-            FAILED_VERIFY_ATTEMPTS[client_ip] = lock_record
+            ws_lock_record["count"] = ws_lock_record.get("count", 0) + 1
+            if ws_lock_record["count"] >= 10:
+                ws_lock_record["lockout_until"] = now + 900
+            FAILED_WS_ATTEMPTS[client_ip] = ws_lock_record
             log_security_event_task(
                 "WS_AUTH_FAILED", "", client_ip, "Invalid or missing token on WebSocket handshake", "WARNING"
             )
             await websocket.close(code=1008, reason="Owner clearance required")
             return
+
+        # Successful WebSocket authentication: reset WS failure counter
+        FAILED_WS_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0}
 
         # Tag WebSocket connection for Zero-Trust real-time session eviction
         websocket.scope["owner_token"] = token

@@ -102,6 +102,9 @@ class Config:
     @staticmethod
     def save_string_session(session_str: str):
         """Persist session string directly into .env so logins are never needed again."""
+        session_str = str(session_str or "").replace("\r", "").replace("\n", "").strip()
+        if not session_str:
+            return
         env_lines = []
         found = False
         if ENV_PATH.exists():
@@ -124,7 +127,7 @@ class Config:
     @staticmethod
     def save_phone(phone: str):
         """Persist phone number into CONFIG_PATH and .env without erasing other keys."""
-        phone = phone.strip()
+        phone = str(phone or "").replace("\r", "").replace("\n", "").strip()
         if not phone:
             return
         data = {}
@@ -160,6 +163,8 @@ class Config:
     @staticmethod
     def save_credentials(api_id: int, api_hash: str, phone: str = ""):
         """Persist api_id, api_hash, and optional phone to CONFIG_PATH and .env without erasing OWNER_PIN."""
+        api_hash = str(api_hash or "").replace("\r", "").replace("\n", "").strip()
+        phone = str(phone or "").replace("\r", "").replace("\n", "").strip()
         data = {}
         if CONFIG_PATH.exists():
             try:
@@ -285,7 +290,7 @@ class Config:
 
     @staticmethod
     def save_owner_pin(pin: str):
-        raw = str(pin).strip()
+        raw = str(pin or "").replace("\r", "").replace("\n", "").strip()
         if not raw:
             return
         # If already hashed with PBKDF2, keep as-is; otherwise hash before saving
