@@ -1,4 +1,5 @@
 import asyncio
+import re
 import sqlite3
 import json
 import logging
@@ -388,10 +389,57 @@ class DatabaseManager:
             );
             CREATE INDEX IF NOT EXISTS idx_scan_jobs_target ON scan_jobs(target_id, status);
             CREATE INDEX IF NOT EXISTS idx_scan_jobs_status ON scan_jobs(status);
+
+            -- ═══════════════════════════════════════════════════════
+            --   AUTOMATED RECONNAISSANCE SCHEDULES & EXECUTIONS
+            -- ═══════════════════════════════════════════════════════
+            CREATE TABLE IF NOT EXISTS recon_schedules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id INTEGER UNIQUE NOT NULL,
+                group_title TEXT,
+                is_enabled BOOLEAN DEFAULT 0,
+                schedule_time TEXT DEFAULT '04:00',
+                timezone TEXT DEFAULT 'UTC',
+                frequency TEXT DEFAULT 'daily',
+                target_limit INTEGER DEFAULT 100000,
+                last_run_at TIMESTAMP,
+                last_run_status TEXT,
+                last_run_job_id TEXT,
+                last_run_slot TEXT,
+                next_run_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_recon_sched_enabled ON recon_schedules(is_enabled, next_run_at);
+            CREATE INDEX IF NOT EXISTS idx_recon_sched_gid ON recon_schedules(group_id);
+
+            CREATE TABLE IF NOT EXISTS recon_schedule_executions (
+                execution_id TEXT PRIMARY KEY,
+                schedule_id INTEGER,
+                group_id INTEGER NOT NULL,
+                group_title TEXT,
+                job_id TEXT,
+                scheduled_time TIMESTAMP,
+                actual_start_time TIMESTAMP,
+                completion_time TIMESTAMP,
+                execution_type TEXT DEFAULT 'scheduled',
+                messages_fetched INTEGER DEFAULT 0,
+                messages_processed INTEGER DEFAULT 0,
+                unique_members_profiled INTEGER DEFAULT 0,
+                failed_messages INTEGER DEFAULT 0,
+                execution_duration_sec REAL DEFAULT 0.0,
+                final_status TEXT DEFAULT 'SCHEDULED',
+                error_details TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_recon_exec_sched ON recon_schedule_executions(schedule_id);
+            CREATE INDEX IF NOT EXISTS idx_recon_exec_gid ON recon_schedule_executions(group_id);
+            CREATE INDEX IF NOT EXISTS idx_recon_exec_status ON recon_schedule_executions(final_status);
+            CREATE INDEX IF NOT EXISTS idx_recon_exec_created ON recon_schedule_executions(created_at DESC);
         ''')
         self.conn.commit()
 
-        # Auto-recover stalled scan jobs from previous server crash/restart
+        # Auto-recover stalled scan jobs and scheduled executions from previous server crash/restart
         try:
             now_iso = datetime.now().isoformat()
             self.cursor.execute('''
@@ -402,6 +450,19 @@ class DatabaseManager:
                     updated_at = ?
                 WHERE status IN ('CONNECTING', 'PROCESSING', 'VALIDATING', 'QUEUED')
             ''', (now_iso, now_iso))
+            self.cursor.execute('''
+                UPDATE recon_schedule_executions
+                SET final_status = 'FAILED',
+                    error_details = 'Server restarted during scheduled scan processing',
+                    completion_time = ?
+                WHERE final_status IN ('STARTING', 'RUNNING', 'SCHEDULED')
+            ''', (now_iso,))
+            self.cursor.execute('''
+                UPDATE recon_schedules
+                SET last_run_status = 'FAILED',
+                    updated_at = ?
+                WHERE last_run_status IN ('STARTING', 'RUNNING')
+            ''', (now_iso,))
             self.conn.commit()
         except Exception:
             pass
@@ -2080,11 +2141,11 @@ class DatabaseManager:
 
             for r in rows:
                 s_id, s_name, t_id, t_name, w = r[0], r[1], r[2], r[3], r[4]
-                clean_s = (s_name or "").strip()
+                clean_s = re.sub(r'[\u200B-\u200D\uFEFF\u2060\u200E\u200F\u0000-\u001F\u007F-\u009F]', '', str(s_name or '')).strip()
                 if not clean_s or clean_s.lower() in ("none", "null", "undefined"):
                     clean_s = f"User #{s_id}"
 
-                clean_t = (t_name or "").strip()
+                clean_t = re.sub(r'[\u200B-\u200D\uFEFF\u2060\u200E\u200F\u0000-\u001F\u007F-\u009F]', '', str(t_name or '')).strip()
                 if not clean_t or clean_t.lower() in ("none", "null", "undefined"):
                     clean_t = f"User #{t_id}"
 
@@ -2116,9 +2177,9 @@ class DatabaseManager:
                     )
                     for row in self.cursor.fetchall():
                         uid = row[0]
-                        cname = (row[1] or "").strip()
-                        cuser = (row[2] or "").strip()
-                        resolved = cname or (f"@{cuser}" if cuser else "")
+                        cname = re.sub(r'[\u200B-\u200D\uFEFF\u2060\u200E\u200F\u0000-\u001F\u007F-\u009F]', '', str(row[1] or '')).strip()
+                        cuser = re.sub(r'[\u200B-\u200D\uFEFF\u2060\u200E\u200F\u0000-\u001F\u007F-\u009F]', '', str(row[2] or '')).strip().lstrip('@')
+                        resolved = cname or (f"@{cuser}" if cuser else f"User #{uid}")
                         if resolved and uid in nodes_dict:
                             nodes_dict[uid]["label"] = resolved
                 except Exception:
@@ -2952,6 +3013,268 @@ class DatabaseManager:
             "created_at": row[19],
             "updated_at": row[20]
         }
+
+    # ═══════════════════════════════════════════════════════
+    #   AUTOMATED RECONNAISSANCE SCHEDULES & EXECUTIONS
+    # ═══════════════════════════════════════════════════════
+    def _row_to_recon_schedule(self, row: Tuple) -> Dict[str, Any]:
+        return {
+            "id": row[0],
+            "group_id": row[1],
+            "group_title": row[2],
+            "is_enabled": bool(row[3]),
+            "schedule_time": row[4],
+            "timezone": row[5],
+            "frequency": row[6],
+            "target_limit": row[7],
+            "last_run_at": row[8],
+            "last_run_status": row[9],
+            "last_run_job_id": row[10],
+            "last_run_slot": row[11],
+            "next_run_at": row[12],
+            "created_at": row[13],
+            "updated_at": row[14]
+        }
+
+    def _row_to_recon_execution(self, row: Tuple) -> Dict[str, Any]:
+        return {
+            "execution_id": row[0],
+            "schedule_id": row[1],
+            "group_id": row[2],
+            "group_title": row[3],
+            "job_id": row[4],
+            "scheduled_time": row[5],
+            "actual_start_time": row[6],
+            "completion_time": row[7],
+            "execution_type": row[8],
+            "messages_fetched": row[9],
+            "messages_processed": row[10],
+            "unique_members_profiled": row[11],
+            "failed_messages": row[12],
+            "execution_duration_sec": row[13],
+            "final_status": row[14],
+            "error_details": row[15],
+            "created_at": row[16]
+        }
+
+    async def get_recon_schedule(self, group_id: int) -> Optional[Dict[str, Any]]:
+        norm_gid = self.normalize_gid(group_id)
+        abs_gid = abs(int(group_id)) if str(group_id).lstrip("-").isdigit() else norm_gid
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT id, group_id, group_title, is_enabled, schedule_time, timezone,
+                           frequency, target_limit, last_run_at, last_run_status,
+                           last_run_job_id, last_run_slot, next_run_at, created_at, updated_at
+                    FROM recon_schedules
+                    WHERE group_id IN (?, ?)
+                    ORDER BY updated_at DESC LIMIT 1
+                ''', (norm_gid, abs_gid))
+                row = self.cursor.fetchone()
+                if not row:
+                    return None
+                return self._row_to_recon_schedule(row)
+            except Exception as e:
+                logger.error(f"Error getting recon schedule for {group_id}: {e}")
+                return None
+
+    async def upsert_recon_schedule(
+        self,
+        group_id: int,
+        is_enabled: bool,
+        schedule_time: str,
+        timezone: str,
+        frequency: str = "daily",
+        target_limit: int = 100000,
+        group_title: Optional[str] = None,
+        next_run_at: Optional[str] = None
+    ) -> Dict[str, Any]:
+        norm_gid = self.normalize_gid(group_id)
+        now_iso = datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    INSERT INTO recon_schedules (
+                        group_id, group_title, is_enabled, schedule_time, timezone,
+                        frequency, target_limit, next_run_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(group_id) DO UPDATE SET
+                        group_title = COALESCE(excluded.group_title, recon_schedules.group_title),
+                        is_enabled = excluded.is_enabled,
+                        schedule_time = excluded.schedule_time,
+                        timezone = excluded.timezone,
+                        frequency = excluded.frequency,
+                        target_limit = excluded.target_limit,
+                        next_run_at = excluded.next_run_at,
+                        updated_at = excluded.updated_at
+                ''', (
+                    norm_gid, group_title, int(is_enabled), schedule_time, timezone,
+                    frequency, target_limit, next_run_at, now_iso
+                ))
+                self.conn.commit()
+            except Exception as e:
+                logger.error(f"Error upserting recon schedule for {group_id}: {e}")
+        return await self.get_recon_schedule(norm_gid) or {}
+
+    async def get_all_due_schedules(self, now_utc_iso: Optional[str] = None) -> List[Dict[str, Any]]:
+        now_str = now_utc_iso or datetime.now(timezone.utc).isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT id, group_id, group_title, is_enabled, schedule_time, timezone,
+                           frequency, target_limit, last_run_at, last_run_status,
+                           last_run_job_id, last_run_slot, next_run_at, created_at, updated_at
+                    FROM recon_schedules
+                    WHERE is_enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?
+                    ORDER BY next_run_at ASC
+                ''', (now_str,))
+                rows = self.cursor.fetchall()
+                return [self._row_to_recon_schedule(r) for r in rows]
+            except Exception as e:
+                logger.error(f"Error fetching due recon schedules: {e}")
+                return []
+
+    async def acquire_schedule_slot_lock(self, schedule_id: int, slot: str, now_iso: Optional[str] = None) -> bool:
+        now_val = now_iso or datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    UPDATE recon_schedules
+                    SET last_run_slot = ?,
+                        last_run_at = ?,
+                        last_run_status = 'STARTING',
+                        updated_at = ?
+                    WHERE id = ? AND (last_run_slot IS NULL OR last_run_slot != ?)
+                ''', (slot, now_val, now_val, schedule_id, slot))
+                self.conn.commit()
+                return self.cursor.rowcount > 0
+            except Exception as e:
+                logger.error(f"Error acquiring schedule slot lock for {schedule_id}: {e}")
+                return False
+
+    async def update_recon_schedule_run(
+        self,
+        schedule_id: int,
+        last_run_status: str,
+        last_run_job_id: Optional[str] = None,
+        next_run_at: Optional[str] = None
+    ) -> bool:
+        now_iso = datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    UPDATE recon_schedules
+                    SET last_run_status = ?,
+                        last_run_job_id = COALESCE(?, last_run_job_id),
+                        next_run_at = COALESCE(?, next_run_at),
+                        updated_at = ?
+                    WHERE id = ?
+                ''', (last_run_status, last_run_job_id, next_run_at, now_iso, schedule_id))
+                self.conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error updating recon schedule run {schedule_id}: {e}")
+                return False
+
+    async def create_recon_schedule_execution(
+        self,
+        execution_id: str,
+        schedule_id: Optional[int],
+        group_id: int,
+        group_title: Optional[str],
+        scheduled_time: Optional[str],
+        actual_start_time: str,
+        execution_type: str = "scheduled",
+        final_status: str = "STARTING"
+    ) -> Dict[str, Any]:
+        norm_gid = self.normalize_gid(group_id)
+        now_iso = datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    INSERT INTO recon_schedule_executions (
+                        execution_id, schedule_id, group_id, group_title,
+                        scheduled_time, actual_start_time, execution_type,
+                        final_status, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    execution_id, schedule_id, norm_gid, group_title,
+                    scheduled_time, actual_start_time, execution_type,
+                    final_status, now_iso
+                ))
+                self.conn.commit()
+            except Exception as e:
+                logger.error(f"Error creating recon execution {execution_id}: {e}")
+        return {
+            "execution_id": execution_id,
+            "schedule_id": schedule_id,
+            "group_id": norm_gid,
+            "group_title": group_title,
+            "scheduled_time": scheduled_time,
+            "actual_start_time": actual_start_time,
+            "execution_type": execution_type,
+            "final_status": final_status
+        }
+
+    async def update_recon_schedule_execution(
+        self,
+        execution_id: str,
+        final_status: str,
+        messages_fetched: int = 0,
+        messages_processed: int = 0,
+        unique_members_profiled: int = 0,
+        failed_messages: int = 0,
+        execution_duration_sec: float = 0.0,
+        error_details: Optional[str] = None,
+        job_id: Optional[str] = None,
+        completion_time: Optional[str] = None
+    ) -> bool:
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    UPDATE recon_schedule_executions
+                    SET final_status = ?,
+                        messages_fetched = ?,
+                        messages_processed = ?,
+                        unique_members_profiled = ?,
+                        failed_messages = ?,
+                        execution_duration_sec = ?,
+                        error_details = ?,
+                        job_id = COALESCE(?, job_id),
+                        completion_time = COALESCE(?, completion_time)
+                    WHERE execution_id = ?
+                ''', (
+                    final_status, messages_fetched, messages_processed,
+                    unique_members_profiled, failed_messages, execution_duration_sec,
+                    error_details, job_id, completion_time, execution_id
+                ))
+                self.conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error updating recon execution {execution_id}: {e}")
+                return False
+
+    async def get_recon_schedule_executions(self, group_id: int, limit: int = 20) -> List[Dict[str, Any]]:
+        norm_gid = self.normalize_gid(group_id)
+        abs_gid = abs(int(group_id)) if str(group_id).lstrip("-").isdigit() else norm_gid
+        clamped_limit = max(1, min(int(limit), 100))
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT execution_id, schedule_id, group_id, group_title, job_id,
+                           scheduled_time, actual_start_time, completion_time,
+                           execution_type, messages_fetched, messages_processed,
+                           unique_members_profiled, failed_messages,
+                           execution_duration_sec, final_status, error_details, created_at
+                    FROM recon_schedule_executions
+                    WHERE group_id IN (?, ?)
+                    ORDER BY created_at DESC LIMIT ?
+                ''', (norm_gid, abs_gid, clamped_limit))
+                rows = self.cursor.fetchall()
+                return [self._row_to_recon_execution(r) for r in rows]
+            except Exception as e:
+                logger.error(f"Error getting recon executions for {group_id}: {e}")
+                return []
 
     def close(self):
         try:

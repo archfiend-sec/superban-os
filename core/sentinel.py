@@ -932,8 +932,26 @@ class SentinelShield:
                                     t_dl = await ev.download_media(file=str(tmp_tfn), thumb=-1)
                                     if not t_dl:
                                         t_dl = await ev.download_media(file=str(tmp_tfn), thumb=0)
+                                    if not t_dl and getattr(getattr(ev, 'media', None), 'document', None):
+                                        doc = ev.media.document
+                                        if getattr(doc, 'thumbs', None) and len(doc.thumbs) > 0:
+                                            for th in reversed(doc.thumbs):
+                                                try:
+                                                    t_dl = await ev.client.download_media(th, file=str(tmp_tfn))
+                                                    if t_dl:
+                                                        break
+                                                except Exception:
+                                                    pass
                                     if t_dl and Path(t_dl).exists() and Path(t_dl).stat().st_size > 0:
                                         os.replace(t_dl, t_fn)
+                                        if is_tgs:
+                                            p_jpg = vdir / f"preview_{bare_gid}_{ev.id}.jpg"
+                                            if not p_jpg.exists():
+                                                try:
+                                                    import shutil
+                                                    shutil.copy2(t_fn, p_jpg)
+                                                except Exception:
+                                                    pass
                                     elif Path(tmp_tfn).exists():
                                         tmp_tfn.unlink(missing_ok=True)
                                 except Exception:

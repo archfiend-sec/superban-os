@@ -6849,6 +6849,114 @@ body.theme-light .kage-btn.secondary {
           </div>
         </div>
 
+        <!-- AUTOMATED RECONNAISSANCE: DAILY 100K REPUTATION SCANNER -->
+        <div id="recon-auto-schedule-panel" style="background: rgba(10, 14, 20, 0.95); border: 1px solid var(--line-soft); border-left: 3px solid #10b981; border-radius: 4px; padding: 12px 16px; margin-bottom: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span id="recon-sched-pulse" style="width: 8px; height: 8px; border-radius: 50%; background: #6b7280; display: inline-block;"></span>
+              <span style="font-size: 11px; font-weight: 700; color: var(--bone); letter-spacing: 0.14em; text-transform: uppercase;">
+                🤖 AUTOMATED RECONNAISSANCE // DAILY 100K SCANNER
+              </span>
+              <span id="recon-sched-active-badge" class="badge" style="background: rgba(107, 114, 128, 0.2); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.4); font-size: 9px; padding: 2px 6px;">DISABLED</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button type="button" onclick="runReconScheduleNow()" id="btn-recon-run-now" class="btn-xs-outline" style="border-color: #10b981; color: #10b981; font-size: 9.5px; padding: 3px 10px; font-weight: 600;" title="Trigger the scheduled 100k scan right now without affecting scheduled slot">
+                ▶ RUN NOW
+              </button>
+              <button type="button" onclick="toggleReconHistoryDrawer()" id="btn-toggle-recon-history" class="btn-xs-outline" style="border-color: var(--line-soft); color: var(--muted); font-size: 9.5px; padding: 3px 10px;">
+                📜 HISTORY <span id="recon-history-count-badge" style="opacity: 0.7;">(0)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Controls row -->
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding-top: 4px;">
+            <!-- Enable toggle -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Automated Schedule</label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; height: 28px;">
+                <input type="checkbox" id="recon-sched-enabled-checkbox" onchange="onReconScheduleFormChange()" style="cursor: pointer; accent-color: #10b981; width: 14px; height: 14px;">
+                <span id="recon-sched-toggle-label" style="font-size: 11px; color: var(--bone);">Enable Daily Scan</span>
+              </label>
+            </div>
+
+            <!-- Schedule Time -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="recon-sched-time-input" style="font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Execution Time (24h)</label>
+              <input type="time" id="recon-sched-time-input" value="04:00" onchange="onReconScheduleFormChange()" style="background: rgba(0,0,0,0.6); border: 1px solid var(--line-soft); border-radius: 3px; padding: 4px 8px; font-size: 11px; color: var(--bone); height: 28px; width: 100px;">
+            </div>
+
+            <!-- Timezone selector -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="recon-sched-tz-select" style="font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Timezone</label>
+              <select id="recon-sched-tz-select" onchange="onReconScheduleFormChange()" style="background: rgba(0,0,0,0.6); border: 1px solid var(--line-soft); border-radius: 3px; padding: 4px 8px; font-size: 11px; color: var(--bone); height: 28px; max-width: 170px;">
+                <option value="UTC">UTC (Universal Time)</option>
+                <option value="America/New_York">America/New_York (EST/EDT)</option>
+                <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                <option value="Europe/London">Europe/London (GMT/BST)</option>
+                <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                <option value="Europe/Berlin">Europe/Berlin (CET/CEST)</option>
+                <option value="Europe/Moscow">Europe/Moscow (MSK)</option>
+                <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+                <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                <option value="Australia/Sydney">Australia/Sydney (AEST)</option>
+              </select>
+            </div>
+
+            <!-- Frequency -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="recon-sched-freq-select" style="font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Frequency</label>
+              <select id="recon-sched-freq-select" onchange="onReconScheduleFormChange()" style="background: rgba(0,0,0,0.6); border: 1px solid var(--line-soft); border-radius: 3px; padding: 4px 8px; font-size: 11px; color: var(--bone); height: 28px; width: 100px;">
+                <option value="daily">Daily</option>
+              </select>
+            </div>
+
+            <!-- Target Limit -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="recon-sched-target-limit" style="font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;">Target Messages</label>
+              <select id="recon-sched-target-limit" onchange="onReconScheduleFormChange()" style="background: rgba(0,0,0,0.6); border: 1px solid var(--line-soft); border-radius: 3px; padding: 4px 8px; font-size: 11px; color: var(--bone); height: 28px; width: 110px;">
+                <option value="100000" selected>100,000 msgs</option>
+                <option value="50000">50,000 msgs</option>
+                <option value="25000">25,000 msgs</option>
+                <option value="10000">10,000 msgs</option>
+              </select>
+            </div>
+
+            <!-- Save Button -->
+            <button type="button" onclick="saveReconSchedule()" id="btn-save-recon-sched" class="kage-sub-btn" style="height: 28px; background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #34d399; font-weight: 600; padding: 0 14px;">
+              💾 SAVE SCHEDULE
+            </button>
+          </div>
+
+          <!-- Status & Countdown bar -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 10.5px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--muted);">Next Scheduled Execution:</span>
+              <span id="recon-sched-next-run" style="color: #38bdf8; font-weight: 600;">Not scheduled</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--muted);">Last Execution:</span>
+              <span id="recon-sched-last-status" style="color: var(--bone);">None recorded</span>
+            </div>
+          </div>
+
+          <!-- Collapsible History Drawer -->
+          <div id="recon-history-drawer" style="display: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 10px; color: var(--bone); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;">
+                📜 Scheduled Reconnaissance Audit History
+              </span>
+              <button type="button" onclick="loadReconHistory()" class="btn-xs-outline" style="font-size: 8.5px; padding: 1px 6px;">REFRESH</button>
+            </div>
+            <div id="recon-history-list" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+              <div style="text-align: center; color: var(--muted); padding: 12px; font-size: 10px;">Loading history...</div>
+            </div>
+          </div>
+        </div>
+
         <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;">
           <input type="text" id="recon-search-filter" oninput="filterReconTable()" placeholder="Filter by name, @handle, or ID..." style="background: var(--bg-card, #030609); border: 1px solid var(--line-soft); border-radius: 4px; padding: 6px 12px; font-size: 11px; color: var(--bone); width: 240px;" />
           <button type="button" onclick="setReconFilter('all')" id="recon-flt-all" class="flt-btn active" style="font-size: 10px;">ALL</button>
@@ -9851,6 +9959,7 @@ body.theme-light .kage-btn.secondary {
     refreshVCStatus();
     if (typeof activeCenterTab !== 'undefined' && activeCenterTab === 'recon') {
       loadGroupReputationGrid();
+      if (typeof loadReconSchedule === 'function') loadReconSchedule(val);
     }
     syncDeepScanJobStatus(val);
   }
@@ -10779,6 +10888,28 @@ body.theme-light .kage-btn.secondary {
           if (typeof handleDeepScanComplete === 'function') handleDeepScanComplete(msg.data || msg);
         } else if (msg.type === 'deep_scan_error') {
           if (typeof handleDeepScanError === 'function') handleDeepScanError(msg.data || msg);
+        } else if (msg.type === 'scheduled_scan_event') {
+          const sData = msg.data || {};
+          const eventType = sData.event || 'scheduled_scan';
+          if (eventType === 'started') {
+            showToast(`🤖 Automated Recon Scan Started: ${sData.group_title || sData.group_id}`, 'info');
+            if (typeof loadReconSchedule === 'function') loadReconSchedule(sData.group_id);
+            if (typeof loadReconHistory === 'function') loadReconHistory(sData.group_id);
+            if (sData.job_id && typeof startDeepScanPolling === 'function') startDeepScanPolling(sData.job_id);
+          } else if (eventType === 'completed') {
+            showToast(`✅ Automated Recon Scan Finished: ${(sData.messages_processed || 0).toLocaleString()} msgs indexed.`, 'success');
+            if (typeof loadReconSchedule === 'function') loadReconSchedule(sData.group_id);
+            if (typeof loadReconHistory === 'function') loadReconHistory(sData.group_id);
+            if (typeof loadGroupReputationGrid === 'function') loadGroupReputationGrid();
+          } else if (eventType === 'skipped') {
+            showToast(`⚠️ Scheduled scan skipped: ${sData.reason || 'Overlapping scan active.'}`, 'info');
+            if (typeof loadReconSchedule === 'function') loadReconSchedule(sData.group_id);
+            if (typeof loadReconHistory === 'function') loadReconHistory(sData.group_id);
+          } else if (eventType === 'failed') {
+            showToast(`❌ Scheduled scan failed: ${sData.reason || 'Scan interrupted.'}`, 'error');
+            if (typeof loadReconSchedule === 'function') loadReconSchedule(sData.group_id);
+            if (typeof loadReconHistory === 'function') loadReconHistory(sData.group_id);
+          }
         } else if (msg.type === 'saved_chat_db_restored') {
           showToast(`📥 Cloud Database Restored! Imported ${(msg.data && msg.data.restored_members) || 0} members from Saved Messages.`, 'success');
           if (typeof loadGroupReputationGrid === 'function') loadGroupReputationGrid();
@@ -13049,11 +13180,20 @@ body.theme-light .kage-btn.secondary {
     if (!el) return;
     const retryCount = parseInt(el.getAttribute('data-retries') || '0', 10);
 
-    // If an <img> fails, it's very often a .webm Telegram video sticker! Cross-fallback to <video>
-    if (currentTag === 'img' && retryCount === 0) {
+    // If an <img> fails on a sticker, first try requesting the static JPEG thumbnail with thumb=true
+    if (currentTag === 'img' && retryCount === 0 && !url.includes('thumb=')) {
       el.setAttribute('data-retries', '1');
+      const sep = url.includes('?') ? '&' : '?';
+      el.src = url + sep + 'thumb=true';
+      return;
+    }
+
+    // If thumbnail fails or if original was not thumb, cross-fallback to <video> for Telegram .webm video stickers
+    if (retryCount <= 1 && currentTag !== 'video') {
+      el.setAttribute('data-retries', '2');
       const video = document.createElement('video');
-      video.src = url;
+      const cleanUrl = url.replace(/([?&])thumb=[^&]*/, '');
+      video.src = cleanUrl;
       video.className = 'wiretap-sticker-img wiretap-sticker-video';
       video.autoplay = true;
       video.loop = true;
@@ -13071,9 +13211,9 @@ body.theme-light .kage-btn.secondary {
       }
     }
 
-    // If <video> fails (e.g. format unsupported or video sticker decoding failure), fallback to static thumbnail image
-    if (currentTag === 'video' && retryCount <= 1) {
-      el.setAttribute('data-retries', '2');
+    // If <video> fails, fallback to static thumbnail image
+    if (currentTag === 'video' && retryCount <= 2) {
+      el.setAttribute('data-retries', '3');
       const sep = url.includes('?') ? '&' : '?';
       const thumbUrl = url.includes('thumb=') ? url : (url + sep + 'thumb=true');
       const img = document.createElement('img');
@@ -13092,7 +13232,7 @@ body.theme-light .kage-btn.secondary {
     }
 
     // Transient 404 retry while background MTProto worker finishes caching
-    if (retryCount < 2) {
+    if (retryCount < 3) {
       el.setAttribute('data-retries', String(retryCount + 1));
       setTimeout(() => {
         const sep = url.includes('?') ? '&' : '?';
@@ -14270,6 +14410,7 @@ body.theme-light .kage-btn.secondary {
       const gid = getActiveGroupId();
       if (gid) {
         syncDeepScanJobStatus(gid);
+        if (typeof loadReconSchedule === 'function') loadReconSchedule(gid);
       }
     }
     if (tab === 'intel') {
@@ -15130,6 +15271,327 @@ body.theme-light .kage-btn.secondary {
     } finally {
       isReconRunning = false;
       if (btn) setButtonBusy(btn, false);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //   AUTOMATED RECONNAISSANCE: DAILY 100K REPUTATION SCANNER
+  // ═══════════════════════════════════════════════════════
+  let activeReconSchedule = null;
+  let reconCountdownInterval = null;
+  let isSavingReconSchedule = false;
+
+  function initLocalTimezoneSelector() {
+    const tzSelect = document.getElementById('recon-sched-tz-select');
+    if (!tzSelect) return;
+    try {
+      const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (localTz) {
+        let matched = false;
+        for (let i = 0; i < tzSelect.options.length; i++) {
+          if (tzSelect.options[i].value === localTz) {
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          const opt = document.createElement('option');
+          opt.value = localTz;
+          opt.innerText = `${localTz} (Local)`;
+          tzSelect.appendChild(opt);
+        }
+      }
+    } catch (e) {
+      console.debug("Timezone resolution note:", e);
+    }
+  }
+
+  function onReconScheduleFormChange() {
+    const chk = document.getElementById('recon-sched-enabled-checkbox');
+    const lbl = document.getElementById('recon-sched-toggle-label');
+    if (chk && lbl) {
+      lbl.innerText = chk.checked ? 'Daily Scan Active' : 'Enable Daily Scan';
+      lbl.style.color = chk.checked ? '#34d399' : 'var(--bone)';
+    }
+  }
+
+  async function loadReconSchedule(targetGid) {
+    const gid = targetGid || getActiveGroupId();
+    if (!gid) return;
+    initLocalTimezoneSelector();
+
+    try {
+      const res = await fetch(`/api/recon/schedule?group_id=${gid}`);
+      if (res.ok) {
+        const data = await res.json();
+        const sched = data.schedule || {};
+        activeReconSchedule = sched;
+
+        const chk = document.getElementById('recon-sched-enabled-checkbox');
+        const timeInput = document.getElementById('recon-sched-time-input');
+        const tzSelect = document.getElementById('recon-sched-tz-select');
+        const freqSelect = document.getElementById('recon-sched-freq-select');
+        const targetSelect = document.getElementById('recon-sched-target-limit');
+        const badge = document.getElementById('recon-sched-active-badge');
+        const pulse = document.getElementById('recon-sched-pulse');
+
+        if (chk) chk.checked = Boolean(sched.is_enabled);
+        if (timeInput) timeInput.value = sched.schedule_time || '04:00';
+        if (tzSelect && sched.timezone) {
+          let exists = Array.from(tzSelect.options).some(o => o.value === sched.timezone);
+          if (!exists) {
+            const opt = document.createElement('option');
+            opt.value = sched.timezone;
+            opt.innerText = sched.timezone;
+            tzSelect.appendChild(opt);
+          }
+          tzSelect.value = sched.timezone;
+        }
+        if (freqSelect) freqSelect.value = sched.frequency || 'daily';
+        if (targetSelect) targetSelect.value = String(sched.target_limit || 100000);
+
+        if (badge && pulse) {
+          if (sched.is_enabled) {
+            badge.innerText = 'ACTIVE (DAILY)';
+            badge.style.background = 'rgba(16, 185, 129, 0.2)';
+            badge.style.color = '#34d399';
+            badge.style.borderColor = '#10b981';
+            pulse.style.background = '#10b981';
+            pulse.style.boxShadow = '0 0 8px #10b981';
+          } else {
+            badge.innerText = 'DISABLED';
+            badge.style.background = 'rgba(107, 114, 128, 0.2)';
+            badge.style.color = '#9ca3af';
+            badge.style.borderColor = 'rgba(107, 114, 128, 0.4)';
+            pulse.style.background = '#6b7280';
+            pulse.style.boxShadow = 'none';
+          }
+        }
+        onReconScheduleFormChange();
+
+        // Render Last Execution Status
+        const lastStatusLbl = document.getElementById('recon-sched-last-status');
+        if (lastStatusLbl) {
+          if (sched.last_run_at) {
+            const st = sched.last_run_status || 'COMPLETED';
+            const color = st === 'COMPLETED' ? '#10b981' : (st === 'RUNNING' ? '#38bdf8' : (st === 'SKIPPED' ? '#fbbf24' : '#ef4444'));
+            const dateStr = sched.last_run_at.replace('T', ' ').split('.')[0];
+            lastStatusLbl.innerHTML = `<span style="color: ${color}; font-weight: 600;">[${st}]</span> ${dateStr}`;
+          } else {
+            lastStatusLbl.innerText = 'None recorded';
+          }
+        }
+
+        // Start countdown timer
+        startReconScheduleCountdown(sched, data.time_until_seconds);
+      }
+    } catch (e) {
+      console.debug("Error loading recon schedule:", e);
+    }
+  }
+
+  function startReconScheduleCountdown(sched, initialSeconds) {
+    if (reconCountdownInterval) {
+      clearInterval(reconCountdownInterval);
+      reconCountdownInterval = null;
+    }
+
+    const nextRunLbl = document.getElementById('recon-sched-next-run');
+    if (!nextRunLbl) return;
+
+    if (!sched || !sched.is_enabled) {
+      nextRunLbl.innerText = 'Disabled';
+      nextRunLbl.style.color = 'var(--muted)';
+      return;
+    }
+
+    let remaining = typeof initialSeconds === 'number' ? initialSeconds : 0;
+    const targetIso = sched.next_run_at;
+    if (targetIso) {
+      const targetTime = new Date(targetIso).getTime();
+      const now = Date.now();
+      remaining = Math.max(0, Math.floor((targetTime - now) / 1000));
+    }
+
+    function updateLabel() {
+      if (remaining <= 0) {
+        nextRunLbl.innerText = `Due now (${sched.schedule_time || '04:00'} ${sched.timezone || 'UTC'})`;
+        nextRunLbl.style.color = '#fbbf24';
+        return;
+      }
+      const h = Math.floor(remaining / 3600);
+      const m = Math.floor((remaining % 3600) / 60);
+      const s = remaining % 60;
+      const timeStr = `${sched.schedule_time || '04:00'} ${sched.timezone || 'UTC'}`;
+      nextRunLbl.innerHTML = `<span style="color: #38bdf8; font-weight: 600;">${timeStr}</span> (in ${h}h ${m}m ${s}s)`;
+      nextRunLbl.style.color = '#38bdf8';
+    }
+
+    updateLabel();
+    reconCountdownInterval = setInterval(() => {
+      remaining--;
+      updateLabel();
+      if (remaining < -10) {
+        clearInterval(reconCountdownInterval);
+        loadReconSchedule();
+      }
+    }, 1000);
+  }
+
+  async function saveReconSchedule() {
+    if (isSavingReconSchedule) return;
+    const gid = getActiveGroupId();
+    if (!gid) {
+      showToast("Select a target group first", "error");
+      return;
+    }
+
+    const chk = document.getElementById('recon-sched-enabled-checkbox');
+    const timeInput = document.getElementById('recon-sched-time-input');
+    const tzSelect = document.getElementById('recon-sched-tz-select');
+    const freqSelect = document.getElementById('recon-sched-freq-select');
+    const targetSelect = document.getElementById('recon-sched-target-limit');
+    const saveBtn = document.getElementById('btn-save-recon-sched');
+
+    const isEnabled = chk ? chk.checked : false;
+    const scheduleTime = timeInput ? timeInput.value.trim() : '04:00';
+    const timezone = tzSelect ? tzSelect.value : 'UTC';
+    const frequency = freqSelect ? freqSelect.value : 'daily';
+    const targetLimit = targetSelect ? parseInt(targetSelect.value, 10) : 100000;
+
+    isSavingReconSchedule = true;
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerText = 'SAVING...';
+    }
+
+    try {
+      const res = await fetch('/api/recon/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          group_id: parseInt(gid),
+          is_enabled: isEnabled,
+          schedule_time: scheduleTime,
+          timezone: timezone,
+          frequency: frequency,
+          target_limit: targetLimit
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        showToast(isEnabled ? `Daily 100K scan scheduled for ${scheduleTime} ${timezone}.` : "Automated scanning disabled.", "success");
+        await loadReconSchedule(gid);
+      } else {
+        const err = await res.json();
+        showToast(`Save failed: ${err.detail || 'Server error'}`, "error");
+      }
+    } catch (e) {
+      showToast(`Network error: ${e.message}`, "error");
+    } finally {
+      isSavingReconSchedule = false;
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerText = '💾 SAVE SCHEDULE';
+      }
+    }
+  }
+
+  async function runReconScheduleNow() {
+    const gid = getActiveGroupId();
+    if (!gid) {
+      showToast("Select a target group first", "error");
+      return;
+    }
+    const btn = document.getElementById('btn-recon-run-now');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = 'LAUNCHING...';
+    }
+
+    try {
+      const res = await fetch('/api/recon/schedule/run_now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: parseInt(gid) })
+      });
+      const data = await res.json();
+      if (data.status === 'started') {
+        showToast("Autonomous 100K Scan initiated successfully.", "success");
+        startDeepScanPolling(data.job_id || `job_${gid}`);
+      } else if (data.status === 'skipped') {
+        showToast(`Scan skipped: ${data.detail || 'Another scan is currently running.'}`, "info");
+      } else {
+        showToast(`Execution failed: ${data.detail || 'Unknown error'}`, "error");
+      }
+      await loadReconSchedule(gid);
+      await loadReconHistory(gid);
+    } catch (e) {
+      showToast(`Run Now error: ${e.message}`, "error");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = '▶ RUN NOW';
+      }
+    }
+  }
+
+  async function toggleReconHistoryDrawer() {
+    const drawer = document.getElementById('recon-history-drawer');
+    if (!drawer) return;
+    const isHidden = drawer.style.display === 'none';
+    drawer.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+      await loadReconHistory();
+    }
+  }
+
+  async function loadReconHistory(targetGid) {
+    const gid = targetGid || getActiveGroupId();
+    if (!gid) return;
+    const listEl = document.getElementById('recon-history-list');
+    const badge = document.getElementById('recon-history-count-badge');
+    if (!listEl) return;
+
+    try {
+      const res = await fetch(`/api/recon/schedule/history?group_id=${gid}&limit=15`);
+      if (res.ok) {
+        const items = await res.json();
+        if (badge) badge.innerText = `(${items.length})`;
+        if (!items || items.length === 0) {
+          listEl.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 12px; font-size: 10px;">No scheduled executions recorded yet.</div>`;
+          return;
+        }
+
+        listEl.innerHTML = items.map(it => {
+          const st = it.final_status || 'UNKNOWN';
+          const color = st === 'COMPLETED' ? '#10b981' : (st === 'RUNNING' ? '#38bdf8' : (st === 'SKIPPED' ? '#fbbf24' : '#ef4444'));
+          const timeStr = (it.actual_start_time || it.created_at || '').replace('T', ' ').split('.')[0];
+          const dur = it.execution_duration_sec ? `${it.execution_duration_sec.toFixed(1)}s` : '-';
+          const fetched = (it.messages_fetched || 0).toLocaleString();
+          const profiled = (it.unique_members_profiled || 0).toLocaleString();
+          const typeBadge = it.execution_type === 'manual' ? 'MANUAL' : 'AUTO';
+
+          return `
+            <div style="background: rgba(0,0,0,0.5); border: 1px solid var(--line-soft); border-radius: 3px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-family: var(--font-mono); gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                <span style="font-weight: 700; color: ${color}; min-width: 75px;">[${st}]</span>
+                <span class="badge" style="font-size: 8px; padding: 1px 4px; background: rgba(255,255,255,0.06); color: var(--muted);">${typeBadge}</span>
+                <span style="color: var(--bone);">${timeStr}</span>
+                ${it.error_details ? `<span style="color: #ef4444; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeQuote(it.error_details)}">(${escapeHtml(it.error_details)})</span>` : ''}
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; color: var(--muted);">
+                <span>📩 <b style="color: var(--bone);">${fetched}</b> msgs</span>
+                <span>👤 <b style="color: var(--op-green);">${profiled}</b> profiled</span>
+                <span>⏱️ ${dur}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    } catch (e) {
+      console.debug("Error loading recon history:", e);
     }
   }
 
@@ -17359,11 +17821,15 @@ body.theme-light .kage-btn.secondary {
   }
 
   function formatInfluencerName(inf) {
-    const raw = inf && (inf.label || inf.name || inf.first_name || '');
-    const trimmed = typeof raw === 'string' ? raw.trim() : '';
-    if (trimmed && trimmed.toLowerCase() !== 'none' && trimmed.toLowerCase() !== 'null' && trimmed.toLowerCase() !== 'undefined') {
-      return trimmed;
+    const raw = inf && (inf.label || inf.name || inf.first_name || inf.username || '');
+    const cleaned = typeof raw === 'string'
+      ? raw.replace(/[\u200B-\u200D\uFEFF\u2060\u200E\u200F\u0000-\u001F\u007F-\u009F]/g, '').trim()
+      : '';
+    if (cleaned && cleaned.toLowerCase() !== 'none' && cleaned.toLowerCase() !== 'null' && cleaned.toLowerCase() !== 'undefined') {
+      return cleaned;
     }
+    const un = inf && (inf.username ? `@${String(inf.username).replace(/^@/, '')}` : '');
+    if (un) return un;
     const uid = inf && (inf.id || inf.user_id);
     return uid ? `User #${uid}` : 'Anonymous Operative';
   }

@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request, Response
@@ -1416,6 +1417,139 @@ def create_app(engine: SuperBanEngine):
         return await engine.db.get_group_reputation_summary(norm_gid)
 
     # ═══════════════════════════════════════════════════════
+    #   AUTOMATED RECONNAISSANCE SCHEDULES & EXECUTIONS
+    # ═══════════════════════════════════════════════════════
+    class ReconScheduleReq(BaseModel):
+        group_id: int
+        is_enabled: bool
+        schedule_time: str = "04:00"
+        timezone: str = "UTC"
+        frequency: str = "daily"
+        target_limit: int = 100000
+
+    class ReconRunNowReq(BaseModel):
+        group_id: int
+
+    @app.get("/api/recon/schedule")
+    async def get_recon_schedule_endpoint(group_id: int):
+        if not engine.db:
+            return {"status": "error", "schedule": None, "is_enabled": False}
+        schedule = await engine.db.get_recon_schedule(group_id)
+        if not schedule:
+            schedule = {
+                "group_id": group_id,
+                "group_title": "",
+                "is_enabled": False,
+                "schedule_time": "04:00",
+                "timezone": "UTC",
+                "frequency": "daily",
+                "target_limit": 100000,
+                "last_run_at": None,
+                "last_run_status": None,
+                "last_run_job_id": None,
+                "next_run_at": None
+            }
+
+        next_run_human = None
+        time_until_seconds = None
+        if schedule.get("is_enabled") and schedule.get("schedule_time"):
+            from core.scheduler import ReconScheduler
+            tz = schedule.get("timezone") or "UTC"
+            st = schedule.get("schedule_time") or "04:00"
+            next_dt = ReconScheduler.compute_next_run_utc(st, tz)
+            if next_dt:
+                now_utc = datetime.now(timezone.utc)
+                delta = (next_dt - now_utc).total_seconds()
+                time_until_seconds = max(0, int(delta))
+                h = int(time_until_seconds // 3600)
+                m = int((time_until_seconds % 3600) // 60)
+                next_run_human = f"{next_dt.strftime('%Y-%m-%d %H:%M:%S UTC')} (in {h}h {m}m)"
+
+        return {
+            "status": "success",
+            "schedule": schedule,
+            "next_run_human": next_run_human,
+            "time_until_seconds": time_until_seconds
+        }
+
+    @app.post("/api/recon/schedule")
+    async def save_recon_schedule_endpoint(req: ReconScheduleReq, request: Request):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database not ready")
+
+        from core.scheduler import ReconScheduler
+        if not ReconScheduler.validate_schedule_time(req.schedule_time):
+            raise HTTPException(status_code=400, detail="Invalid schedule time format. Must be HH:MM (24-hour).")
+
+        if not ReconScheduler.validate_timezone(req.timezone):
+            raise HTTPException(status_code=400, detail=f"Invalid IANA timezone '{req.timezone}'.")
+
+        clamped_limit = max(100, min(int(req.target_limit or 100000), 100000))
+        clean_freq = (req.frequency or "daily").strip().lower()
+
+        group_title = ""
+        try:
+            entity = await engine.get_group_entity(req.group_id)
+            if entity and getattr(entity, 'title', None):
+                group_title = entity.title
+        except Exception:
+            pass
+
+        next_run_dt = None
+        if req.is_enabled:
+            next_run_dt = ReconScheduler.compute_next_run_utc(req.schedule_time, req.timezone)
+
+        next_run_iso = next_run_dt.isoformat() if next_run_dt else None
+        saved = await engine.db.upsert_recon_schedule(
+            group_id=req.group_id,
+            group_title=group_title,
+            is_enabled=req.is_enabled,
+            schedule_time=req.schedule_time,
+            timezone=req.timezone,
+            frequency=clean_freq,
+            target_limit=clamped_limit,
+            next_run_at=next_run_iso
+        )
+
+        client_ip = get_client_ip(request)
+        log_security_event_task(
+            "RECON_SCHEDULE_UPDATED",
+            getattr(request.state, "operator", {}).get("username", "owner"),
+            client_ip,
+            f"Automated recon schedule for {req.group_id} set to enabled={req.is_enabled}, time={req.schedule_time} {req.timezone}, target={clamped_limit}",
+            "INFO"
+        )
+
+        return {
+            "status": "success",
+            "schedule": saved,
+            "next_run_at": next_run_iso
+        }
+
+    @app.post("/api/recon/schedule/run_now")
+    async def run_recon_schedule_now_endpoint(req: ReconRunNowReq, request: Request):
+        if not hasattr(engine, 'recon_scheduler') or not engine.recon_scheduler:
+            raise HTTPException(status_code=500, detail="Scheduler daemon not initialized")
+
+        res = await engine.recon_scheduler.trigger_run_now(req.group_id)
+        client_ip = get_client_ip(request)
+        log_security_event_task(
+            "RECON_SCHEDULE_RUN_NOW",
+            getattr(request.state, "operator", {}).get("username", "owner"),
+            client_ip,
+            f"Manual 'Run Now' scheduled recon scan triggered for {req.group_id}: status={res.get('status')}",
+            "INFO"
+        )
+        return res
+
+    @app.get("/api/recon/schedule/history")
+    async def get_recon_schedule_history_endpoint(group_id: int, limit: int = 20):
+        if not engine.db:
+            return []
+        clamped_limit = max(1, min(int(limit), 100))
+        return await engine.db.get_recon_schedule_executions(group_id, limit=clamped_limit)
+
+    # ═══════════════════════════════════════════════════════
     #   SENTINEL RAID SHIELD & AUTONOMOUS DEFENSE
     # ═══════════════════════════════════════════════════════
     class SentinelToggleReq(BaseModel):
@@ -2351,6 +2485,23 @@ def create_app(engine: SuperBanEngine):
             raise HTTPException(status_code=404, detail="Media file missing from vault")
 
         ext = file_path.suffix.lower()
+        if ext == ".tgs":
+            # Browsers cannot display raw .tgs vector stickers; serve companion thumbnail if available
+            parent_dir = file_path.parent
+            stem = file_path.stem
+            # Strip preview_ or ghost_ prefix to find thumb_
+            parts = stem.split("_")
+            if len(parts) >= 3:
+                bare_target = "_".join(parts[1:])
+                alt_thumb = parent_dir / f"thumb_{bare_target}.jpg"
+                if alt_thumb.exists():
+                    file_path = alt_thumb
+                    ext = ".jpg"
+            if ext == ".tgs":
+                alt_preview = parent_dir / f"{stem}.jpg"
+                if alt_preview.exists():
+                    file_path = alt_preview
+                    ext = ".jpg"
         mime_map = {
             ".jpg": "image/jpeg",
             ".jpeg": "image/jpeg",
@@ -2993,6 +3144,16 @@ def create_app(engine: SuperBanEngine):
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=superban_ghost_vault_evidence.csv"}
         )
+
+    @app.on_event("startup")
+    async def on_app_startup():
+        if hasattr(engine, 'recon_scheduler') and engine.recon_scheduler:
+            engine.recon_scheduler.start()
+
+    @app.on_event("shutdown")
+    async def on_app_shutdown():
+        if hasattr(engine, 'recon_scheduler') and engine.recon_scheduler:
+            engine.recon_scheduler.stop()
 
     # Mount /static for public assets (icons, manifest, etc.)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

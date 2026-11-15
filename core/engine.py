@@ -135,6 +135,10 @@ class SuperBanEngine:
         self._call_py_started = False
         self._media_download_tasks: Dict[str, asyncio.Task] = {}
 
+        # Autonomous 100K Reputation Reconnaissance Scheduler
+        from core.scheduler import ReconScheduler
+        self.recon_scheduler = ReconScheduler(self, self.db)
+
         # Real-Time Autonomous Sentinel
         self.sentinel = SentinelShield(self.client, self.db, engine=self)
         self.sentinel.engine = self
@@ -234,20 +238,45 @@ class SuperBanEngine:
     async def get_group_entity(self, group_id: int):
         """Fast entity resolution without triggering MTProto flood wait."""
         await self.ensure_connected()
-        clean_target = str(group_id).replace("-100", "").replace("-", "")
+
+        def _clean_gid_norm(val) -> str:
+            s = str(val or "").strip()
+            if s.startswith("-100"):
+                return s[4:]
+            elif s.startswith("100") and len(s) > 10:
+                return s[3:]
+            elif s.startswith("-"):
+                return s[1:]
+            return s
+
+        clean_target = _clean_gid_norm(group_id)
         if hasattr(self, '_dialogs_cache') and self._dialogs_cache:
             for g in self._dialogs_cache:
-                clean_g = str(g["id"]).replace("-100", "").replace("-", "")
-                if clean_g == clean_target:
+                if _clean_gid_norm(g.get("id")) == clean_target:
                     return g["entity"]
-        try:
-            return await self.client.get_entity(group_id)
-        except Exception:
-            pass
+
+        # Try client.get_entity across polymorphic ID variants
+        candidates = [group_id]
+        if clean_target.isdigit():
+            norm_num = int(clean_target)
+            candidates = [
+                int(f"-100{norm_num}"),
+                group_id,
+                norm_num,
+                int(f"-{norm_num}")
+            ]
+
+        for cand in candidates:
+            try:
+                ent = await self.client.get_entity(cand)
+                if ent:
+                    return ent
+            except Exception:
+                pass
+
         dialogs = await self.get_dialogs(force=True)
         for g in dialogs:
-            clean_g = str(g["id"]).replace("-100", "").replace("-", "")
-            if clean_g == clean_target:
+            if _clean_gid_norm(g.get("id")) == clean_target:
                 return g["entity"]
         return None
 
@@ -2033,6 +2062,14 @@ class SuperBanEngine:
                     tmp_target.unlink(missing_ok=True)
 
             if downloaded and Path(downloaded).exists() and Path(downloaded).stat().st_size > 0:
+                if is_tgs or (is_sticker and not Path(target_file).exists()):
+                    preview_img = vault_dir / f"preview_{bare_gid}_{message_id}.jpg"
+                    if not preview_img.exists():
+                        try:
+                            import shutil
+                            shutil.copy2(downloaded, preview_img)
+                        except Exception:
+                            pass
                 ghost_copy = vault_dir / f"ghost_{bare_gid}_{message_id}{Path(downloaded).suffix}"
                 if not ghost_copy.exists():
                     try:
