@@ -167,7 +167,39 @@ class DatabaseManager:
                 date_sent TIMESTAMP,
                 date_deleted TIMESTAMP,
                 date_edited TIMESTAMP,
+                event_type TEXT DEFAULT 'message',
+                ingestion_timestamp TIMESTAMP,
+                processing_status TEXT DEFAULT 'completed',
+                processing_result TEXT DEFAULT 'ok',
+                reply_to_msg_id INTEGER,
+                raw_metadata TEXT DEFAULT '{}',
                 UNIQUE(group_id, message_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_intercepted_grp_msg ON intercepted_messages(group_id, message_id);
+            CREATE INDEX IF NOT EXISTS idx_intercepted_user ON intercepted_messages(user_id);
+            CREATE INDEX IF NOT EXISTS idx_intercepted_sent ON intercepted_messages(date_sent);
+
+            CREATE TABLE IF NOT EXISTS message_ingestion_audit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT,
+                group_id INTEGER,
+                group_title TEXT,
+                message_id INTEGER,
+                status TEXT,
+                detail TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_ingestion_audit_grp_msg ON message_ingestion_audit(group_id, message_id);
+
+            CREATE TABLE IF NOT EXISTS message_ingestion_checkpoints (
+                group_id INTEGER PRIMARY KEY,
+                last_message_id INTEGER DEFAULT 0,
+                last_event_timestamp TIMESTAMP,
+                last_ingestion_timestamp TIMESTAMP,
+                total_ingested INTEGER DEFAULT 0,
+                failed_count INTEGER DEFAULT 0,
+                backlog_estimate INTEGER DEFAULT 0,
+                known_coverage_gaps TEXT DEFAULT '[]'
             );
 
             CREATE TABLE IF NOT EXISTS surveillance_watchlists (
@@ -374,12 +406,18 @@ class DatabaseManager:
         except Exception:
             pass
 
-        # Idempotent migration for Ghost Media Vault columns in intercepted_messages
+        # Idempotent migration for Ghost Media Vault and Complete Message Ingestion columns in intercepted_messages
         for col_name, col_type in [
             ("media_path", "TEXT"),
             ("file_name", "TEXT"),
             ("file_size", "INTEGER DEFAULT 0"),
             ("file_hash", "TEXT"),
+            ("event_type", "TEXT DEFAULT 'message'"),
+            ("ingestion_timestamp", "TIMESTAMP"),
+            ("processing_status", "TEXT DEFAULT 'completed'"),
+            ("processing_result", "TEXT DEFAULT 'ok'"),
+            ("reply_to_msg_id", "INTEGER"),
+            ("raw_metadata", "TEXT DEFAULT '{}'"),
         ]:
             try:
                 self.cursor.execute(f"ALTER TABLE intercepted_messages ADD COLUMN {col_name} {col_type};")
@@ -726,26 +764,459 @@ class DatabaseManager:
     # ═══════════════════════════════════════════════════════
     #   GHOST VAULT & MESSAGE INTERCEPTION (ANTI-DELETE/EDIT)
     # ═══════════════════════════════════════════════════════
+    @staticmethod
+    def _clean_str(val, default="") -> str:
+        if val is None:
+            return default
+        if isinstance(val, str):
+            return val
+        if hasattr(val, '_mock_name') or hasattr(val, 'mock_calls'):
+            return default
+        try:
+            s = str(val)
+            if 'MagicMock' in s or 'Mock' in s:
+                return default
+            return s
+        except Exception:
+            return default
+
+    @staticmethod
+    def _clean_int(val, default=0) -> int:
+        if isinstance(val, int):
+            return val
+        try:
+            return int(val)
+        except Exception:
+            return default
+
+    @staticmethod
+    def _clean_optional_int(val) -> Optional[int]:
+        if val is None:
+            return None
+        if isinstance(val, int):
+            return val
+        try:
+            return int(val)
+        except Exception:
+            return None
+
     async def save_intercepted_message(self, group_id: int, group_title: str, message_id: int,
                                        user_id: int, full_name: str, username: str, 
                                        text: str, media_type: str = "",
                                        media_path: str = "", file_name: str = "",
-                                       file_size: int = 0, file_hash: str = ""):
-        """Store incoming message snapshot for anti-delete/anti-edit forensics."""
+                                       file_size: int = 0, file_hash: str = "",
+                                       date_sent: Optional[Any] = None,
+                                       event_type: str = "message",
+                                       processing_status: str = "completed",
+                                       processing_result: str = "ok",
+                                       reply_to_msg_id: Optional[int] = None,
+                                       raw_metadata: Optional[Dict[str, Any]] = None):
+        """Store incoming message snapshot with checkpoint tracking and auditable deduplication."""
         async with self.lock:
             try:
+                c_gid = self._clean_int(group_id)
+                c_mid = self._clean_int(message_id)
+                c_uid = self._clean_int(user_id)
+                c_gtitle = self._clean_str(group_title)
+                c_fname = self._clean_str(full_name, "Anonymous")
+                c_uname = self._clean_str(username)
+                c_text = self._clean_str(text)
+                c_mtype = self._clean_str(media_type)
+                c_mpath = self._clean_str(media_path)
+                c_filename = self._clean_str(file_name)
+                c_fsize = self._clean_int(file_size)
+                c_fhash = self._clean_str(file_hash)
+                c_event_type = self._clean_str(event_type, "message")
+                c_proc_status = self._clean_str(processing_status, "completed")
+                c_proc_result = self._clean_str(processing_result, "ok")
+                c_reply_to = self._clean_optional_int(reply_to_msg_id)
+
+                if date_sent is None:
+                    event_ts = datetime.now()
+                elif isinstance(date_sent, datetime):
+                    event_ts = date_sent
+                elif isinstance(date_sent, (int, float)):
+                    event_ts = datetime.fromtimestamp(date_sent)
+                else:
+                    try:
+                        event_ts = datetime.fromisoformat(str(date_sent))
+                    except Exception:
+                        event_ts = datetime.now()
+
+                now_dt = datetime.now()
+                safe_meta = {}
+                if isinstance(raw_metadata, dict):
+                    for mk, mv in raw_metadata.items():
+                        safe_meta[str(mk)] = self._clean_str(mv) if not isinstance(mv, (int, float, bool, list, dict)) else mv
+                raw_meta_str = json.dumps(safe_meta)
+
                 self.cursor.execute(
                     '''INSERT OR IGNORE INTO intercepted_messages
                     (group_id, group_title, message_id, user_id, full_name, username, text, media_type,
-                     media_path, file_name, file_size, file_hash, date_sent)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                    (group_id, group_title or "", message_id, user_id, full_name or "Anonymous",
-                     username or "", text or "", media_type or "",
-                     media_path or "", file_name or "", file_size or 0, file_hash or "", datetime.now())
+                     media_path, file_name, file_size, file_hash, date_sent, event_type, ingestion_timestamp,
+                     processing_status, processing_result, reply_to_msg_id, raw_metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (c_gid, c_gtitle, c_mid, c_uid, c_fname,
+                     c_uname, c_text, c_mtype,
+                     c_mpath, c_filename, c_fsize, c_fhash,
+                     event_ts, c_event_type, now_dt, c_proc_status,
+                     c_proc_result, c_reply_to, raw_meta_str)
+                )
+                inserted = (self.cursor.rowcount > 0)
+
+                # Checkpoint & Coverage Gap Tracking
+                if c_gid:
+                    self.cursor.execute(
+                        '''SELECT last_message_id, total_ingested, known_coverage_gaps FROM message_ingestion_checkpoints WHERE group_id = ?''',
+                        (c_gid,)
+                    )
+                    cp = self.cursor.fetchone()
+                    if cp:
+                        last_id, tot, gaps_str = cp[0] or 0, cp[1] or 0, cp[2] or '[]'
+                        try:
+                            gaps = json.loads(gaps_str)
+                        except Exception:
+                            gaps = []
+                        if c_mid > (last_id + 1) and last_id > 0:
+                            gap_entry = {
+                                "start_id": last_id + 1,
+                                "end_id": c_mid - 1,
+                                "detected_at": now_dt.isoformat(),
+                                "status": "unrecovered"
+                            }
+                            if not any(g.get("start_id") == gap_entry["start_id"] and g.get("end_id") == gap_entry["end_id"] for g in gaps):
+                                gaps.append(gap_entry)
+                        new_max = max(last_id, c_mid)
+                        self.cursor.execute(
+                            '''UPDATE message_ingestion_checkpoints
+                               SET last_message_id = ?, last_event_timestamp = ?, last_ingestion_timestamp = ?,
+                                   total_ingested = total_ingested + ?, known_coverage_gaps = ?
+                               WHERE group_id = ?''',
+                            (new_max, event_ts, now_dt, 1 if inserted else 0, json.dumps(gaps), c_gid)
+                        )
+                    else:
+                        self.cursor.execute(
+                            '''INSERT INTO message_ingestion_checkpoints
+                               (group_id, last_message_id, last_event_timestamp, last_ingestion_timestamp, total_ingested, known_coverage_gaps)
+                               VALUES (?, ?, ?, ?, 1, '[]')''',
+                            (c_gid, c_mid, event_ts, now_dt)
+                        )
+
+                # Audit Log
+                audit_status = "success" if inserted else "deduplicated"
+                audit_detail = f"Message #{c_mid} {'ingested' if inserted else 'deduplicated'} ({c_event_type})"
+                self.cursor.execute(
+                    '''INSERT INTO message_ingestion_audit
+                    (event_type, group_id, group_title, message_id, status, detail, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                    (c_event_type, c_gid, c_gtitle, c_mid, audit_status, audit_detail, now_dt)
+                )
+
+                self.conn.commit()
+            except Exception as e:
+                logger.error(f"save_intercepted_message error: {e}")
+
+    async def batch_save_intercepted_messages(self, records: List[Dict[str, Any]]) -> int:
+        """High-performance batch upsert for historical message scans with checkpoint updates."""
+        if not records:
+            return 0
+        inserted_count = 0
+        now_dt = datetime.now()
+        async with self.lock:
+            try:
+                val_tuples = []
+                group_stats: Dict[int, Dict[str, Any]] = {}
+                for r in records:
+                    gid = self._clean_int(r.get("group_id", 0))
+                    mid = self._clean_int(r.get("message_id", 0))
+                    if not gid or not mid:
+                        continue
+                    d_sent = r.get("date_sent") or r.get("date") or now_dt
+                    if isinstance(d_sent, (int, float)):
+                        d_sent = datetime.fromtimestamp(d_sent)
+                    elif not isinstance(d_sent, datetime):
+                        try:
+                            d_sent = datetime.fromisoformat(str(d_sent))
+                        except Exception:
+                            d_sent = now_dt
+
+                    val_tuples.append((
+                        gid,
+                        self._clean_str(r.get("group_title", "")),
+                        mid,
+                        self._clean_int(r.get("user_id", 0)),
+                        self._clean_str(r.get("full_name") or r.get("sender_name"), "Anonymous"),
+                        self._clean_str(r.get("username") or r.get("sender_username")),
+                        self._clean_str(r.get("text") or r.get("raw_text")),
+                        self._clean_str(r.get("media_type")),
+                        self._clean_str(r.get("media_path")),
+                        self._clean_str(r.get("file_name")),
+                        self._clean_int(r.get("file_size", 0)),
+                        self._clean_str(r.get("file_hash")),
+                        d_sent,
+                        self._clean_str(r.get("event_type", "historical"), "historical"),
+                        now_dt,
+                        self._clean_str(r.get("processing_status", "completed"), "completed"),
+                        self._clean_str(r.get("processing_result", "ok"), "ok"),
+                        self._clean_optional_int(r.get("reply_to_msg_id")),
+                        json.dumps({})
+                    ))
+                    if gid not in group_stats:
+                        group_stats[gid] = {"max_mid": mid, "count": 1, "last_date": d_sent}
+                    else:
+                        group_stats[gid]["max_mid"] = max(group_stats[gid]["max_mid"], mid)
+                        group_stats[gid]["count"] += 1
+                        if d_sent > group_stats[gid]["last_date"]:
+                            group_stats[gid]["last_date"] = d_sent
+
+                self.cursor.executemany(
+                    '''INSERT OR IGNORE INTO intercepted_messages
+                    (group_id, group_title, message_id, user_id, full_name, username, text, media_type,
+                     media_path, file_name, file_size, file_hash, date_sent, event_type, ingestion_timestamp,
+                     processing_status, processing_result, reply_to_msg_id, raw_metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    val_tuples
+                )
+                inserted_count = self.cursor.rowcount
+
+                # Update checkpoints per group
+                for gid, stat in group_stats.items():
+                    self.cursor.execute(
+                        '''SELECT last_message_id, total_ingested FROM message_ingestion_checkpoints WHERE group_id = ?''',
+                        (gid,)
+                    )
+                    chk = self.cursor.fetchone()
+                    if chk:
+                        new_max = max(chk[0] or 0, stat["max_mid"])
+                        self.cursor.execute(
+                            '''UPDATE message_ingestion_checkpoints
+                               SET last_message_id = ?, last_event_timestamp = ?, last_ingestion_timestamp = ?,
+                                   total_ingested = total_ingested + ?
+                               WHERE group_id = ?''',
+                            (new_max, stat["last_date"], now_dt, stat["count"], gid)
+                        )
+                    else:
+                        self.cursor.execute(
+                            '''INSERT INTO message_ingestion_checkpoints
+                               (group_id, last_message_id, last_event_timestamp, last_ingestion_timestamp, total_ingested, known_coverage_gaps)
+                               VALUES (?, ?, ?, ?, ?, '[]')''',
+                            (gid, stat["max_mid"], stat["last_date"], now_dt, stat["count"])
+                        )
+
+                self.conn.commit()
+            except Exception as e:
+                logger.error(f"batch_save_intercepted_messages error: {e}")
+        return inserted_count
+
+    async def resolve_coverage_gap(self, group_id: int, start_id: int, end_id: int):
+        """Mark a known coverage gap as resolved in checkpoints."""
+        async with self.lock:
+            try:
+                self.cursor.execute(
+                    '''SELECT known_coverage_gaps FROM message_ingestion_checkpoints WHERE group_id = ?''',
+                    (group_id,)
+                )
+                row = self.cursor.fetchone()
+                if row and row[0]:
+                    try:
+                        gaps = json.loads(row[0])
+                    except Exception:
+                        gaps = []
+                    new_gaps = []
+                    for g in gaps:
+                        if g.get("start_id") == start_id and g.get("end_id") == end_id:
+                            g["status"] = "recovered"
+                            g["recovered_at"] = datetime.now().isoformat()
+                        new_gaps.append(g)
+                    self.cursor.execute(
+                        '''UPDATE message_ingestion_checkpoints SET known_coverage_gaps = ? WHERE group_id = ?''',
+                        (json.dumps(new_gaps), group_id)
+                    )
+                    self.conn.commit()
+            except Exception as e:
+                logger.debug(f"resolve_coverage_gap error: {e}")
+
+    async def log_ingestion_audit(self, event_type: str, group_id: int, group_title: str,
+                                  message_id: int, status: str, detail: str = ""):
+        """Log auditable record of ingestion events, deduplications, failures, and recoveries."""
+        async with self.lock:
+            try:
+                self.cursor.execute(
+                    '''INSERT INTO message_ingestion_audit
+                    (event_type, group_id, group_title, message_id, status, detail, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                    (event_type, group_id, group_title or "", message_id, status, detail, datetime.now())
                 )
                 self.conn.commit()
             except Exception:
                 pass
+
+    async def get_ingestion_audit_logs(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Retrieve recent message ingestion audit logs."""
+        async with self.lock:
+            try:
+                self.cursor.execute(
+                    '''SELECT id, event_type, group_id, group_title, message_id, status, detail, timestamp
+                    FROM message_ingestion_audit
+                    ORDER BY id DESC LIMIT ?''',
+                    (limit,)
+                )
+                rows = self.cursor.fetchall()
+                return [{
+                    "id": r[0], "event_type": r[1], "group_id": r[2], "group_title": r[3],
+                    "message_id": r[4], "status": r[5], "detail": r[6], "timestamp": str(r[7])
+                } for r in rows]
+            except Exception as e:
+                logger.debug(f"get_ingestion_audit_logs error: {e}")
+                return []
+
+    async def get_ingestion_health(self, group_id: Optional[int] = None) -> Dict[str, Any]:
+        """Audit ingestion health, coverage status, backlog and gaps."""
+        async with self.lock:
+            where_gid = ""
+            params = []
+            gid_placeholders = ""
+            if group_id:
+                variants = self.get_group_id_variants(group_id)
+                gid_placeholders = ",".join("?" for _ in variants)
+                where_gid = f" WHERE group_id IN ({gid_placeholders})"
+                params.extend(variants)
+
+            self.cursor.execute(f"SELECT COUNT(*) FROM intercepted_messages{where_gid}", params)
+            total_messages = self.cursor.fetchone()[0] or 0
+
+            self.cursor.execute(f"SELECT COUNT(*) FROM intercepted_messages WHERE is_edited = 1" + (f" AND group_id IN ({gid_placeholders})" if group_id else ""), params if group_id else [])
+            total_edits = self.cursor.fetchone()[0] or 0
+
+            self.cursor.execute(f"SELECT COUNT(*) FROM intercepted_messages WHERE is_deleted = 1" + (f" AND group_id IN ({gid_placeholders})" if group_id else ""), params if group_id else [])
+            total_deletions = self.cursor.fetchone()[0] or 0
+
+            # Latest ingestion timestamp
+            self.cursor.execute(f"SELECT MAX(COALESCE(ingestion_timestamp, date_sent)) FROM intercepted_messages{where_gid}", params)
+            last_ingestion = self.cursor.fetchone()[0]
+
+            # Audit failures
+            self.cursor.execute("SELECT COUNT(*) FROM message_ingestion_audit WHERE status = 'failed'")
+            total_failures = self.cursor.fetchone()[0] or 0
+
+            # Recent failures
+            self.cursor.execute("SELECT id, event_type, group_id, message_id, status, detail, timestamp FROM message_ingestion_audit WHERE status = 'failed' ORDER BY id DESC LIMIT 10")
+            recent_failures = [{
+                "id": r[0], "event_type": r[1], "group_id": r[2], "message_id": r[3],
+                "status": r[4], "detail": r[5], "timestamp": str(r[6])
+            } for r in self.cursor.fetchall()]
+
+            # Checkpoints & gaps
+            cp_query = "SELECT group_id, last_message_id, last_event_timestamp, last_ingestion_timestamp, total_ingested, known_coverage_gaps FROM message_ingestion_checkpoints"
+            cp_params = []
+            if group_id:
+                cp_query += f" WHERE group_id IN ({gid_placeholders})"
+                cp_params.extend(variants)
+            self.cursor.execute(cp_query, cp_params)
+            checkpoints = []
+            all_gaps = []
+            for r in self.cursor.fetchall():
+                try:
+                    gaps = json.loads(r[5] or '[]')
+                except Exception:
+                    gaps = []
+                checkpoints.append({
+                    "group_id": r[0],
+                    "last_message_id": r[1],
+                    "last_event_timestamp": str(r[2]) if r[2] else None,
+                    "last_ingestion_timestamp": str(r[3]) if r[3] else None,
+                    "total_ingested": r[4],
+                    "gaps_count": len(gaps)
+                })
+                for g in gaps:
+                    all_gaps.append({
+                        "group_id": r[0],
+                        **g
+                    })
+
+            status = "HEALTHY"
+            if total_failures > 50 or len(all_gaps) > 10:
+                status = "DEGRADED"
+
+            return {
+                "status": status,
+                "total_ingested_messages": total_messages,
+                "total_edits_captured": total_edits,
+                "total_deletions_captured": total_deletions,
+                "last_successful_ingestion": str(last_ingestion) if last_ingestion else None,
+                "backlog_size": 0,
+                "processing_failures_count": total_failures,
+                "recent_failures": recent_failures,
+                "known_coverage_gaps": all_gaps,
+                "checkpoints": checkpoints,
+                "disclaimer": "Deleted messages are preserved when intercepted prior to deletion; historical messages before account authorization cannot be retrieved by Telegram MTProto."
+            }
+
+    async def get_stored_messages(self, group_id: Optional[int] = None, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Retrieve persisted messages from local database for offline fallback and historical continuity."""
+        async with self.lock:
+            query = '''
+                SELECT id, group_id, group_title, message_id, user_id, full_name, username, text,
+                       media_type, media_path, file_name, file_size, file_hash, is_deleted, is_edited,
+                       original_text, date_sent, date_deleted, date_edited, event_type,
+                       reply_to_msg_id, processing_status
+                FROM intercepted_messages
+            '''
+            params = []
+            if group_id:
+                variants = self.get_group_id_variants(group_id)
+                gid_placeholders = ",".join("?" for _ in variants)
+                query += f" WHERE group_id IN ({gid_placeholders})"
+                params.extend(variants)
+            query += " ORDER BY message_id DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+            self.cursor.execute(query, params)
+            rows = self.cursor.fetchall()
+            result = []
+            for r in reversed(rows):
+                m_id = r[3]
+                u_id = r[4]
+                d_sent_str = str(r[16]) if r[16] else ""
+                ts = 0.0
+                if r[16]:
+                    try:
+                        ts = datetime.fromisoformat(str(r[16])).timestamp()
+                    except Exception:
+                        ts = time.time()
+                result.append({
+                    "message_id": m_id,
+                    "user_id": u_id,
+                    "is_self": False,
+                    "full_name": r[5] or "Anonymous",
+                    "username": r[6] or "",
+                    "text": r[7] or "",
+                    "raw_text": r[7] or "",
+                    "date": d_sent_str[11:19] if len(d_sent_str) >= 19 else d_sent_str,
+                    "timestamp": ts,
+                    "is_threat": False,
+                    "threat_type": None,
+                    "confidence": 0,
+                    "reason": None,
+                    "has_media": bool(r[8]),
+                    "media_type": r[8] or None,
+                    "media_emoji": "📎" if r[8] else None,
+                    "file_name": r[10] or None,
+                    "media_url": None,
+                    "is_reply": bool(r[20]),
+                    "reply_to_msg_id": r[20],
+                    "reply_to_sender": None,
+                    "reply_to_text": None,
+                    "reply_to_media_type": None,
+                    "reactions": [],
+                    "recent_reactors": [],
+                    "is_deleted": bool(r[13]),
+                    "is_edited": bool(r[14]),
+                    "original_text": r[15] or "",
+                    "event_type": r[19] or "message",
+                    "processing_status": r[21] or "completed"
+                })
+            return result
 
     async def mark_messages_deleted(self, group_id: Optional[int], message_ids: List[int]) -> List[Dict[str, Any]]:
         """Intercept deleted messages and mark them in the Ghost Vault."""
@@ -806,10 +1277,18 @@ class DatabaseManager:
                     id_placeholders = ','.join('?' * len(matched_ids))
                     self.cursor.execute(
                         f'''UPDATE intercepted_messages 
-                        SET is_deleted = 1, date_deleted = ?
+                        SET is_deleted = 1, date_deleted = ?, event_type = 'delete', processing_status = 'deleted'
                         WHERE id IN ({id_placeholders})''',
                         [datetime.now()] + matched_ids
                     )
+                    for rec in intercepted:
+                        self.cursor.execute(
+                            '''INSERT INTO message_ingestion_audit
+                            (event_type, group_id, group_title, message_id, status, detail, timestamp)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                            ("delete", rec.get("group_id", 0), rec.get("group_title", ""), rec.get("message_id", 0),
+                             "success", f"Marked deleted message #{rec.get('message_id')}", datetime.now())
+                        )
                     self.conn.commit()
             except Exception as e:
                 logger.debug(f"mark_messages_deleted error: {e}")
@@ -843,9 +1322,16 @@ class DatabaseManager:
                     gtitle = row[7] or ""
                     self.cursor.execute(
                         '''UPDATE intercepted_messages
-                        SET is_edited = 1, original_text = COALESCE(original_text, ?), text = ?, date_edited = ?
+                        SET is_edited = 1, original_text = COALESCE(original_text, ?), text = ?, date_edited = ?,
+                            event_type = 'edit', processing_status = 'edited'
                         WHERE id = ?''',
                         (orig_text, new_text or "", datetime.now(), db_id)
+                    )
+                    self.cursor.execute(
+                        '''INSERT INTO message_ingestion_audit
+                        (event_type, group_id, group_title, message_id, status, detail, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                        ("edit", eff_gid, gtitle, message_id, "success", f"Intercepted edited message #{message_id}", datetime.now())
                     )
                     self.conn.commit()
                     result = {

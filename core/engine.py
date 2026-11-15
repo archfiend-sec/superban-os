@@ -469,6 +469,7 @@ class SuperBanEngine:
             except TypeError:
                 msg_stream = self.client.iter_messages(group_entity, limit=target_limit)
 
+            history_batch = []
             async for msg in msg_stream:
                 if norm_gid in self._cancel_deep_scans or abs_gid in self._cancel_deep_scans:
                     scan_info["status"] = "CANCELLED"
@@ -487,6 +488,34 @@ class SuperBanEngine:
                 scan_info["scanned"] += 1
                 sender = getattr(msg, 'sender', None)
                 sender_id = getattr(msg, 'sender_id', 0) or getattr(sender, 'id', 0)
+
+                # Buffer for complete persistent historical message ingestion
+                raw_content_scan = getattr(msg, 'raw_text', '') or getattr(msg, 'message', '') or ''
+                reply_hdr_scan = getattr(msg, 'reply_to', None)
+                r_mid_scan = getattr(reply_hdr_scan, 'reply_to_msg_id', None) if reply_hdr_scan else None
+                fn_scan = getattr(sender, 'first_name', '') or ''
+                ln_scan = getattr(sender, 'last_name', '') or ''
+                full_name_scan = f"{fn_scan} {ln_scan}".strip() or "User"
+                username_scan = getattr(sender, 'username', '') or ''
+                history_batch.append({
+                    "group_id": abs_gid,
+                    "group_title": group_title or str(abs_gid),
+                    "message_id": msg.id,
+                    "user_id": sender_id or 0,
+                    "full_name": full_name_scan,
+                    "username": username_scan,
+                    "text": raw_content_scan,
+                    "media_type": "media" if getattr(msg, 'media', None) else "text",
+                    "date_sent": getattr(msg, 'date', None),
+                    "event_type": "historical",
+                    "processing_status": "completed",
+                    "processing_result": "ok",
+                    "reply_to_msg_id": r_mid_scan
+                })
+                if len(history_batch) >= 100:
+                    if self.db and hasattr(self.db, "batch_save_intercepted_messages"):
+                        await self.db.batch_save_intercepted_messages(history_batch)
+                    history_batch.clear()
 
                 # STRICT OPSEC: Never profile, score, or link userbot in member surveillance or social graph
                 if sender_id and (
@@ -685,6 +714,11 @@ class SuperBanEngine:
                     })
                     # Yield event loop without delay
                     await asyncio.sleep(0)
+
+            # Flush any remaining scanned messages into persistent SQLite storage
+            if history_batch and self.db and hasattr(self.db, "batch_save_intercepted_messages"):
+                await self.db.batch_save_intercepted_messages(history_batch)
+                history_batch.clear()
 
         except FloodWaitError as fwe:
             logger.warning(f"FloodWait during deep scan: Sleeping {fwe.seconds}s...")
@@ -1706,9 +1740,76 @@ class SuperBanEngine:
                                 item["ghost_id"] = gm.get("id")
                 except Exception as ge:
                     logger.debug(f"Ghost overlay lookup bypass: {ge}")
+
+            # Background persistence of newly retrieved live messages into SQLite
+            if res and self.db and hasattr(self.db, "batch_save_intercepted_messages"):
+                try:
+                    asyncio.create_task(self.db.batch_save_intercepted_messages([{
+                        "group_id": gid,
+                        "group_title": getattr(group_entity, 'title', '') if hasattr(group_entity, 'title') else "",
+                        "message_id": m["message_id"],
+                        "user_id": m.get("user_id", 0),
+                        "full_name": m.get("full_name", "Anonymous"),
+                        "username": m.get("username", ""),
+                        "text": m.get("raw_text") or m.get("text", ""),
+                        "media_type": m.get("media_type") or "",
+                        "date_sent": datetime.fromtimestamp(m["timestamp"]) if m.get("timestamp") else datetime.now(),
+                        "event_type": "incoming",
+                        "processing_status": "completed",
+                        "processing_result": "ok",
+                        "reply_to_msg_id": m.get("reply_to_msg_id")
+                    } for m in res]))
+                except Exception as bse:
+                    logger.debug(f"Live messages batch save notice: {bse}")
+
         except Exception as e:
             logger.error(f"Error fetching recent messages: {e}")
+            if not res and self.db and hasattr(self.db, "get_stored_messages"):
+                logger.info(f"Falling back to stored SQLite messages for group {gid}")
+                gid_val = getattr(group_entity, 'id', group_entity) if group_entity else None
+                return await self.db.get_stored_messages(gid_val, limit=limit)
         return res
+
+    async def recover_coverage_gap(self, group_id: int, start_id: int, end_id: int) -> Dict[str, Any]:
+        """Recover missed messages within a detected coverage gap using Telegram historical retrieval."""
+        if not self.client or not await self.client.is_user_authorized():
+            return {"status": "error", "recovered": 0, "detail": "Telegram client not authorized"}
+        try:
+            group_entity = await self.get_group_entity(group_id)
+            if not group_entity:
+                return {"status": "error", "recovered": 0, "detail": f"Could not resolve entity for {group_id}"}
+            recovered_msgs = []
+            async for msg in self.client.iter_messages(group_entity, min_id=start_id - 1, max_id=end_id + 1, limit=500):
+                sender = getattr(msg, 'sender', None)
+                fn = getattr(sender, 'first_name', '') or ''
+                ln = getattr(sender, 'last_name', '') or ''
+                reply_to = getattr(msg, 'reply_to', None)
+                recovered_msgs.append({
+                    "group_id": group_id,
+                    "group_title": getattr(group_entity, 'title', '') or "",
+                    "message_id": msg.id,
+                    "user_id": getattr(msg, 'sender_id', 0) or 0,
+                    "full_name": f"{fn} {ln}".strip() or "User",
+                    "username": getattr(sender, 'username', '') or "",
+                    "text": getattr(msg, 'raw_text', '') or getattr(msg, 'message', '') or "",
+                    "media_type": "media" if getattr(msg, 'media', None) else "text",
+                    "date_sent": getattr(msg, 'date', None),
+                    "event_type": "recovered",
+                    "processing_status": "recovered",
+                    "processing_result": "gap_resolved",
+                    "reply_to_msg_id": getattr(reply_to, 'reply_to_msg_id', None) if reply_to else None
+                })
+            saved_count = 0
+            if recovered_msgs and self.db:
+                saved_count = await self.db.batch_save_intercepted_messages(recovered_msgs)
+                await self.db.resolve_coverage_gap(group_id, start_id, end_id)
+                await self.db.log_ingestion_audit("recovery", group_id, getattr(group_entity, 'title', ''), start_id, "recovered", f"Recovered {len(recovered_msgs)} messages across gap {start_id}-{end_id}")
+            return {"status": "success", "recovered": len(recovered_msgs), "saved": saved_count}
+        except Exception as e:
+            logger.error(f"recover_coverage_gap error: {e}")
+            if self.db:
+                await self.db.log_ingestion_audit("recovery", group_id, "", start_id, "failed", str(e))
+            return {"status": "failed", "recovered": 0, "detail": str(e)}
 
     async def get_media_preview_file(self, group_id: int, message_id: int, prefer_thumb: bool = False) -> Optional[str]:
         """Fetch or retrieve cached media preview (photo, sticker, gif, video, voice, doc) for wiretap."""

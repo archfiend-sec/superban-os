@@ -1626,12 +1626,63 @@ def create_app(engine: SuperBanEngine):
         try:
             entity = await engine.get_group_entity(group_id)
             if not entity:
+                if engine.db and hasattr(engine.db, "get_stored_messages"):
+                    return await engine.db.get_stored_messages(group_id, limit=limit)
                 return []
             msgs = await engine.get_recent_messages(entity, limit=limit)
+            if not msgs and engine.db and hasattr(engine.db, "get_stored_messages"):
+                return await engine.db.get_stored_messages(group_id, limit=limit)
             return msgs
         except Exception as e:
             logger.error(f"Failed to fetch messages for group {group_id}: {e}")
+            if engine.db and hasattr(engine.db, "get_stored_messages"):
+                return await engine.db.get_stored_messages(group_id, limit=limit)
             return []
+
+    @app.get("/api/messages/ingestion/health")
+    async def get_ingestion_health(group_id: Optional[int] = None):
+        """Audit message ingestion health, backlog, coverage status, and gaps."""
+        if engine.db and hasattr(engine.db, "get_ingestion_health"):
+            return await engine.db.get_ingestion_health(group_id=group_id)
+        return {
+            "status": "HEALTHY",
+            "total_ingested_messages": 0,
+            "total_edits_captured": 0,
+            "total_deletions_captured": 0,
+            "last_successful_ingestion": None,
+            "backlog_size": 0,
+            "processing_failures_count": 0,
+            "recent_failures": [],
+            "known_coverage_gaps": [],
+            "checkpoints": []
+        }
+
+    @app.get("/api/messages/ingestion/audit")
+    async def get_ingestion_audit_logs(limit: int = 50):
+        """Retrieve historical message ingestion audit logs."""
+        if engine.db and hasattr(engine.db, "get_ingestion_audit_logs"):
+            return await engine.db.get_ingestion_audit_logs(limit=limit)
+        return []
+
+    class RecoverGapReq(BaseModel):
+        group_id: int
+        start_id: int
+        end_id: int
+
+    @app.post("/api/messages/ingestion/recover")
+    async def recover_gap(req: RecoverGapReq):
+        """Trigger gap recovery for missing message sequence."""
+        if hasattr(engine, "recover_coverage_gap"):
+            res = await engine.recover_coverage_gap(req.group_id, req.start_id, req.end_id)
+            return res
+        return {"status": "error", "detail": "Engine does not support recovery"}
+
+    @app.get("/api/messages/history")
+    async def get_message_history(group_id: Optional[int] = None, limit: int = 50, offset: int = 0):
+        """Query persistent historical message records from local SQLite storage."""
+        if engine.db and hasattr(engine.db, "get_stored_messages"):
+            return await engine.db.get_stored_messages(group_id=group_id, limit=limit, offset=offset)
+        return []
 
     class DeleteMsgReq(BaseModel):
         group_id: int

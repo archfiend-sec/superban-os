@@ -59,16 +59,82 @@ class SentinelShield:
         self._member_rep_cache: Dict[Tuple[int, int], Tuple[float, Dict[str, Any]]] = {}
         self._recent_msg_cache: Dict[int, Dict[str, Any]] = {}
 
+        # Durable Ingestion Queue & Background Retry Task
+        self._ingestion_retry_queue: asyncio.Queue = asyncio.Queue(maxsize=2000)
+        self._retry_worker_task = None
+        self._ensure_retry_worker()
+
         self.event_callbacks: List[Callable[[Dict[str, Any]], Any]] = []
         self._handlers_registered = False
         self._active_handlers: List[Any] = []
         self._init_handlers()
+
+    def _ensure_retry_worker(self):
+        if self._retry_worker_task and not self._retry_worker_task.done():
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            if loop and loop.is_running():
+                self._retry_worker_task = asyncio.create_task(self._ingestion_retry_worker())
+        except RuntimeError:
+            pass
+
+    async def _ingestion_retry_worker(self):
+        while True:
+            try:
+                item = await self._ingestion_retry_queue.get()
+                retry_count = item.get("_retry_count", 0)
+                await asyncio.sleep(min(0.2 * (2 ** retry_count), 5.0))
+                try:
+                    if self.db:
+                        await self.db.save_intercepted_message(
+                            group_id=item["group_id"],
+                            group_title=item["group_title"],
+                            message_id=item["message_id"],
+                            user_id=item["user_id"],
+                            full_name=item["full_name"],
+                            username=item["username"],
+                            text=item["text"],
+                            media_type=item.get("media_type", ""),
+                            media_path=item.get("media_path", ""),
+                            file_name=item.get("file_name", ""),
+                            file_size=item.get("file_size", 0),
+                            file_hash=item.get("file_hash", ""),
+                            date_sent=item.get("date_sent"),
+                            event_type=item.get("event_type", "message"),
+                            processing_status="recovered",
+                            processing_result="retry_success",
+                            reply_to_msg_id=item.get("reply_to_msg_id")
+                        )
+                        await self.db.log_ingestion_audit(
+                            item.get("event_type", "message"), item["group_id"], item["group_title"],
+                            item["message_id"], "recovered", f"Ingested on retry attempt #{retry_count + 1}"
+                        )
+                except Exception as e:
+                    if retry_count < 3:
+                        item["_retry_count"] = retry_count + 1
+                        self._ingestion_retry_queue.put_nowait(item)
+                    else:
+                        logger.error(f"Permanent ingestion failure for msg #{item['message_id']} after 3 retries: {e}")
+                        if self.db:
+                            await self.db.log_ingestion_audit(
+                                item.get("event_type", "message"), item["group_id"], item["group_title"],
+                                item["message_id"], "failed", f"Failed after 3 retries: {e}"
+                            )
+                finally:
+                    self._ingestion_retry_queue.task_done()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.debug(f"Ingestion retry worker error: {e}")
+                await asyncio.sleep(1.0)
 
     def register_callback(self, cb: Callable[[Dict[str, Any]], Any]):
         self.event_callbacks.append(cb)
 
     def attach_client(self, client: TelegramClient):
         """Dynamically rebind SentinelShield event handlers to an active Telegram client."""
+        self._ensure_retry_worker()
         if not client:
             return
         if self.client is client and self._handlers_registered:
@@ -195,6 +261,14 @@ class SentinelShield:
                         })
                         for rec in records:
                             asyncio.create_task(self._check_deleted_siphon(rec))
+                    # Record audit for unintercepted deletions (observable but uncaptured before deletion)
+                    matched_mids = {r.get("message_id") for r in records} if records else set()
+                    for did in deleted_ids:
+                        if did not in matched_mids:
+                            await self.db.log_ingestion_audit(
+                                "delete", group_id or 0, "", did, "untracked",
+                                "Observable deletion event for unintercepted message"
+                            )
                 except Exception as e:
                     logger.debug(f"Ghost Vault delete hook note: {e}")
 
@@ -227,6 +301,11 @@ class SentinelShield:
                             "record": record,
                             "timestamp": time.strftime("%H:%M:%S", time.localtime())
                         })
+                    else:
+                        await self.db.log_ingestion_audit(
+                            "edit", group_id or 0, "", event.id, "untracked",
+                            "Edit observable on unintercepted message"
+                        )
                 except Exception as e:
                     logger.debug(f"Ghost Vault edit hook note: {e}")
 
@@ -850,11 +929,54 @@ class SentinelShield:
                     except Exception as me:
                         logger.debug(f"Ghost media vault background note: {me}")
                 if self.db:
-                    await self.db.save_intercepted_message(
-                        gid, gtitle, ev.id, snd_id, full_name, username, dtext,
-                        minfo.get("media_type") or ("media" if ev.media else "text"),
-                        m_path, fname or file_name, f_size, f_hash
-                    )
+                    try:
+                        await self.db.save_intercepted_message(
+                            group_id=gid,
+                            group_title=gtitle,
+                            message_id=ev.id,
+                            user_id=snd_id,
+                            full_name=full_name,
+                            username=username,
+                            text=dtext,
+                            media_type=minfo.get("media_type") or ("media" if ev.media else "text"),
+                            media_path=m_path,
+                            file_name=fname or file_name,
+                            file_size=f_size,
+                            file_hash=f_hash,
+                            date_sent=getattr(ev, 'date', None),
+                            event_type="threat" if is_threat else ("service" if getattr(ev, 'action', None) else "message"),
+                            processing_status="completed",
+                            processing_result=threat_type if is_threat else "ok",
+                            reply_to_msg_id=reply_to_id,
+                            raw_metadata={
+                                "media_emoji": minfo.get("media_emoji"),
+                                "is_threat": is_threat,
+                                "threat_type": threat_type
+                            }
+                        )
+                    except Exception as ie:
+                        logger.warning(f"Error saving message #{ev.id} to db, pushing to retry queue: {ie}")
+                        if hasattr(self, '_ingestion_retry_queue'):
+                            try:
+                                self._ingestion_retry_queue.put_nowait({
+                                    "group_id": gid,
+                                    "group_title": gtitle,
+                                    "message_id": ev.id,
+                                    "user_id": snd_id,
+                                    "full_name": full_name,
+                                    "username": username,
+                                    "text": dtext,
+                                    "media_type": minfo.get("media_type") or ("media" if ev.media else "text"),
+                                    "media_path": m_path,
+                                    "file_name": fname or file_name,
+                                    "file_size": f_size,
+                                    "file_hash": f_hash,
+                                    "date_sent": getattr(ev, 'date', None),
+                                    "event_type": "threat" if is_threat else ("service" if getattr(ev, 'action', None) else "message"),
+                                    "reply_to_msg_id": reply_to_id
+                                })
+                            except Exception:
+                                pass
 
             if self.db:
                 asyncio.create_task(_bg_save_media_vault(event, group_id, group_title, sender_id or 0, file_name, display_text, media_info))
