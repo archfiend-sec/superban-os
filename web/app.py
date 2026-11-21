@@ -1535,7 +1535,7 @@ def create_app(engine: SuperBanEngine):
         group_id: int
 
     @app.get("/api/recon/schedule")
-    async def get_recon_schedule_endpoint(group_id: int):
+    async def get_recon_schedule_endpoint(group_id: int = 0):
         if not engine.db:
             return {"status": "error", "schedule": None, "is_enabled": False}
         schedule = await engine.db.get_recon_schedule(group_id)

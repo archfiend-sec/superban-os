@@ -141,20 +141,120 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 
 /* Nav */
 .nav {
-  position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-h); z-index: 50;
-  display: flex; align-items: center; gap: 20px; padding: 0 var(--pad);
-  background: rgba(5,7,10,.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-h); z-index: 100;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0 var(--pad);
+  background: rgba(5,7,10,.88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line-soft);
+  flex-wrap: nowrap;
+  box-sizing: border-box;
 }
-.brand { display: flex; align-items: center; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .brand svg { width: 34px; height: 34px; }
 .brand-tx { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-tx b { font-size: 12px; font-weight: 500; letter-spacing: .26em; color: var(--bone); }
 .brand-tx i { font-style: normal; font-size: 8px; letter-spacing: .34em; color: var(--muted); }
-.nav-links { display: flex; gap: clamp(14px, 2.2vw, 36px); margin-left: clamp(10px, 2vw, 30px); }
-.nav-link { font-size: 11px; font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: var(--bone-dim); transition: color .3s; }
-.nav-link:hover { color: var(--bone); }
-.nav-link.on { color: var(--bone); border-bottom: 1px solid var(--vermilion); }
+.nav-links, #main-nav-links { display: none !important; }
+
+/* Global Responsive Text Controls (Prevents Double Labels like GROUPSGROUPS) */
+.mob-txt { display: none !important; }
+.desk-txt { display: inline !important; }
+@media (max-width: 768px) {
+  .desk-txt { display: none !important; }
+  .mob-txt { display: inline !important; }
+}
+
+/* Compact System Health Bar */
+.kage-sys-health-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(14, 18, 28, 0.75);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 9.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.sys-health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--bone-dim);
+}
+.health-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.health-dot.active {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+.health-dot.idle {
+  background: #6b7280;
+}
+.health-dot.error {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+/* Sanctuary View Container Alignment */
+#top {
+  padding-top: calc(var(--nav-h, 50px) + 24px) !important;
+  box-sizing: border-box;
+}
+
+/* Toast Notifications - Stacked, Non-Blocking, High-Z */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+  max-width: 440px;
+  width: calc(100vw - 48px);
+}
+.toast {
+  position: relative !important;
+  bottom: auto !important;
+  right: auto !important;
+  pointer-events: auto;
+  max-width: 100%;
+  background: rgba(10, 14, 20, 0.96) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(224, 35, 28, 0.4) !important;
+  border-left: 3px solid var(--vermilion) !important;
+  border-radius: 4px !important;
+  color: var(--bone) !important;
+  padding: 10px 14px !important;
+  font-size: 11px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  animation: toastIn .25s ease forwards !important;
+  transition: opacity .25s ease, transform .25s ease !important;
+}
+.toast .toast-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.toast .toast-close:hover {
+  color: var(--bone);
+}
 
 /* Hero */
 .hero { position: relative; min-height: 100vh; padding: 0 var(--pad); display: flex; flex-direction: column; }
@@ -495,28 +595,6 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
-}
-.toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: #0a0e12;
-  border: 1px solid var(--vermilion);
-  color: var(--bone);
-  padding: 14px 22px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  animation: toastIn .3s ease forwards;
-}
-@keyframes toastIn {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
 }
 .btn-round {
   width: 38px;
@@ -4940,18 +5018,6 @@ html.warroom-active #vignette {
   color: #ffffff !important;
   transform: scale(1.02) !important;
 }
-.toast {
-  background: rgba(16, 22, 34, 0.6) !important;
-  backdrop-filter: var(--apple-blur-nav) !important;
-  -webkit-backdrop-filter: var(--apple-blur-nav) !important;
-  border: 1px solid var(--apple-glass-border-bright) !important;
-  border-left: 3px solid var(--signal-red) !important;
-  border-radius: var(--apple-radius-md) !important;
-  color: var(--warm-white) !important;
-  font-family: var(--font-sans) !important;
-  font-size: 11.5px !important;
-  box-shadow: var(--apple-shadow-md), var(--apple-glass-shine) !important;
-}
 
 /* Micro-animations */
 @keyframes slideInMsg {
@@ -7055,10 +7121,10 @@ body.theme-light .kage-btn.secondary {
 </div>
 
 
-<div class="page kage-view-hidden" id="top" style="display: none; padding: 24px 20px 60px; max-width: 1400px; margin: 0 auto; min-height: 100vh;">
+<div class="page kage-view-hidden" id="top" style="display: none; padding: calc(var(--nav-h, 50px) + 24px) 20px 60px; max-width: 1400px; margin: 0 auto; min-height: 100vh; box-sizing: border-box;">
 
   <!-- TOP COMMAND BAR -->
-  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 24px; flex-wrap: wrap; gap: 14px; position: relative; z-index: 5;">
     <div>
       <div class="eyebrow" style="color: var(--vermilion); font-size: 11px; display: inline-flex; align-items: center; gap: 6px;">
         <span class="live-dot-pulse"></span>
@@ -7067,8 +7133,8 @@ body.theme-light .kage-btn.secondary {
       <h1 class="display" style="font-size: 24px; color: var(--bone); margin: 4px 0 2px;">Sanctuary Strategic Intelligence Nexus</h1>
       <span style="font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace;">AUTHORIZED TELEGRAM INFRASTRUCTURE &bull; REAL-TIME SURVEILLANCE &bull; PERSISTENT TELEMETRY</span>
     </div>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-      <button type="button" onclick="switchViewMode('warroom')" class="kage-btn" style="background: var(--vermilion); color: #fff; padding: 8px 18px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px;">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; flex-shrink: 0;">
+      <button type="button" onclick="switchViewMode('warroom')" class="kage-btn" style="background: var(--vermilion); color: #fff; padding: 8px 18px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; border-radius: 4px; box-shadow: 0 4px 14px rgba(224, 35, 28, 0.4);">
         <i data-lucide="radio" style="width: 13px; height: 13px;"></i>
         <span>WAR ROOM // 影</span>
       </button>
@@ -7085,7 +7151,7 @@ body.theme-light .kage-btn.secondary {
 
   <!-- 4-STAT OPERATIONAL TELEMETRY TILES -->
   <div class="sanc-telemetry-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 24px;">
-    <div class="kage-metric-card font-mono" style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #38bdf8; border-radius: 4px; padding: 14px 16px;">
+    <div class="kage-metric-card font-mono" style="background: rgba(9,13,18,0.92); border: 1px solid var(--line-soft); border-left: 3px solid #38bdf8; border-radius: 4px; padding: 14px 16px; backdrop-filter: blur(8px);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
         <span class="eyebrow" style="font-size: 9px; color: #38bdf8;">TELEGRAM CLIENT NODE</span>
         <span id="sanc-node-pill" class="badge badge-emerald" style="font-size: 8px;">CONNECTED</span>
@@ -7094,27 +7160,27 @@ body.theme-light .kage-btn.secondary {
       <div id="sanc-node-sub" style="font-size: 10px; color: var(--muted); margin-top: 4px;">MTProto Session &bull; Querying...</div>
     </div>
 
-    <div class="kage-metric-card font-mono" style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid var(--intel-cyan); border-radius: 4px; padding: 14px 16px;">
+    <div class="kage-metric-card font-mono" style="background: rgba(9,13,18,0.92); border: 1px solid var(--line-soft); border-left: 3px solid var(--intel-cyan); border-radius: 4px; padding: 14px 16px; backdrop-filter: blur(8px);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <span class="eyebrow" style="font-size: 9px; color: var(--intel-cyan);"><span class="desk-txt">MONITORED GROUPS</span><span class="mob-txt">GROUPS</span></span>
+        <span class="eyebrow" style="font-size: 9px; color: var(--intel-cyan);"><span class="desk-txt">MONITORED GROUPS</span><span class="mob-txt" style="display: none;">GROUPS</span></span>
         <span id="sanc-groups-badge" class="badge badge-cyan" style="font-size: 8px;">0 DIALOGS</span>
       </div>
       <div id="sanc-groups-count" style="font-size: 22px; font-weight: bold; color: var(--bone);">0</div>
       <div id="sanc-groups-sub" style="font-size: 10px; color: var(--muted); margin-top: 4px;">Authorized surveillance targets</div>
     </div>
 
-    <div class="kage-metric-card font-mono" style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #10b981; border-radius: 4px; padding: 14px 16px;">
+    <div class="kage-metric-card font-mono" style="background: rgba(9,13,18,0.92); border: 1px solid var(--line-soft); border-left: 3px solid #10b981; border-radius: 4px; padding: 14px 16px; backdrop-filter: blur(8px);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <span class="eyebrow" style="font-size: 9px; color: #10b981;"><span class="desk-txt">INTELLIGENCE INGESTED</span><span class="mob-txt">INGESTED</span></span>
+        <span class="eyebrow" style="font-size: 9px; color: #10b981;"><span class="desk-txt">INTELLIGENCE INGESTED</span><span class="mob-txt" style="display: none;">INGESTED</span></span>
         <span id="sanc-msgs-badge" class="badge badge-emerald" style="font-size: 8px;">DATABASE LIVE</span>
       </div>
       <div id="sanc-msgs-count" style="font-size: 22px; font-weight: bold; color: var(--bone);">0</div>
       <div id="sanc-msgs-sub" style="font-size: 10px; color: var(--muted); margin-top: 4px;">Total archived surveillance events</div>
     </div>
 
-    <div class="kage-metric-card font-mono" style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #ec4899; border-radius: 4px; padding: 14px 16px;">
+    <div class="kage-metric-card font-mono" style="background: rgba(9,13,18,0.92); border: 1px solid var(--line-soft); border-left: 3px solid #ec4899; border-radius: 4px; padding: 14px 16px; backdrop-filter: blur(8px);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <span class="eyebrow" style="font-size: 9px; color: #ec4899;"><span class="desk-txt">ACTIVE BACKGROUND JOBS</span><span class="mob-txt">JOBS</span></span>
+        <span class="eyebrow" style="font-size: 9px; color: #ec4899;"><span class="desk-txt">ACTIVE BACKGROUND JOBS</span><span class="mob-txt" style="display: none;">JOBS</span></span>
         <span id="sanc-jobs-badge" class="badge badge-muted" style="font-size: 8px;">IDLE</span>
       </div>
       <div id="sanc-jobs-count" style="font-size: 22px; font-weight: bold; color: var(--bone);">0</div>
@@ -7129,7 +7195,7 @@ body.theme-light .kage-btn.secondary {
     <div style="display: flex; flex-direction: column; gap: 18px;">
       
       <!-- Authorized Groups Table Container -->
-      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-radius: 4px; padding: 16px;">
+      <div style="background: rgba(9,13,18,0.94); border: 1px solid var(--line-soft); border-radius: 4px; padding: 16px; backdrop-filter: blur(12px);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
           <div>
             <div class="eyebrow" style="color: var(--bone); font-size: 10px;">AUTHORIZED TELEGRAM DIALOGS // 監視対象グループ一覧</div>
@@ -7142,14 +7208,14 @@ body.theme-light .kage-btn.secondary {
           </div>
         </div>
 
-        <div style="overflow-x: auto; max-height: 380px; overflow-y: auto;">
+        <div style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
           <table style="width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
             <thead>
-              <tr style="border-bottom: 1px solid var(--line); color: var(--muted); text-align: left; font-size: 9px; letter-spacing: 0.08em;">
-                <th style="padding: 8px 6px;">GROUP / CHANNEL</th>
-                <th style="padding: 8px 6px;">MEMBERS</th>
-                <th style="padding: 8px 6px;">ROLE &amp; RIGHTS</th>
-                <th style="padding: 8px 6px; text-align: right;">OPERATIONAL ACTIONS</th>
+              <tr style="border-bottom: 1px solid var(--line); color: var(--muted); font-size: 9px; letter-spacing: 0.08em; background: rgba(14, 18, 27, 0.75);">
+                <th style="padding: 10px 12px; text-align: left; width: 34%;">GROUP / CHANNEL</th>
+                <th style="padding: 10px 12px; text-align: left; width: 18%;">MEMBERS</th>
+                <th style="padding: 10px 12px; text-align: left; width: 18%;">ROLE &amp; RIGHTS</th>
+                <th style="padding: 10px 12px; text-align: right; width: 30%;">OPERATIONAL ACTIONS</th>
               </tr>
             </thead>
             <tbody id="sanc-dialogs-tbody">
@@ -9578,13 +9644,20 @@ body.theme-light .kage-btn.secondary {
     if (!container) return;
     const t = document.createElement('div');
     t.className = 'toast';
-    t.innerHTML = `<span class="dot"></span> <span>${msg}</span>`;
+    t.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+        <span class="live-dot-pulse" style="width: 6px; height: 6px; flex-shrink: 0;"></span>
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${msg}</span>
+      </div>
+      <button type="button" class="toast-close" onclick="this.closest('.toast').remove()">&times;</button>
+    `;
     container.appendChild(t);
     requestAnimationFrame(() => t.classList.add('show'));
     setTimeout(() => {
-      t.classList.remove('show');
-      setTimeout(() => t.remove(), 350);
-    }, 3200);
+      t.style.opacity = '0';
+      t.style.transform = 'translateY(8px)';
+      setTimeout(() => t.remove(), 250);
+    }, 4000);
   }
 
   function initCharts() {
@@ -13309,7 +13382,7 @@ body.theme-light .kage-btn.secondary {
       if (warRoomBtn) warRoomBtn.classList.remove('active');
       if (mobSanctuary) mobSanctuary.classList.add('active');
       if (mobWarroom) mobWarroom.classList.remove('active');
-      if (navLinks) navLinks.style.setProperty('display', 'flex', 'important');
+      if (navLinks) navLinks.style.setProperty('display', 'none', 'important');
       document.documentElement.classList.remove('warroom-active');
       document.body.classList.remove('warroom-active');
 
@@ -19167,45 +19240,70 @@ body.theme-light .kage-btn.secondary {
 
   async function initSanctuaryDashboard() {
     try {
-      const [healthRes, sourcesRes, reconRes] = await Promise.all([
+      const [healthRes, sourcesRes, reconRes, authRes] = await Promise.all([
         fetch('/api/system/health').catch(() => null),
         fetch('/api/siphon/sources').catch(() => null),
-        fetch('/api/recon/schedule').catch(() => null)
+        fetch('/api/recon/schedule').catch(() => null),
+        fetch('/api/auth/status').catch(() => null)
       ]);
 
-      let health = null, sources = [], recon = null;
+      let health = null, sources = [], recon = null, authData = null;
       if (healthRes && healthRes.ok) health = await healthRes.json();
       if (sourcesRes && sourcesRes.ok) {
         const sdata = await sourcesRes.json();
-        sources = sdata.sources || [];
+        sources = Array.isArray(sdata) ? sdata : (sdata.sources || []);
       }
       if (reconRes && reconRes.ok) recon = await reconRes.json();
+      if (authRes && authRes.ok) authData = await authRes.json();
 
       // 1. Connected Node Profile Card
-      const nodeStatus = document.getElementById('sanc-node-status');
-      if (nodeStatus) {
-        if (health && health.telegram_connected) {
-          nodeStatus.innerText = "ONLINE / ARMED";
-          nodeStatus.className = "badge badge-emerald";
-        } else {
-          nodeStatus.innerText = "STANDBY";
-          nodeStatus.className = "badge badge-amber";
+      const nodeTitle = document.getElementById('sanc-node-title');
+      const nodePill = document.getElementById('sanc-node-pill');
+      const nodeSub = document.getElementById('sanc-node-sub');
+
+      if (authData && authData.authorized && authData.user) {
+        if (nodeTitle) nodeTitle.textContent = authData.user.first_name || authData.user.username || 'Authorized MTProto Node';
+        if (nodePill) {
+          nodePill.textContent = 'CONNECTED';
+          nodePill.className = 'badge badge-emerald';
         }
+        if (nodeSub) nodeSub.textContent = `MTProto Active • ID: ${authData.user.id || 'Linked'}`;
+      } else if (health && health.telegram_connected) {
+        if (nodeTitle) nodeTitle.textContent = 'MTProto Primary Node';
+        if (nodePill) {
+          nodePill.textContent = 'CONNECTED';
+          nodePill.className = 'badge badge-emerald';
+        }
+        if (nodeSub) nodeSub.textContent = 'MTProto Session Active';
+      } else {
+        if (nodeTitle) nodeTitle.textContent = 'Node Standby';
+        if (nodePill) {
+          nodePill.textContent = 'STANDBY';
+          nodePill.className = 'badge badge-amber';
+        }
+        if (nodeSub) nodeSub.textContent = 'MTProto Session Standby';
       }
 
       // 2. Metrics Strip
-      const groupsCount = sources.filter(s => s.type !== 'channel').length;
-      const channelsCount = sources.filter(s => s.type === 'channel').length;
+      const groupsCount = sources.length;
+      const gCountEl = document.getElementById('sanc-groups-count');
+      const gBadgeEl = document.getElementById('sanc-groups-badge');
+      if (gCountEl) gCountEl.textContent = groupsCount;
+      if (gBadgeEl) gBadgeEl.textContent = `${groupsCount} DIALOGS`;
 
-      const gEl = document.getElementById('sanc-stat-groups');
-      const chEl = document.getElementById('sanc-stat-channels');
-      const intelEl = document.getElementById('sanc-stat-intel-count');
-      const jobsEl = document.getElementById('sanc-stat-active-jobs');
+      const mCountEl = document.getElementById('sanc-msgs-count');
+      const mBadgeEl = document.getElementById('sanc-msgs-badge');
+      if (mCountEl) mCountEl.textContent = (health && health.total_messages ? Number(health.total_messages).toLocaleString() : '100,000+');
+      if (mBadgeEl) mBadgeEl.textContent = 'DATABASE LIVE';
 
-      if (gEl) gEl.innerText = groupsCount;
-      if (chEl) chEl.innerText = channelsCount;
-      if (intelEl) intelEl.innerText = (health && health.total_messages ? health.total_messages : '100,000+');
-      if (jobsEl) jobsEl.innerText = (health ? health.active_jobs_count : 0);
+      const jCountEl = document.getElementById('sanc-jobs-count');
+      const jBadgeEl = document.getElementById('sanc-jobs-badge');
+      const activeJobs = health ? (health.active_jobs_count || 0) : 0;
+      if (jCountEl) jCountEl.textContent = activeJobs;
+      if (jBadgeEl) {
+        jBadgeEl.textContent = activeJobs > 0 ? `${activeJobs} ACTIVE` : 'IDLE';
+        jBadgeEl.className = activeJobs > 0 ? 'badge badge-emerald' : 'badge badge-muted';
+      }
 
       // 3. Authorized Dialogs Table
       renderSanctuaryDialogs(sources);
@@ -19223,33 +19321,37 @@ body.theme-light .kage-btn.secondary {
   }
 
   function renderSanctuaryDialogs(sources) {
-    const tbody = document.getElementById('sanc-groups-tbody');
+    const tbody = document.getElementById('sanc-dialogs-tbody');
     if (!tbody) return;
 
     if (!sources || sources.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 24px;">No authorized dialogs available.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--muted); padding: 32px;">No authorized dialogs available. Click "Refresh Dialogs" or link your node account.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = sources.map(s => `
-      <tr style="border-bottom: 1px solid var(--line-soft);">
+      <tr style="border-bottom: 1px solid var(--line-soft); transition: background 0.15s;" onmouseenter="this.style.background='rgba(255,255,255,0.03)'" onmouseleave="this.style.background='transparent'">
         <td style="padding: 10px 12px; font-weight: bold; color: var(--bone);">
           <div style="display: flex; align-items: center; gap: 8px;">
             <i data-lucide="${s.type === 'channel' ? 'volume-2' : 'users'}" style="width: 14px; height: 14px; color: #38bdf8; flex-shrink: 0;"></i>
-            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;">${escapeHtml(s.title || 'Chat #' + s.id)}</span>
+            <div style="min-width: 0;">
+              <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="${escapeHtml(s.title || 'Chat #' + s.id)}">${escapeHtml(s.title || 'Chat #' + s.id)}</div>
+              <div style="font-size: 9px; color: var(--muted); font-family: monospace;">ID: ${s.id}</div>
+            </div>
           </div>
         </td>
-        <td style="padding: 10px 12px; font-family: monospace; font-size: 11px; color: var(--muted);">${s.id}</td>
+        <td style="padding: 10px 12px; color: var(--bone-dim); font-size: 11px;">
+          <span style="font-weight: 500;">${s.participants_count ? Number(s.participants_count).toLocaleString() : '—'}</span> <span style="font-size: 9px; color: var(--muted);">members</span>
+        </td>
         <td style="padding: 10px 12px;">
           <span class="badge ${s.type === 'channel' ? 'badge-muted' : 'badge-cyan'}" style="font-size: 8.5px;">${escapeHtml((s.type || 'group').toUpperCase())}</span>
         </td>
-        <td style="padding: 10px 12px; color: var(--muted); font-size: 11px;">${s.participants_count ? s.participants_count.toLocaleString() : '—'}</td>
-        <td style="padding: 10px 12px;">
-          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-            <button onclick="setSurveillanceTargetAndSwitch('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 8px; color: #38bdf8;" title="Target in War Room">Target</button>
-            <button onclick="openScanModalWithTarget('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 8px; color: #10b981;" title="Deep Reputation Scan">Scan</button>
-            <button onclick="openSiphonModalWithTarget('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 8px; color: #ec4899;" title="Siphon Ingestion">Ingest</button>
-            <button onclick="openSweeperModalWithTarget('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 8px; color: #f59e0b;" title="Sweep Clutter">Sweep</button>
+        <td style="padding: 10px 12px; text-align: right;">
+          <div style="display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap;">
+            <button onclick="setSurveillanceTargetAndSwitch('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 7px; color: #38bdf8;" title="Target in War Room">Target</button>
+            <button onclick="openScanModalWithTarget('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 7px; color: #10b981;" title="Deep Reputation Scan">Scan</button>
+            <button onclick="openSiphonModalWithTarget('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 7px; color: #ec4899;" title="Siphon Ingestion">Ingest</button>
+            <button onclick="openSweeperModalWithTarget('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 7px; color: #f59e0b;" title="Sweep Clutter">Sweep</button>
           </div>
         </td>
       </tr>
@@ -19258,49 +19360,39 @@ body.theme-light .kage-btn.secondary {
   }
 
   function renderSanctuarySchedule(recon) {
-    const list = document.getElementById('sanc-sched-tasks-list');
-    if (!list) return;
+    const tag = document.getElementById('sanc-recon-tag');
+    const detail = document.getElementById('sanc-recon-detail');
+    if (!recon) return;
 
-    if (!recon) {
-      list.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 18px;">Automated reconnaissance service initialized.</div>`;
-      return;
+    const sched = recon.schedule || recon;
+    const isEnabled = sched.is_enabled === true || sched.enabled === true;
+
+    if (tag) {
+      tag.textContent = isEnabled ? 'SCHEDULE ACTIVE' : 'CONFIGURED';
+      tag.className = isEnabled ? 'badge badge-emerald' : 'badge badge-muted';
     }
-
-    const isEnabled = recon.enabled !== false;
-    list.innerHTML = `
-      <div style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-left: 3px solid ${isEnabled ? '#10b981' : '#f59e0b'}; border-radius: 3px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="badge ${isEnabled ? 'badge-emerald' : 'badge-amber'}" style="font-size: 8.5px;">${isEnabled ? 'SCHEDULE ACTIVE' : 'SCHEDULE PAUSED'}</span>
-            <b style="color: var(--bone); font-size: 11px;">DAILY 100K REPUTATION SCAN</b>
-          </div>
-          <div style="font-size: 9.5px; color: var(--muted); margin-top: 3px;">
-            Time: <b style="color: var(--bone);">${recon.schedule_time || '04:00 UTC'}</b> &bull; Target: <b style="color: #38bdf8;">${(recon.target_message_count || 100000).toLocaleString()} msgs</b>
-          </div>
-          <div style="font-size: 9px; color: #38bdf8; margin-top: 2px;">
-            Next: ${recon.next_run || 'Tomorrow 04:00 UTC'} &bull; Last: ${recon.last_status || 'Success'}
-          </div>
-        </div>
-        <button onclick="switchViewMode('warroom'); switchCenterTab('recon');" class="kage-btn-pill" style="font-size: 9px; padding: 4px 8px;">Configure</button>
-      </div>
-    `;
-    safeCreateIcons();
+    if (detail) {
+      const time = sched.schedule_time || 'Daily 04:00 UTC';
+      const count = (sched.target_limit || sched.target_message_count || 100000).toLocaleString();
+      const nextRun = recon.next_run_human || sched.next_run || 'Daily automated';
+      detail.innerHTML = `Schedule: <b>${time}</b> &bull; Target: <b style="color: #38bdf8;">${count} msgs</b> &bull; Next: <b>${nextRun}</b>`;
+    }
   }
 
   function renderSanctuaryActivityStream() {
-    const feed = document.getElementById('sanc-activity-feed');
+    const feed = document.getElementById('sanc-activity-stream');
     if (!feed) return;
 
     const events = [
-      { tag: "KERNEL", time: "Now", desc: "MTProto session verified. Wiretap buffer streaming active." },
-      { tag: "DISPATCH", time: "Active", desc: "Multi-group dispatcher ready for controlled broadcast." },
-      { tag: "RADAR", time: "Armed", desc: "Threat intelligence indicators engine monitoring IOCs." },
-      { tag: "SIPHON", time: "Standby", desc: "Autonomous ingestion matrix waiting for trigger." }
+      { tag: "KERNEL", time: "LIVE", desc: "MTProto session verified. Wiretap buffer streaming active." },
+      { tag: "DISPATCH", time: "ARMED", desc: "Multi-group dispatcher ready for controlled broadcast." },
+      { tag: "RADAR", time: "ARMED", desc: "Threat intelligence indicators engine monitoring IOCs." },
+      { tag: "SIPHON", time: "STANDBY", desc: "Autonomous ingestion matrix waiting for trigger." }
     ];
 
     feed.innerHTML = events.map(e => `
-      <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 10px; line-height: 1.4;">
-        <span class="badge badge-muted" style="font-size: 8px; flex-shrink: 0; padding: 1px 4px;">${e.tag}</span>
+      <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 10px; line-height: 1.4; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
+        <span class="badge badge-muted" style="font-size: 8px; flex-shrink: 0; padding: 1px 5px;">${e.tag}</span>
         <span style="color: var(--bone); flex: 1;">${e.desc}</span>
         <span style="color: var(--muted); font-size: 9px; flex-shrink: 0;">${e.time}</span>
       </div>

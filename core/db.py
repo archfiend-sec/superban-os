@@ -3165,19 +3165,28 @@ class DatabaseManager:
             "created_at": row[16]
         }
 
-    async def get_recon_schedule(self, group_id: int) -> Optional[Dict[str, Any]]:
-        norm_gid = self.normalize_gid(group_id)
-        abs_gid = abs(int(group_id)) if str(group_id).lstrip("-").isdigit() else norm_gid
+    async def get_recon_schedule(self, group_id: int = 0) -> Optional[Dict[str, Any]]:
+        norm_gid = self.normalize_gid(group_id) if group_id else 0
+        abs_gid = abs(int(group_id)) if group_id and str(group_id).lstrip("-").isdigit() else norm_gid
         async with self.lock:
             try:
-                self.cursor.execute('''
-                    SELECT id, group_id, group_title, is_enabled, schedule_time, timezone,
-                           frequency, target_limit, last_run_at, last_run_status,
-                           last_run_job_id, last_run_slot, next_run_at, created_at, updated_at
-                    FROM recon_schedules
-                    WHERE group_id IN (?, ?)
-                    ORDER BY updated_at DESC LIMIT 1
-                ''', (norm_gid, abs_gid))
+                if not group_id:
+                    self.cursor.execute('''
+                        SELECT id, group_id, group_title, is_enabled, schedule_time, timezone,
+                               frequency, target_limit, last_run_at, last_run_status,
+                               last_run_job_id, last_run_slot, next_run_at, created_at, updated_at
+                        FROM recon_schedules
+                        ORDER BY is_enabled DESC, updated_at DESC LIMIT 1
+                    ''')
+                else:
+                    self.cursor.execute('''
+                        SELECT id, group_id, group_title, is_enabled, schedule_time, timezone,
+                               frequency, target_limit, last_run_at, last_run_status,
+                               last_run_job_id, last_run_slot, next_run_at, created_at, updated_at
+                        FROM recon_schedules
+                        WHERE group_id IN (?, ?)
+                        ORDER BY updated_at DESC LIMIT 1
+                    ''', (norm_gid, abs_gid))
                 row = self.cursor.fetchone()
                 if not row:
                     return None
