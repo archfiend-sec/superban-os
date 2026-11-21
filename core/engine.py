@@ -139,6 +139,18 @@ class SuperBanEngine:
         from core.scheduler import ReconScheduler
         self.recon_scheduler = ReconScheduler(self, self.db)
 
+        # Autonomous Ingestion & Collection Siphon Tasks
+        self.active_siphon_tasks: Dict[str, asyncio.Task] = {}
+        self._cancel_siphon_tasks: Set[str] = set()
+
+        # Multi-Group Dispatch Tasks
+        self.active_dispatch_tasks: Dict[str, asyncio.Task] = {}
+        self._cancel_dispatch_tasks: Set[str] = set()
+
+        # Drip Broadcast Tasks
+        self.active_drip_tasks: Dict[str, asyncio.Task] = {}
+        self._cancel_drip_tasks: Set[str] = set()
+
         # Real-Time Autonomous Sentinel
         self.sentinel = SentinelShield(self.client, self.db, engine=self)
         self.sentinel.engine = self
@@ -3460,28 +3472,366 @@ class SuperBanEngine:
 
         return {"success": True, "warning_message_id": msg.id, "target_message_id": message_id}
 
-    async def schedule_stealth_broadcast(self, group_ids: List[int], text: str, typing_delay: float = 3.0) -> Dict[str, Any]:
-        """Humanized non-admin multi-group broadcast with typing emulation to bypass spam filters."""
+    # =========================================================================
+    #  AUTONOMOUS SIPHON MATRIX (AUTHORIZED INTELLIGENCE INGESTION ENGINE)
+    # =========================================================================
+    async def get_authorized_sources(self) -> List[Dict[str, Any]]:
+        """Retrieve authorized and connected Telegram sources with real permissions & health."""
         await self.ensure_connected()
-        results = []
-        for gid in group_ids:
-            try:
-                entity = await self.get_group_entity(gid)
-                if not entity:
-                    results.append({"group_id": gid, "status": "failed", "error": "Group not found"})
+        sources = []
+        is_conn = bool(self.client and self.client.is_connected())
+        
+        try:
+            dialogs = await self.client.get_dialogs(limit=100)
+            for d in dialogs:
+                if not (d.is_group or d.is_channel):
                     continue
+                ent = d.entity
+                p_count = getattr(ent, 'participants_count', 0) or 0
+                can_send = True
+                if getattr(ent, 'default_banned_rights', None):
+                    if ent.default_banned_rights.send_messages:
+                        can_send = False
+                
+                sources.append({
+                    "id": d.id,
+                    "normalized_id": self.db.normalize_gid(d.id),
+                    "title": d.title or f"Entity #{d.id}",
+                    "is_group": bool(d.is_group),
+                    "is_channel": bool(d.is_channel),
+                    "participants_count": p_count,
+                    "can_send_messages": can_send,
+                    "connection_health": "CONNECTED" if is_conn else "OFFLINE",
+                    "unread_count": d.unread_count or 0
+                })
+        except Exception as e:
+            logger.warning(f"Error fetching authorized sources: {e}")
+            # Fall back to cached dialogs if live fetch failed
+            for gid, ent in self._dialogs_cache.items():
+                sources.append({
+                    "id": gid,
+                    "normalized_id": self.db.normalize_gid(gid),
+                    "title": getattr(ent, 'title', f"Entity #{gid}"),
+                    "is_group": True,
+                    "is_channel": False,
+                    "participants_count": getattr(ent, 'participants_count', 0) or 0,
+                    "can_send_messages": True,
+                    "connection_health": "CONNECTED" if is_conn else "OFFLINE",
+                    "unread_count": 0
+                })
+        return sources
 
-                # Humanized typing emulation
-                async with self.client.action(entity, 'typing'):
-                    await asyncio.sleep(max(1.0, min(typing_delay, 10.0)))
+    async def start_siphon_collection(self, job_id: str, group_id: int, scope_limit: int = 1000,
+                                       date_since: Optional[str] = None, message_types: str = 'all') -> Dict[str, Any]:
+        """Start an authorized background Telegram intelligence collection job."""
+        await self.ensure_connected()
+        entity = await self.get_group_entity(group_id)
+        if not entity:
+            raise ValueError(f"Target Telegram group/channel {group_id} not accessible or unauthorized.")
 
-                sent_msg = await self.client.send_message(entity, text)
-                results.append({"group_id": gid, "status": "sent", "message_id": sent_msg.id})
-                await asyncio.sleep(1.5) # Natural jitter delay between groups
-            except Exception as e:
-                results.append({"group_id": gid, "status": "failed", "error": str(e)})
+        group_title = getattr(entity, 'title', f"Entity #{group_id}")
+        existing_job = await self.db.get_siphon_job(job_id)
+        if not existing_job:
+            await self.db.create_siphon_job(
+                job_id=job_id,
+                title=f"Siphon: {group_title}",
+                group_id=group_id,
+                group_title=group_title,
+                scope_limit=scope_limit,
+                date_since=date_since,
+                message_types=message_types
+            )
+        else:
+            await self.db.set_siphon_job_status(job_id, 'running')
 
-        return {"total": len(group_ids), "results": results}
+        if job_id in self._cancel_siphon_tasks:
+            self._cancel_siphon_tasks.remove(job_id)
+
+        task = asyncio.create_task(
+            self._run_siphon_collection_loop(job_id, entity, scope_limit, date_since, message_types)
+        )
+        self.active_siphon_tasks[job_id] = task
+        return {"status": "started", "job_id": job_id, "group_title": group_title}
+
+    async def _run_siphon_collection_loop(self, job_id: str, entity: Any, scope_limit: int,
+                                          date_since: Optional[str], message_types: str):
+        collected = 0
+        processed = 0
+        failed = 0
+        group_id = entity.id
+        group_title = getattr(entity, 'title', f"Entity #{group_id}")
+
+        try:
+            async for msg in self.client.iter_messages(entity, limit=scope_limit):
+                if job_id in self._cancel_siphon_tasks:
+                    logger.info(f"Siphon job {job_id} cancelled by operator.")
+                    await self.db.update_siphon_job_progress(
+                        job_id, collected, processed, max(0, scope_limit - collected), failed, status='stopped'
+                    )
+                    return
+
+                processed += 1
+                try:
+                    # Message type detection
+                    m_type = 'text'
+                    if msg.photo: m_type = 'photo'
+                    elif msg.video: m_type = 'video'
+                    elif msg.document: m_type = 'document'
+                    elif msg.voice: m_type = 'voice'
+                    elif msg.sticker: m_type = 'sticker'
+
+                    if message_types != 'all' and m_type != message_types:
+                        continue
+
+                    sender_id = msg.sender_id
+                    sender_name = "Unknown"
+                    sender_username = None
+                    if msg.sender:
+                        sender_name = getattr(msg.sender, 'first_name', '') or ''
+                        if getattr(msg.sender, 'last_name', None):
+                            sender_name += f" {msg.sender.last_name}"
+                        sender_name = sender_name.strip() or "Anonymous"
+                        sender_username = getattr(msg.sender, 'username', None)
+
+                    saved = await self.db.save_siphon_collected_record(
+                        job_id=job_id,
+                        group_id=group_id,
+                        group_title=group_title,
+                        message_id=msg.id,
+                        sender_id=sender_id,
+                        sender_name=sender_name,
+                        sender_username=sender_username,
+                        message_text=msg.message or '',
+                        message_type=m_type
+                    )
+                    if saved:
+                        collected += 1
+                except Exception as err:
+                    failed += 1
+                    logger.debug(f"Error indexing message {msg.id} for siphon {job_id}: {err}")
+
+                if processed % 20 == 0 or processed == scope_limit:
+                    pending = max(0, scope_limit - processed)
+                    await self.db.update_siphon_job_progress(job_id, collected, processed, pending, failed)
+                    await self.emit_telemetry('siphon_progress', {
+                        "job_id": job_id, "group_id": group_id, "collected": collected,
+                        "processed": processed, "pending": pending, "failed": failed,
+                        "percent": round((processed / max(1, scope_limit)) * 100, 1),
+                        "status": "running"
+                    })
+                await asyncio.sleep(0.02) # Yield execution smoothly
+
+            # Finalize completed job
+            await self.db.update_siphon_job_progress(
+                job_id, collected, processed, 0, failed, status='completed'
+            )
+            await self.emit_telemetry('siphon_progress', {
+                "job_id": job_id, "group_id": group_id, "collected": collected,
+                "processed": processed, "pending": 0, "failed": failed,
+                "percent": 100.0, "status": "completed"
+            })
+        except Exception as e:
+            logger.error(f"Siphon collection loop failed for {job_id}: {e}")
+            await self.db.update_siphon_job_progress(
+                job_id, collected, processed, max(0, scope_limit - processed), failed,
+                status='failed', error=str(e)
+            )
+        finally:
+            self.active_siphon_tasks.pop(job_id, None)
+
+    async def stop_siphon_collection(self, job_id: str) -> bool:
+        """Halt an active siphon ingestion task safely."""
+        self._cancel_siphon_tasks.add(job_id)
+        task = self.active_siphon_tasks.get(job_id)
+        if task and not task.done():
+            task.cancel()
+        await self.db.set_siphon_job_status(job_id, 'stopped')
+        return True
+
+    async def resume_siphon_collection(self, job_id: str) -> Dict[str, Any]:
+        """Resume an interrupted or stopped siphon job."""
+        job = await self.db.get_siphon_job(job_id)
+        if not job:
+            raise ValueError(f"Siphon job {job_id} not found.")
+        remaining_scope = max(50, job["pending_count"] or (job["scope_limit"] - job["collected_count"]))
+        return await self.start_siphon_collection(
+            job_id=job_id,
+            group_id=job["group_id"],
+            scope_limit=remaining_scope,
+            date_since=job.get("date_since"),
+            message_types=job.get("message_types", "all")
+        )
+
+    # =========================================================================
+    #  MULTI-GROUP DISPATCHER (CONTROLLED & RELIABLE MESSAGING SYSTEM)
+    # =========================================================================
+    async def dispatch_multi_group_messages(self, job_id: str, title: str, text: str,
+                                           group_ids: List[int], batch_size: int = 5,
+                                           interval_sec: float = 3.0,
+                                           media_path: Optional[str] = None) -> Dict[str, Any]:
+        """Dispatch messages across multiple authorized Telegram groups with batching and audit history."""
+        await self.ensure_connected()
+        total_targets = len(group_ids)
+        if total_targets == 0:
+            raise ValueError("No destination groups specified for dispatch.")
+
+        # Persist dispatch job in database
+        await self.db.create_dispatch_job(
+            job_id=job_id,
+            title=title,
+            message_text=text,
+            group_ids=group_ids,
+            batch_size=batch_size,
+            sending_interval_sec=interval_sec,
+            media_path=media_path
+        )
+
+        if job_id in self._cancel_dispatch_tasks:
+            self._cancel_dispatch_tasks.remove(job_id)
+
+        task = asyncio.create_task(
+            self._run_dispatch_loop(job_id, text, group_ids, batch_size, interval_sec, media_path)
+        )
+        self.active_dispatch_tasks[job_id] = task
+        return {"status": "running", "job_id": job_id, "total_targets": total_targets}
+
+    # Backward-compatible alias
+    async def schedule_stealth_broadcast(self, group_ids: List[int], text: str, typing_delay: float = 3.0) -> Dict[str, Any]:
+        import uuid
+        job_id = f"disp_{uuid.uuid4().hex[:8]}"
+        return await self.dispatch_multi_group_messages(
+            job_id=job_id,
+            title="Multi-Group Dispatch",
+            text=text,
+            group_ids=group_ids,
+            batch_size=5,
+            interval_sec=max(1.5, typing_delay)
+        )
+
+    async def _run_dispatch_loop(self, job_id: str, text: str, group_ids: List[int],
+                                 batch_size: int, interval_sec: float, media_path: Optional[str]):
+        successful = 0
+        failed = 0
+        total = len(group_ids)
+
+        try:
+            for idx, gid in enumerate(group_ids):
+                if job_id in self._cancel_dispatch_tasks:
+                    logger.info(f"Dispatch job {job_id} cancelled by operator.")
+                    await self.db.update_dispatch_job_progress(
+                        job_id, successful, failed, max(0, total - (successful + failed)), status='stopped'
+                    )
+                    return
+
+                try:
+                    entity = await self.get_group_entity(gid)
+                    if not entity:
+                        raise ValueError("Destination group entity not accessible or account lacks membership")
+
+                    # Deliver text or media
+                    if media_path and os.path.exists(media_path):
+                        sent_msg = await self.client.send_file(entity, media_path, caption=text)
+                    else:
+                        sent_msg = await self.client.send_message(entity, text)
+
+                    successful += 1
+                    await self.db.update_dispatch_delivery_result(job_id, gid, 'sent', message_id=sent_msg.id)
+                except Exception as e:
+                    failed += 1
+                    logger.warning(f"Delivery to {gid} failed in job {job_id}: {e}")
+                    await self.db.update_dispatch_delivery_result(job_id, gid, 'failed', error=str(e))
+
+                pending = max(0, total - (successful + failed))
+                await self.db.update_dispatch_job_progress(job_id, successful, failed, pending)
+                await self.emit_telemetry('dispatch_progress', {
+                    "job_id": job_id, "sent": successful, "failed": failed, "pending": pending,
+                    "total": total, "percent": round(((successful + failed) / max(1, total)) * 100, 1),
+                    "status": "running"
+                })
+
+                # Batch spacing & rate limit preservation
+                if (idx + 1) % batch_size == 0 and (idx + 1) < total:
+                    await asyncio.sleep(max(2.0, interval_sec * 1.5))
+                else:
+                    await asyncio.sleep(max(1.0, interval_sec))
+
+            # Finalize completed
+            await self.db.update_dispatch_job_progress(
+                job_id, successful, failed, 0, status='completed'
+            )
+            await self.emit_telemetry('dispatch_progress', {
+                "job_id": job_id, "sent": successful, "failed": failed, "pending": 0,
+                "total": total, "percent": 100.0, "status": "completed"
+            })
+        except Exception as e:
+            logger.error(f"Dispatch execution failed for {job_id}: {e}")
+            await self.db.update_dispatch_job_progress(
+                job_id, successful, failed, max(0, total - (successful + failed)), status='failed'
+            )
+        finally:
+            self.active_dispatch_tasks.pop(job_id, None)
+
+    async def stop_dispatch_job(self, job_id: str) -> bool:
+        """Stop an active multi-group dispatch job."""
+        self._cancel_dispatch_tasks.add(job_id)
+        task = self.active_dispatch_tasks.get(job_id)
+        if task and not task.done():
+            task.cancel()
+        await self.db.set_dispatch_job_status(job_id, 'stopped')
+        return True
+
+    async def retry_dispatch_failed(self, job_id: str) -> Dict[str, Any]:
+        """Retry delivery to groups that failed in a previous dispatch job."""
+        job = await self.db.get_dispatch_job(job_id)
+        if not job:
+            raise ValueError(f"Dispatch job {job_id} not found.")
+        deliveries = await self.db.get_dispatch_deliveries(job_id)
+        failed_gids = [d["group_id"] for d in deliveries if d["status"] == 'failed']
+        if not failed_gids:
+            return {"status": "no_failures", "message": "No failed deliveries to retry."}
+
+        import uuid
+        retry_job_id = f"retry_{uuid.uuid4().hex[:8]}"
+        return await self.dispatch_multi_group_messages(
+            job_id=retry_job_id,
+            title=f"Retry: {job['title']}",
+            text=job["message_text"],
+            group_ids=failed_gids,
+            batch_size=job.get("batch_size", 5),
+            interval_sec=job.get("sending_interval_sec", 3.0),
+            media_path=job.get("media_path")
+        )
+
+    # =========================================================================
+    #  SWEEP MAINTENANCE (SAFE TELEGRAM SERVICE CLUTTER PREVIEW & PURGE)
+    # =========================================================================
+    async def preview_service_clutter(self, group_entity_or_id: Any, limit: int = 1500) -> Dict[str, Any]:
+        """Preview cluttering service messages without deleting anything."""
+        await self.ensure_connected()
+        entity = await self.get_group_entity(group_entity_or_id)
+        if not entity:
+            raise ValueError(f"Target group {group_entity_or_id} not accessible.")
+
+        service_count = 0
+        samples = []
+        async for msg in self.client.iter_messages(entity, limit=limit):
+            if msg.action is not None:
+                service_count += 1
+                if len(samples) < 5:
+                    action_type = type(msg.action).__name__.replace('MessageAction', '')
+                    samples.append({
+                        "message_id": msg.id,
+                        "action_type": action_type,
+                        "date": str(msg.date)
+                    })
+
+        return {
+            "group_id": entity.id,
+            "group_title": getattr(entity, 'title', f"Entity #{entity.id}"),
+            "service_messages_found": service_count,
+            "sample_events": samples,
+            "can_delete": True
+        }
 
     # =========================================================================
     #  OPERATOR CLEARANCE DISPATCH & OWNER DM NOTIFICATIONS

@@ -436,6 +436,103 @@ class DatabaseManager:
             CREATE INDEX IF NOT EXISTS idx_recon_exec_gid ON recon_schedule_executions(group_id);
             CREATE INDEX IF NOT EXISTS idx_recon_exec_status ON recon_schedule_executions(final_status);
             CREATE INDEX IF NOT EXISTS idx_recon_exec_created ON recon_schedule_executions(created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS siphon_collection_jobs (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                group_id INTEGER NOT NULL,
+                group_title TEXT,
+                scope_limit INTEGER DEFAULT 1000,
+                date_since TEXT,
+                message_types TEXT DEFAULT 'all',
+                status TEXT DEFAULT 'pending',
+                collected_count INTEGER DEFAULT 0,
+                processed_count INTEGER DEFAULT 0,
+                pending_count INTEGER DEFAULT 0,
+                failed_count INTEGER DEFAULT 0,
+                error_message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_siphon_jobs_gid ON siphon_collection_jobs(group_id);
+            CREATE INDEX IF NOT EXISTS idx_siphon_jobs_status ON siphon_collection_jobs(status);
+
+            CREATE TABLE IF NOT EXISTS siphon_collected_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                group_id INTEGER NOT NULL,
+                group_title TEXT,
+                message_id INTEGER NOT NULL,
+                sender_id INTEGER,
+                sender_name TEXT,
+                sender_username TEXT,
+                message_text TEXT,
+                message_type TEXT DEFAULT 'text',
+                collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_status TEXT DEFAULT 'processed',
+                UNIQUE(group_id, message_id) ON CONFLICT IGNORE
+            );
+            CREATE INDEX IF NOT EXISTS idx_siphon_rec_job ON siphon_collected_records(job_id);
+            CREATE INDEX IF NOT EXISTS idx_siphon_rec_gid ON siphon_collected_records(group_id);
+            CREATE INDEX IF NOT EXISTS idx_siphon_rec_sender ON siphon_collected_records(sender_id);
+            CREATE INDEX IF NOT EXISTS idx_siphon_rec_type ON siphon_collected_records(message_type);
+
+            CREATE TABLE IF NOT EXISTS multi_group_dispatch_jobs (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                message_text TEXT NOT NULL,
+                media_path TEXT,
+                batch_size INTEGER DEFAULT 5,
+                sending_interval_sec REAL DEFAULT 3.0,
+                total_targets INTEGER DEFAULT 0,
+                successful_count INTEGER DEFAULT 0,
+                failed_count INTEGER DEFAULT 0,
+                pending_count INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_status ON multi_group_dispatch_jobs(status);
+
+            CREATE TABLE IF NOT EXISTS multi_group_dispatch_deliveries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                group_id INTEGER NOT NULL,
+                group_title TEXT,
+                status TEXT DEFAULT 'pending',
+                message_id INTEGER,
+                error_message TEXT,
+                attempt_count INTEGER DEFAULT 0,
+                delivered_at TIMESTAMP,
+                UNIQUE(job_id, group_id) ON CONFLICT REPLACE
+            );
+            CREATE INDEX IF NOT EXISTS idx_dispatch_deliv_job ON multi_group_dispatch_deliveries(job_id);
+            CREATE INDEX IF NOT EXISTS idx_dispatch_deliv_status ON multi_group_dispatch_deliveries(status);
+
+            CREATE TABLE IF NOT EXISTS threat_intel_indicators (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                indicator_type TEXT NOT NULL,
+                indicator_value TEXT NOT NULL,
+                group_id INTEGER NOT NULL,
+                group_title TEXT,
+                message_id INTEGER,
+                sender_id INTEGER,
+                sender_name TEXT,
+                severity TEXT DEFAULT 'MEDIUM',
+                context TEXT,
+                is_acknowledged INTEGER DEFAULT 0,
+                acknowledged_by TEXT,
+                acknowledged_at TIMESTAMP,
+                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                occurrence_count INTEGER DEFAULT 1,
+                UNIQUE(indicator_type, indicator_value, group_id) ON CONFLICT REPLACE
+            );
+            CREATE INDEX IF NOT EXISTS idx_threat_ind_type ON threat_intel_indicators(indicator_type);
+            CREATE INDEX IF NOT EXISTS idx_threat_ind_sev ON threat_intel_indicators(severity);
+            CREATE INDEX IF NOT EXISTS idx_threat_ind_ack ON threat_intel_indicators(is_acknowledged);
+            CREATE INDEX IF NOT EXISTS idx_threat_ind_gid ON threat_intel_indicators(group_id);
         ''')
         self.conn.commit()
 
@@ -463,6 +560,17 @@ class DatabaseManager:
                     updated_at = ?
                 WHERE last_run_status IN ('STARTING', 'RUNNING')
             ''', (now_iso,))
+            self.cursor.execute('''
+                UPDATE siphon_collection_jobs
+                SET status = 'stopped',
+                    updated_at = ?
+                WHERE status = 'running'
+            ''', (now_iso,))
+            self.cursor.execute('''
+                UPDATE multi_group_dispatch_jobs
+                SET status = 'stopped'
+                WHERE status = 'running'
+            ''')
             self.conn.commit()
         except Exception:
             pass
@@ -3275,6 +3383,603 @@ class DatabaseManager:
             except Exception as e:
                 logger.error(f"Error getting recon executions for {group_id}: {e}")
                 return []
+
+    # ═══════════════════════════════════════════════════════
+    #   AUTONOMOUS SIPHON MATRIX (AUTHORIZED INGESTION WORKSPACE)
+    # ═══════════════════════════════════════════════════════
+    async def create_siphon_job(self, job_id: str, title: str, group_id: int, group_title: str,
+                                  scope_limit: int = 1000, date_since: Optional[str] = None,
+                                  message_types: str = 'all') -> Dict[str, Any]:
+        norm_gid = self.normalize_gid(group_id)
+        now_iso = datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    INSERT OR REPLACE INTO siphon_collection_jobs
+                    (id, title, group_id, group_title, scope_limit, date_since, message_types,
+                     status, collected_count, processed_count, pending_count, failed_count,
+                     created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'running', 0, 0, ?, 0, ?, ?)
+                ''', (job_id, title, norm_gid, group_title, scope_limit, date_since, message_types,
+                      scope_limit, now_iso, now_iso))
+                self.conn.commit()
+                return {
+                    "id": job_id, "title": title, "group_id": norm_gid, "group_title": group_title,
+                    "scope_limit": scope_limit, "date_since": date_since, "message_types": message_types,
+                    "status": "running", "collected_count": 0, "processed_count": 0,
+                    "pending_count": scope_limit, "failed_count": 0, "created_at": now_iso
+                }
+            except Exception as e:
+                logger.error(f"Error creating siphon job {job_id}: {e}")
+                raise
+
+    async def update_siphon_job_progress(self, job_id: str, collected: int, processed: int,
+                                          pending: int, failed: int,
+                                          status: Optional[str] = None,
+                                          error: Optional[str] = None) -> bool:
+        now_iso = datetime.now().isoformat()
+        completed_at = now_iso if status in ('completed', 'failed', 'stopped') else None
+        async with self.lock:
+            try:
+                if status:
+                    self.cursor.execute('''
+                        UPDATE siphon_collection_jobs
+                        SET collected_count = ?, processed_count = ?, pending_count = ?, failed_count = ?,
+                            status = ?, error_message = COALESCE(?, error_message),
+                            updated_at = ?, completed_at = COALESCE(?, completed_at)
+                        WHERE id = ?
+                    ''', (collected, processed, pending, failed, status, error, now_iso, completed_at, job_id))
+                else:
+                    self.cursor.execute('''
+                        UPDATE siphon_collection_jobs
+                        SET collected_count = ?, processed_count = ?, pending_count = ?, failed_count = ?,
+                            updated_at = ?
+                        WHERE id = ?
+                    ''', (collected, processed, pending, failed, now_iso, job_id))
+                self.conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error updating siphon job {job_id}: {e}")
+                return False
+
+    async def get_siphon_jobs(self, limit: int = 50) -> List[Dict[str, Any]]:
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT id, title, group_id, group_title, scope_limit, date_since,
+                           message_types, status, collected_count, processed_count,
+                           pending_count, failed_count, error_message, created_at,
+                           updated_at, completed_at
+                    FROM siphon_collection_jobs
+                    ORDER BY created_at DESC LIMIT ?
+                ''', (limit,))
+                rows = self.cursor.fetchall()
+                return [{
+                    "id": r[0], "title": r[1], "group_id": r[2], "group_title": r[3],
+                    "scope_limit": r[4], "date_since": r[5], "message_types": r[6],
+                    "status": r[7], "collected_count": r[8], "processed_count": r[9],
+                    "pending_count": r[10], "failed_count": r[11], "error_message": r[12],
+                    "created_at": str(r[13]) if r[13] else None,
+                    "updated_at": str(r[14]) if r[14] else None,
+                    "completed_at": str(r[15]) if r[15] else None
+                } for r in rows]
+            except Exception as e:
+                logger.error(f"Error getting siphon jobs: {e}")
+                return []
+
+    async def get_siphon_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT id, title, group_id, group_title, scope_limit, date_since,
+                           message_types, status, collected_count, processed_count,
+                           pending_count, failed_count, error_message, created_at,
+                           updated_at, completed_at
+                    FROM siphon_collection_jobs
+                    WHERE id = ?
+                ''', (job_id,))
+                r = self.cursor.fetchone()
+                if not r:
+                    return None
+                return {
+                    "id": r[0], "title": r[1], "group_id": r[2], "group_title": r[3],
+                    "scope_limit": r[4], "date_since": r[5], "message_types": r[6],
+                    "status": r[7], "collected_count": r[8], "processed_count": r[9],
+                    "pending_count": r[10], "failed_count": r[11], "error_message": r[12],
+                    "created_at": str(r[13]) if r[13] else None,
+                    "updated_at": str(r[14]) if r[14] else None,
+                    "completed_at": str(r[15]) if r[15] else None
+                }
+            except Exception as e:
+                logger.error(f"Error getting siphon job {job_id}: {e}")
+                return None
+
+    async def save_siphon_collected_record(self, job_id: str, group_id: int, group_title: str,
+                                           message_id: int, sender_id: Optional[int],
+                                           sender_name: Optional[str], sender_username: Optional[str],
+                                           message_text: Optional[str], message_type: str = 'text') -> bool:
+        norm_gid = self.normalize_gid(group_id)
+        now_iso = datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    INSERT OR IGNORE INTO siphon_collected_records
+                    (job_id, group_id, group_title, message_id, sender_id, sender_name,
+                     sender_username, message_text, message_type, collected_at, processed_status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processed')
+                ''', (job_id, norm_gid, group_title, message_id, sender_id, sender_name,
+                      sender_username, message_text, message_type, now_iso))
+                inserted = self.cursor.rowcount > 0
+                self.conn.commit()
+                return inserted
+            except Exception as e:
+                logger.error(f"Error saving siphon record {group_id}:{message_id}: {e}")
+                return False
+
+    async def get_siphon_records(self, job_id: Optional[str] = None, group_id: Optional[int] = None,
+                                  message_type: Optional[str] = None, sender: Optional[str] = None,
+                                  limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        query = ['SELECT id, job_id, group_id, group_title, message_id, sender_id, sender_name, sender_username, message_text, message_type, collected_at, processed_status FROM siphon_collected_records WHERE 1=1']
+        params = []
+        if job_id:
+            query.append('AND job_id = ?')
+            params.append(job_id)
+        if group_id:
+            norm_gid = self.normalize_gid(group_id)
+            query.append('AND group_id = ?')
+            params.append(norm_gid)
+        if message_type and message_type != 'all':
+            query.append('AND message_type = ?')
+            params.append(message_type)
+        if sender:
+            query.append('AND (sender_name LIKE ? OR sender_username LIKE ? OR CAST(sender_id AS TEXT) LIKE ?)')
+            s_pat = f"%{sender}%"
+            params.extend([s_pat, s_pat, s_pat])
+        query.append('ORDER BY collected_at DESC LIMIT ? OFFSET ?')
+        params.extend([max(1, min(limit, 200)), max(0, offset)])
+
+        async with self.lock:
+            try:
+                self.cursor.execute(" ".join(query), tuple(params))
+                rows = self.cursor.fetchall()
+                return [{
+                    "id": r[0], "job_id": r[1], "group_id": r[2], "group_title": r[3],
+                    "message_id": r[4], "sender_id": r[5], "sender_name": r[6],
+                    "sender_username": r[7], "message_text": r[8], "message_type": r[9],
+                    "collected_at": str(r[10]), "processed_status": r[11]
+                } for r in rows]
+            except Exception as e:
+                logger.error(f"Error getting siphon records: {e}")
+                return []
+
+    async def set_siphon_job_status(self, job_id: str, status: str, error: Optional[str] = None) -> bool:
+        now_iso = datetime.now().isoformat()
+        completed_at = now_iso if status in ('completed', 'failed', 'stopped') else None
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    UPDATE siphon_collection_jobs
+                    SET status = ?, error_message = COALESCE(?, error_message),
+                        updated_at = ?, completed_at = COALESCE(?, completed_at)
+                    WHERE id = ?
+                ''', (status, error, now_iso, completed_at, job_id))
+                self.conn.commit()
+                return self.cursor.rowcount > 0
+            except Exception as e:
+                logger.error(f"Error setting siphon job status {job_id}: {e}")
+                return False
+
+    # ═══════════════════════════════════════════════════════
+    #   MULTI-GROUP DISPATCHER PERSISTENCE
+    # ═══════════════════════════════════════════════════════
+    async def create_dispatch_job(self, job_id: str, title: str, message_text: str,
+                                   group_ids: List[int], batch_size: int = 5,
+                                   sending_interval_sec: float = 3.0,
+                                   media_path: Optional[str] = None) -> Dict[str, Any]:
+        now_iso = datetime.now().isoformat()
+        total = len(group_ids)
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    INSERT INTO multi_group_dispatch_jobs
+                    (id, title, message_text, media_path, batch_size, sending_interval_sec,
+                     total_targets, successful_count, failed_count, pending_count, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 'running', ?)
+                ''', (job_id, title, message_text, media_path, batch_size, sending_interval_sec,
+                      total, total, now_iso))
+                for gid in group_ids:
+                    norm_gid = self.normalize_gid(gid)
+                    self.cursor.execute('''
+                        INSERT OR REPLACE INTO multi_group_dispatch_deliveries
+                        (job_id, group_id, status, attempt_count)
+                        VALUES (?, ?, 'pending', 0)
+                    ''', (job_id, norm_gid))
+                self.conn.commit()
+                return {
+                    "id": job_id, "title": title, "total_targets": total, "status": "running",
+                    "batch_size": batch_size, "sending_interval_sec": sending_interval_sec,
+                    "created_at": now_iso
+                }
+            except Exception as e:
+                logger.error(f"Error creating dispatch job {job_id}: {e}")
+                raise
+
+    async def update_dispatch_delivery_result(self, job_id: str, group_id: int, status: str,
+                                              message_id: Optional[int] = None,
+                                              error: Optional[str] = None) -> bool:
+        norm_gid = self.normalize_gid(group_id)
+        now_iso = datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    UPDATE multi_group_dispatch_deliveries
+                    SET status = ?, message_id = ?, error_message = ?,
+                        attempt_count = attempt_count + 1, delivered_at = ?
+                    WHERE job_id = ? AND group_id = ?
+                ''', (status, message_id, error, now_iso, job_id, norm_gid))
+                self.conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error updating dispatch delivery {job_id}:{group_id}: {e}")
+                return False
+
+    async def update_dispatch_job_progress(self, job_id: str, successful: int, failed: int,
+                                           pending: int, status: Optional[str] = None) -> bool:
+        now_iso = datetime.now().isoformat()
+        completed_at = now_iso if status in ('completed', 'stopped', 'failed') else None
+        async with self.lock:
+            try:
+                if status:
+                    self.cursor.execute('''
+                        UPDATE multi_group_dispatch_jobs
+                        SET successful_count = ?, failed_count = ?, pending_count = ?,
+                            status = ?, completed_at = COALESCE(?, completed_at)
+                        WHERE id = ?
+                    ''', (successful, failed, pending, status, completed_at, job_id))
+                else:
+                    self.cursor.execute('''
+                        UPDATE multi_group_dispatch_jobs
+                        SET successful_count = ?, failed_count = ?, pending_count = ?
+                        WHERE id = ?
+                    ''', (successful, failed, pending, job_id))
+                self.conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error updating dispatch job progress {job_id}: {e}")
+                return False
+
+    async def get_dispatch_jobs(self, limit: int = 50) -> List[Dict[str, Any]]:
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT id, title, message_text, media_path, batch_size,
+                           sending_interval_sec, total_targets, successful_count,
+                           failed_count, pending_count, status, created_at, completed_at
+                    FROM multi_group_dispatch_jobs
+                    ORDER BY created_at DESC LIMIT ?
+                ''', (limit,))
+                rows = self.cursor.fetchall()
+                return [{
+                    "id": r[0], "title": r[1], "message_text": r[2], "media_path": r[3],
+                    "batch_size": r[4], "sending_interval_sec": r[5], "total_targets": r[6],
+                    "successful_count": r[7], "failed_count": r[8], "pending_count": r[9],
+                    "status": r[10], "created_at": str(r[11]) if r[11] else None,
+                    "completed_at": str(r[12]) if r[12] else None
+                } for r in rows]
+            except Exception as e:
+                logger.error(f"Error getting dispatch jobs: {e}")
+                return []
+
+    async def get_dispatch_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT id, title, message_text, media_path, batch_size,
+                           sending_interval_sec, total_targets, successful_count,
+                           failed_count, pending_count, status, created_at, completed_at
+                    FROM multi_group_dispatch_jobs
+                    WHERE id = ?
+                ''', (job_id,))
+                r = self.cursor.fetchone()
+                if not r:
+                    return None
+                return {
+                    "id": r[0], "title": r[1], "message_text": r[2], "media_path": r[3],
+                    "batch_size": r[4], "sending_interval_sec": r[5], "total_targets": r[6],
+                    "successful_count": r[7], "failed_count": r[8], "pending_count": r[9],
+                    "status": r[10], "created_at": str(r[11]) if r[11] else None,
+                    "completed_at": str(r[12]) if r[12] else None
+                }
+            except Exception as e:
+                logger.error(f"Error getting dispatch job {job_id}: {e}")
+                return None
+
+    async def get_dispatch_deliveries(self, job_id: str) -> List[Dict[str, Any]]:
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    SELECT id, job_id, group_id, group_title, status, message_id,
+                           error_message, attempt_count, delivered_at
+                    FROM multi_group_dispatch_deliveries
+                    WHERE job_id = ?
+                    ORDER BY id ASC
+                ''', (job_id,))
+                rows = self.cursor.fetchall()
+                return [{
+                    "id": r[0], "job_id": r[1], "group_id": r[2], "group_title": r[3],
+                    "status": r[4], "message_id": r[5], "error_message": r[6],
+                    "attempt_count": r[7], "delivered_at": str(r[8]) if r[8] else None
+                } for r in rows]
+            except Exception as e:
+                logger.error(f"Error getting dispatch deliveries for {job_id}: {e}")
+                return []
+
+    async def set_dispatch_job_status(self, job_id: str, status: str) -> bool:
+        now_iso = datetime.now().isoformat()
+        completed_at = now_iso if status in ('completed', 'stopped') else None
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    UPDATE multi_group_dispatch_jobs
+                    SET status = ?, completed_at = COALESCE(?, completed_at)
+                    WHERE id = ?
+                ''', (status, completed_at, job_id))
+                self.conn.commit()
+                return self.cursor.rowcount > 0
+            except Exception as e:
+                logger.error(f"Error setting dispatch job status {job_id}: {e}")
+                return False
+
+    # ═══════════════════════════════════════════════════════
+    #   THREAT INTELLIGENCE RADAR (GENUINE IOC PERSISTENCE)
+    # ═══════════════════════════════════════════════════════
+    async def record_threat_indicator(self, indicator_type: str, indicator_value: str,
+                                      group_id: int, group_title: str,
+                                      message_id: Optional[int] = None,
+                                      sender_id: Optional[int] = None,
+                                      sender_name: Optional[str] = None,
+                                      severity: str = 'MEDIUM',
+                                      context: str = '') -> bool:
+        norm_gid = self.normalize_gid(group_id)
+        now_iso = datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    INSERT INTO threat_intel_indicators
+                    (indicator_type, indicator_value, group_id, group_title, message_id,
+                     sender_id, sender_name, severity, context, is_acknowledged,
+                     first_seen, last_seen, occurrence_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 1)
+                    ON CONFLICT(indicator_type, indicator_value, group_id) DO UPDATE SET
+                        last_seen = excluded.last_seen,
+                        occurrence_count = occurrence_count + 1,
+                        context = COALESCE(excluded.context, context),
+                        severity = excluded.severity
+                ''', (indicator_type, indicator_value, norm_gid, group_title, message_id,
+                      sender_id, sender_name, severity, context, now_iso, now_iso))
+                self.conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Error recording threat indicator: {e}")
+                return False
+
+    async def get_threat_indicators(self, indicator_type: Optional[str] = None,
+                                    severity: Optional[str] = None,
+                                    acknowledged: Optional[bool] = None,
+                                    search: Optional[str] = None,
+                                    limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        query = ['SELECT id, indicator_type, indicator_value, group_id, group_title, message_id, sender_id, sender_name, severity, context, is_acknowledged, acknowledged_by, acknowledged_at, first_seen, last_seen, occurrence_count FROM threat_intel_indicators WHERE 1=1']
+        params = []
+        if indicator_type and indicator_type != 'all':
+            query.append('AND indicator_type = ?')
+            params.append(indicator_type)
+        if severity and severity != 'all':
+            query.append('AND severity = ?')
+            params.append(severity)
+        if acknowledged is not None:
+            query.append('AND is_acknowledged = ?')
+            params.append(1 if acknowledged else 0)
+        if search:
+            query.append('AND (indicator_value LIKE ? OR sender_name LIKE ? OR context LIKE ? OR group_title LIKE ?)')
+            pat = f"%{search}%"
+            params.extend([pat, pat, pat, pat])
+        query.append('ORDER BY last_seen DESC LIMIT ? OFFSET ?')
+        params.extend([max(1, min(limit, 200)), max(0, offset)])
+
+        async with self.lock:
+            try:
+                self.cursor.execute(" ".join(query), tuple(params))
+                rows = self.cursor.fetchall()
+                return [{
+                    "id": r[0], "indicator_type": r[1], "indicator_value": r[2],
+                    "group_id": r[3], "group_title": r[4], "message_id": r[5],
+                    "sender_id": r[6], "sender_name": r[7], "severity": r[8],
+                    "context": r[9], "is_acknowledged": bool(r[10]),
+                    "acknowledged_by": r[11],
+                    "acknowledged_at": str(r[12]) if r[12] else None,
+                    "first_seen": str(r[13]) if r[13] else None,
+                    "last_seen": str(r[14]) if r[14] else None,
+                    "occurrence_count": r[15]
+                } for r in rows]
+            except Exception as e:
+                logger.error(f"Error getting threat indicators: {e}")
+                return []
+
+    async def acknowledge_threat_indicator(self, indicator_id: int, operator: str = "Master Owner") -> bool:
+        now_iso = datetime.now().isoformat()
+        async with self.lock:
+            try:
+                self.cursor.execute('''
+                    UPDATE threat_intel_indicators
+                    SET is_acknowledged = 1, acknowledged_by = ?, acknowledged_at = ?
+                    WHERE id = ?
+                ''', (operator, now_iso, indicator_id))
+                self.conn.commit()
+                return self.cursor.rowcount > 0
+            except Exception as e:
+                logger.error(f"Error acknowledging indicator {indicator_id}: {e}")
+                return False
+
+    async def get_threat_indicator_stats(self) -> Dict[str, Any]:
+        async with self.lock:
+            try:
+                self.cursor.execute('SELECT COUNT(*) FROM threat_intel_indicators')
+                total = self.cursor.fetchone()[0]
+                self.cursor.execute('SELECT COUNT(*) FROM threat_intel_indicators WHERE severity = "CRITICAL"')
+                critical = self.cursor.fetchone()[0]
+                self.cursor.execute('SELECT COUNT(*) FROM threat_intel_indicators WHERE severity = "HIGH"')
+                high = self.cursor.fetchone()[0]
+                self.cursor.execute('SELECT COUNT(*) FROM threat_intel_indicators WHERE is_acknowledged = 0')
+                unacknowledged = self.cursor.fetchone()[0]
+                self.cursor.execute('SELECT indicator_type, COUNT(*) FROM threat_intel_indicators GROUP BY indicator_type')
+                by_type = dict(self.cursor.fetchall())
+                return {
+                    "total": total, "critical": critical, "high": high,
+                    "unacknowledged": unacknowledged, "by_type": by_type
+                }
+            except Exception as e:
+                logger.error(f"Error getting threat indicator stats: {e}")
+                return {"total": 0, "critical": 0, "high": 0, "unacknowledged": 0, "by_type": {}}
+
+    # ═══════════════════════════════════════════════════════
+    #   SYSTEM CLUTTER INSPECTION & SAFE MAINTENANCE
+    # ═══════════════════════════════════════════════════════
+    async def inspect_system_clutter(self) -> Dict[str, Any]:
+        """Audit database for duplicates, orphaned records, stale temporary records, and disk usage."""
+        import os
+        async with self.lock:
+            try:
+                # 1. Duplicate message check
+                self.cursor.execute('''
+                    SELECT COUNT(*) FROM (
+                        SELECT group_id, message_id FROM intercepted_messages
+                        GROUP BY group_id, message_id HAVING COUNT(*) > 1
+                    )
+                ''')
+                dup_msgs = self.cursor.fetchone()[0]
+
+                # 2. Duplicate audit/security log records
+                self.cursor.execute('''
+                    SELECT COUNT(*) FROM (
+                        SELECT event_type, username, detail, timestamp FROM security_audit_logs
+                        GROUP BY event_type, username, detail, timestamp HAVING COUNT(*) > 1
+                    )
+                ''')
+                dup_sec_logs = self.cursor.fetchone()[0]
+
+                # 3. Orphaned schedule executions (where schedule no longer exists)
+                self.cursor.execute('''
+                    SELECT COUNT(*) FROM recon_schedule_executions
+                    WHERE schedule_id IS NOT NULL AND schedule_id NOT IN (SELECT id FROM recon_schedules)
+                ''')
+                orphaned_execs = self.cursor.fetchone()[0]
+
+                # 4. Expired/stale sessions older than 30 days
+                self.cursor.execute('''
+                    SELECT COUNT(*) FROM sessions
+                    WHERE started_at < datetime('now', '-30 days')
+                ''')
+                stale_sessions = self.cursor.fetchone()[0]
+
+                # 5. Failed scan jobs older than 14 days
+                self.cursor.execute('''
+                    SELECT COUNT(*) FROM scan_jobs
+                    WHERE status = 'FAILED' AND created_at < datetime('now', '-14 days')
+                ''')
+                failed_old_scans = self.cursor.fetchone()[0]
+
+                # 6. Database storage statistics
+                db_size_bytes = 0
+                if self.db_path and os.path.exists(self.db_path):
+                    db_size_bytes = os.path.getsize(self.db_path)
+
+                self.cursor.execute('PRAGMA page_count')
+                page_count = self.cursor.fetchone()[0]
+                self.cursor.execute('PRAGMA page_size')
+                page_size = self.cursor.fetchone()[0]
+
+                return {
+                    "duplicate_messages": dup_msgs,
+                    "duplicate_security_logs": dup_sec_logs,
+                    "orphaned_schedule_executions": orphaned_execs,
+                    "stale_sessions": stale_sessions,
+                    "failed_old_scan_jobs": failed_old_scans,
+                    "total_clutter_records": dup_msgs + dup_sec_logs + orphaned_execs + stale_sessions + failed_old_scans,
+                    "db_size_bytes": db_size_bytes,
+                    "db_size_mb": round(db_size_bytes / (1024 * 1024), 2),
+                    "page_count": page_count,
+                    "page_size": page_size,
+                    "status": "ready"
+                }
+            except Exception as e:
+                logger.error(f"Error inspecting system clutter: {e}")
+                return {"error": str(e), "total_clutter_records": 0}
+
+    async def cleanup_system_clutter(self, options: Dict[str, bool], operator: str = "Master Owner") -> Dict[str, Any]:
+        """Safely clean confirmed clutter categories with transaction protection."""
+        purged = {}
+        async with self.lock:
+            try:
+                # 1. Clean duplicate messages if requested (keep the one with largest ID)
+                if options.get("duplicate_messages"):
+                    self.cursor.execute('''
+                        DELETE FROM intercepted_messages
+                        WHERE id NOT IN (
+                            SELECT MAX(id) FROM intercepted_messages GROUP BY group_id, message_id
+                        )
+                    ''')
+                    purged["duplicate_messages"] = self.cursor.rowcount
+
+                # 2. Clean duplicate security logs
+                if options.get("duplicate_security_logs"):
+                    self.cursor.execute('''
+                        DELETE FROM security_audit_logs
+                        WHERE id NOT IN (
+                            SELECT MAX(id) FROM security_audit_logs GROUP BY event_type, username, detail, timestamp
+                        )
+                    ''')
+                    purged["duplicate_security_logs"] = self.cursor.rowcount
+
+                # 3. Clean orphaned schedule executions
+                if options.get("orphaned_schedule_executions"):
+                    self.cursor.execute('''
+                        DELETE FROM recon_schedule_executions
+                        WHERE schedule_id IS NOT NULL AND schedule_id NOT IN (SELECT id FROM recon_schedules)
+                    ''')
+                    purged["orphaned_schedule_executions"] = self.cursor.rowcount
+
+                # 4. Clean stale sessions older than 30 days
+                if options.get("stale_sessions"):
+                    self.cursor.execute('''
+                        DELETE FROM sessions
+                        WHERE started_at < datetime('now', '-30 days')
+                    ''')
+                    purged["stale_sessions"] = self.cursor.rowcount
+
+                # 5. Clean old failed scan jobs older than 14 days
+                if options.get("failed_old_scan_jobs"):
+                    self.cursor.execute('''
+                        DELETE FROM scan_jobs
+                        WHERE status = 'FAILED' AND created_at < datetime('now', '-14 days')
+                    ''')
+                    purged["failed_old_scan_jobs"] = self.cursor.rowcount
+
+                self.conn.commit()
+
+                # Audit log the cleanup action
+                now_iso = datetime.now().isoformat()
+                total_purged = sum(purged.values())
+                self.cursor.execute('''
+                    INSERT INTO security_audit_logs
+                    (event_type, username, client_ip, detail, severity, timestamp)
+                    VALUES ('SYSTEM_MAINTENANCE_CLEANUP', ?, '127.0.0.1', ?, 'INFO', ?)
+                ''', (operator, f"Purged {total_purged} clutter records: {json.dumps(purged)}", now_iso))
+                self.conn.commit()
+
+                return {"success": True, "purged": purged, "total_purged": total_purged}
+            except Exception as e:
+                logger.error(f"Error cleaning system clutter: {e}")
+                return {"success": False, "error": str(e)}
 
     def close(self):
         try:

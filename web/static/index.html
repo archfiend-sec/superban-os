@@ -1219,13 +1219,15 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   border-radius: 3px;
   padding: 10px 14px;
   transition: background 0.15s ease, border-color 0.15s ease;
-  animation: slideInMsg .16s ease-out;
+  animation: fadeInMsg .10s ease-out;
   contain: layout style;
   transform: translateZ(0);
+  width: 100%;
+  box-sizing: border-box;
 }
-@keyframes slideInMsg {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes fadeInMsg {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
 }
 .wiretap-card:hover {
   border-color: var(--line);
@@ -1390,19 +1392,26 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-height: 80px;
+  max-width: 380px;
+  contain: layout;
 }
 .wiretap-sticker-box {
   align-items: flex-start;
+  min-height: 100px;
 }
 .wiretap-sticker-inner {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 60px;
+  min-height: 100px;
+  min-width: 100px;
+  contain: layout;
 }
 .wiretap-sticker-img {
   max-width: 140px;
   max-height: 140px;
+  min-height: 80px;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -1431,8 +1440,12 @@ video.wiretap-sticker-img {
   100% { transform: scale(1); opacity: 1; }
 }
 .wiretap-media-img {
-  max-width: 100%;
+  width: 100%;
+  max-width: 380px;
+  height: auto;
   max-height: 280px;
+  min-height: 120px;
+  aspect-ratio: 16/9;
   border-radius: 4px;
   border: 1px solid var(--line-soft);
   object-fit: cover;
@@ -1445,8 +1458,11 @@ video.wiretap-sticker-img {
   opacity: 0.95;
 }
 .wiretap-media-video {
-  max-width: 100%;
+  width: 100%;
+  max-width: 380px;
   max-height: 280px;
+  min-height: 120px;
+  aspect-ratio: 16/9;
   border-radius: 4px;
   border: 1px solid var(--line-soft);
   background: #000;
@@ -6191,6 +6207,31 @@ body.theme-light .kage-btn.secondary {
   opacity: 0.75 !important;
 }
 
+/* Responsive enhancements for KAGE Intelligence cockpits & modals */
+@media (max-width: 900px) {
+  .sweeper-modal-cockpit,
+  .siphon-modal-cockpit,
+  .dispatch-config-cols,
+  .sanc-cockpit-grid,
+  .graph-modal-cockpit {
+    grid-template-columns: 1fr !important;
+    overflow-y: auto !important;
+  }
+  .kage-modal {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    padding: 14px !important;
+    max-height: 92vh !important;
+  }
+  .sanc-stats-strip {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+@media (max-width: 600px) {
+  .sanc-stats-strip {
+    grid-template-columns: 1fr !important;
+  }
+}
 </style>
 </head>
 
@@ -6373,10 +6414,12 @@ body.theme-light .kage-btn.secondary {
       </div>
     </div>
 
-    <!-- Active Operator Badge (OPSEC PROTECTED: Userbot identity never exposed) -->
-    <div class="op-badge" title="Stealth MTProto Sensor Node Active & Encrypted">
-      <span class="dot"></span>
-      <span id="user-display">STEALTH SENSOR ONLINE</span>
+    <!-- Compact System Health Monitor -->
+    <div id="kage-sys-health-compact" class="kage-sys-health-bar font-mono" title="KAGE System Health & MTProto Ingestion Status">
+      <span class="sys-health-pill" id="health-tg-pill"><span class="health-dot active" id="health-tg-dot"></span> <span id="health-tg-status">TG: CONNECTED</span></span>
+      <span class="sys-health-pill" id="health-backend-pill"><span class="health-dot active" id="health-be-dot"></span> <span id="health-backend-status">API: OK</span></span>
+      <span class="sys-health-pill" id="health-jobs-pill"><span class="health-dot idle" id="health-jobs-dot"></span> <span id="health-jobs-status">JOBS: IDLE</span></span>
+      <span class="sys-health-pill text-muted desk-only" id="health-sync-pill"><i data-lucide="clock" style="width: 10px; height: 10px;"></i> <span id="health-sync-time">SYNC: LIVE</span></span>
     </div>
 
     <!-- Master Owner Clearance Controls (Shown only to Owner) -->
@@ -6385,10 +6428,10 @@ body.theme-light .kage-btn.secondary {
       <span>Clearances</span>
     </button>
 
-    <!-- Owner Lock Button -->
-    <button id="owner-logout-btn" onclick="logoutOwner()" class="kage-btn-pill" style="border-color: rgba(224,35,28,0.4); color: #e0231c; display: none;" title="Lock War Room">
-      <i data-lucide="lock" style="width: 12px; height: 12px;"></i>
-      <span>Lock</span>
+    <!-- Owner Logout Button (Explicit Logout & Session Revocation) -->
+    <button id="owner-logout-btn" onclick="logoutOwner()" class="kage-btn-pill" style="border-color: rgba(224,35,28,0.5); color: #ef4444; display: none;" title="Logout and Invalidate Session">
+      <i data-lucide="log-out" style="width: 12px; height: 12px;"></i>
+      <span>LOGOUT</span>
     </button>
 
     <!-- Audio FX Toggle -->
@@ -6414,11 +6457,10 @@ body.theme-light .kage-btn.secondary {
       <span id="hud-target-group-name" class="font-mono hud-target-title">Surveillance Active</span>
     </div>
     <div class="hud-ticker-right">
-      <span class="font-mono text-muted" style="font-size: 11px;">WIRETAP BUFFER: <span id="wiretap-count" style="color: var(--bone);">0</span> MSGS</span>
+      <span class="font-mono text-muted" style="font-size: 11px;">INGESTION: <span id="hud-ingest-status" style="color: #34d399; font-weight: 600;">STREAMING</span></span>
       <span class="hud-divider">/</span>
       <button type="button" onclick="toggleScreenWakeLock()" id="hud-wakelock-toggle" class="btn-xs-outline active" title="Prevent screen from sleeping / keep display awake constantly">👁️ AWAKE: ON</button>
       <span class="hud-divider">/</span>
-      <button type="button" onclick="clearWiretapFeed()" class="btn-xs-outline" title="Clear Stream History">CLEAR FEED</button>
       <button type="button" onclick="toggleWiretapScroll()" id="btn-wiretap-scroll" class="btn-xs-outline active" title="Toggle Auto-Scroll Lock">SCROLL: AUTO</button>
     </div>
   </div>
@@ -6486,9 +6528,9 @@ body.theme-light .kage-btn.secondary {
           <span class="hud-tag-pill">VAULT</span>
         </button>
         <button type="button" onclick="openEntitiesModal()" class="hud-action-btn">
-          <i data-lucide="wallet" style="width: 13px; height: 13px;"></i>
-          <span style="flex: 1;">Signal Radar (Crypto/IOCs)</span>
-          <span class="hud-tag-pill">IOC</span>
+          <i data-lucide="shield-alert" style="width: 13px; height: 13px; color: #38bdf8;"></i>
+          <span style="flex: 1;">Threat Intelligence Radar</span>
+          <span class="hud-tag-pill" style="color: #38bdf8; border-color: rgba(56,189,248,0.3);">RADAR</span>
         </button>
         <button type="button" onclick="openGraphModal()" class="hud-action-btn">
           <i data-lucide="share-2" style="width: 13px; height: 13px;"></i>
@@ -6507,7 +6549,7 @@ body.theme-light .kage-btn.secondary {
         </button>
         <button type="button" onclick="pulsePresence('typing')" class="hud-action-btn">
           <i data-lucide="activity" style="width: 13px; height: 13px;"></i>
-          <span style="flex: 1;">Pulse Stealth "Typing"</span>
+          <span style="flex: 1;">Presence Heartbeat</span>
           <span class="hud-tag-pill">PULSE</span>
         </button>
         <button type="button" onclick="openSurveillanceModal()" class="hud-action-btn">
@@ -6520,22 +6562,17 @@ body.theme-light .kage-btn.secondary {
           <span style="flex: 1;">Group Vibe &amp; Sentiment</span>
           <span class="hud-tag-pill">VIBE</span>
         </button>
-        <button type="button" onclick="openStealthBroadcastModal()" class="hud-action-btn" title="Humanized multi-group broadcast with typing emulation (Non-Admin)">
+        <button type="button" onclick="openDispatchModal()" class="hud-action-btn" title="Multi-group campaign and dispatch management with controlled delivery">
           <i data-lucide="send" style="width: 13px; height: 13px; color: #38bdf8;"></i>
-          <span style="flex: 1;">Stealth Multi-Broadcast</span>
-          <span class="hud-tag-pill" style="color: #38bdf8; border-color: rgba(56,189,248,0.3);">GHOST</span>
-        </button>
-        <button type="button" onclick="quickSiphonAllCAs()" class="hud-action-btn" title="Extract and siphon all recent crypto contract addresses in this group to Saved Messages">
-          <i data-lucide="coins" style="width: 13px; height: 13px; color: #10b981;"></i>
-          <span style="flex: 1;">Siphon All Group CAs</span>
-          <span class="hud-tag-pill" style="color: #10b981; border-color: rgba(16,185,129,0.3);">ALPHA</span>
+          <span style="flex: 1;">Multi-Group Dispatcher</span>
+          <span class="hud-tag-pill" style="color: #38bdf8; border-color: rgba(56,189,248,0.3);">DISPATCH</span>
         </button>
         <button type="button" onclick="quickExecuteDirective('purge ghosts')" class="hud-action-btn">
           <i data-lucide="ghost" style="width: 13px; height: 13px;"></i>
           <span style="flex: 1;">Purge Ghost Accounts</span>
           <span class="hud-tag-pill">PURGE</span>
         </button>
-        <button type="button" onclick="quickExecuteDirective('sweep 1500')" class="hud-action-btn">
+        <button type="button" onclick="openSweeperModal()" class="hud-action-btn" title="Open Service Clutter & System Maintenance Workspace">
           <i data-lucide="brush" style="width: 13px; height: 13px;"></i>
           <span style="flex: 1;">Sweep Service Clutter</span>
           <span class="hud-tag-pill">SWEEP</span>
@@ -7016,446 +7053,225 @@ body.theme-light .kage-btn.secondary {
 </div>
 
 
-<div class="page kage-view-hidden" id="top" style="display: none;">
+<div class="page kage-view-hidden" id="top" style="display: none; padding: 24px 20px 60px; max-width: 1400px; margin: 0 auto; min-height: 100vh;">
 
-  <!-- CHAPTER 00: HERO SECTION -->
-  <section class="hero" id="hero">
-    <div class="hero-top">
-      <div class="eyebrow"><span class="dot"></span> Chapter 00 — The Hidden Gate</div>
-      <h1 class="display h-hero">Where stillness reveals the unseen.</h1>
-      <p class="hero-sub body">Enter Kyoto through its quiet thresholds, where ritual, craft, and memory shape the path.</p>
+  <!-- TOP COMMAND BAR -->
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
+    <div>
+      <div class="eyebrow" style="color: var(--vermilion); font-size: 11px; display: inline-flex; align-items: center; gap: 6px;">
+        <span class="live-dot-pulse"></span>
+        <span>KAGE OPERATIONAL COMMAND CENTER // 閑雅 司令所</span>
+      </div>
+      <h1 class="display" style="font-size: 24px; color: var(--bone); margin: 4px 0 2px;">Sanctuary Strategic Intelligence Nexus</h1>
+      <span style="font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace;">AUTHORIZED TELEGRAM INFRASTRUCTURE &bull; REAL-TIME SURVEILLANCE &bull; PERSISTENT TELEMETRY</span>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+      <button type="button" onclick="switchViewMode('warroom')" class="kage-btn" style="background: var(--vermilion); color: #fff; padding: 8px 18px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px;">
+        <i data-lucide="radio" style="width: 13px; height: 13px;"></i>
+        <span>WAR ROOM // 影</span>
+      </button>
+      <button type="button" onclick="initSanctuaryDashboard()" class="kage-btn-pill" title="Refresh operational telemetry">
+        <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i>
+        <span>Sync Nexus</span>
+      </button>
+      <button type="button" onclick="openAuthModal()" class="kage-btn-pill" style="border-color: rgba(56,189,248,0.4); color: #38bdf8;">
+        <i data-lucide="key" style="width: 12px; height: 12px;"></i>
+        <span>Link / Switch Node</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 4-STAT OPERATIONAL TELEMETRY TILES -->
+  <div class="sanc-telemetry-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 24px;">
+    <div class="kage-metric-card font-mono" style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #38bdf8; border-radius: 4px; padding: 14px 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span class="eyebrow" style="font-size: 9px; color: #38bdf8;">TELEGRAM CLIENT NODE</span>
+        <span id="sanc-node-pill" class="badge badge-emerald" style="font-size: 8px;">CONNECTED</span>
+      </div>
+      <div id="sanc-node-title" style="font-size: 16px; font-weight: bold; color: var(--bone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Loading Account...</div>
+      <div id="sanc-node-sub" style="font-size: 10px; color: var(--muted); margin-top: 4px;">MTProto Session &bull; Querying...</div>
+    </div>
+
+    <div class="kage-metric-card font-mono" style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid var(--intel-cyan); border-radius: 4px; padding: 14px 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span class="eyebrow" style="font-size: 9px; color: var(--intel-cyan);"><span class="desk-txt">MONITORED GROUPS</span><span class="mob-txt">GROUPS</span></span>
+        <span id="sanc-groups-badge" class="badge badge-cyan" style="font-size: 8px;">0 DIALOGS</span>
+      </div>
+      <div id="sanc-groups-count" style="font-size: 22px; font-weight: bold; color: var(--bone);">0</div>
+      <div id="sanc-groups-sub" style="font-size: 10px; color: var(--muted); margin-top: 4px;">Authorized surveillance targets</div>
+    </div>
+
+    <div class="kage-metric-card font-mono" style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #10b981; border-radius: 4px; padding: 14px 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span class="eyebrow" style="font-size: 9px; color: #10b981;"><span class="desk-txt">INTELLIGENCE INGESTED</span><span class="mob-txt">INGESTED</span></span>
+        <span id="sanc-msgs-badge" class="badge badge-emerald" style="font-size: 8px;">DATABASE LIVE</span>
+      </div>
+      <div id="sanc-msgs-count" style="font-size: 22px; font-weight: bold; color: var(--bone);">0</div>
+      <div id="sanc-msgs-sub" style="font-size: 10px; color: var(--muted); margin-top: 4px;">Total archived surveillance events</div>
+    </div>
+
+    <div class="kage-metric-card font-mono" style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #ec4899; border-radius: 4px; padding: 14px 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span class="eyebrow" style="font-size: 9px; color: #ec4899;"><span class="desk-txt">ACTIVE BACKGROUND JOBS</span><span class="mob-txt">JOBS</span></span>
+        <span id="sanc-jobs-badge" class="badge badge-muted" style="font-size: 8px;">IDLE</span>
+      </div>
+      <div id="sanc-jobs-count" style="font-size: 22px; font-weight: bold; color: var(--bone);">0</div>
+      <div id="sanc-jobs-sub" style="font-size: 10px; color: var(--muted); margin-top: 4px;">Siphon &bull; Dispatch &bull; Recon</div>
+    </div>
+  </div>
+
+  <!-- MAIN 2-COLUMN OPERATIONAL COCKPIT -->
+  <div class="sanc-cockpit-grid" style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 18px; margin-bottom: 24px;">
+    
+    <!-- LEFT: AUTHORIZED GROUPS MANAGEMENT & ACTIONS -->
+    <div style="display: flex; flex-direction: column; gap: 18px;">
       
-      <!-- HERO QUICK ACCESS BUTTONS -->
-      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px;">
-        <button type="button" onclick="switchViewMode('warroom')" class="cta" style="background: var(--vermilion); color: #fff; padding: 12px 22px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; border-radius: 2px; box-shadow: 0 0 20px rgba(224,35,28,0.5); cursor: pointer;">
-          <span class="live-dot-pulse"></span>
-          <span>Enter War Room // 影の司令室</span>
-        </button>
-        <a href="#tactical-deck" class="cta" style="border: 1px solid var(--line); color: var(--bone); padding: 12px 20px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; border-radius: 2px;">
-          <span>Command Deck ↓</span>
-        </a>
-      </div>
-    </div>
-    <div class="hero-spacer"></div>
-    <div class="hero-foot">
-      <div class="hero-cue"><span>Scroll to enter</span><span class="track"><i></i></span></div>
-      <div class="chapters">
-        <a class="chip" href="#gate"><span class="num">01</span><span class="tx"><b>The Sanmon</b><p>Discover the hidden gates that open on to deeper paths.</p></span></a>
-        <a class="chip" href="#pathways"><span class="num">02</span><span class="tx"><b>Still Gardens</b><p>Witness the courts where silence gently unfolds.</p></span></a>
-        <a class="chip" href="#lessons"><span class="num">03</span><span class="tx"><b>Sacred Craft</b><p>Embrace the hands and heritage that shape devotion.</p></span></a>
-        <a class="chip" href="#eternity"><span class="num">04</span><span class="tx"><b>Night Rituals</b><p>Explore the rites that awaken when the day is done.</p></span></a>
-      </div>
-    </div>
-    <a class="peek" href="#gate">
-      <span class="peek-fr"></span>
-      <span class="peek-cap"><b class="jp">山門</b><i>Sanmon — before the bell</i></span>
-    </a>
-    <div class="hero-side"><span class="v jp">影の道</span></div>
-  </section>
+      <!-- Authorized Groups Table Container -->
+      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-radius: 4px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div class="eyebrow" style="color: var(--bone); font-size: 10px;">AUTHORIZED TELEGRAM DIALOGS // 監視対象グループ一覧</div>
+            <span style="font-size: 10px; color: var(--muted);">Direct MTProto dialog targets with member intelligence and permissions</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button onclick="fetchDialogs(); initSanctuaryDashboard();" class="btn-xs-outline" style="font-size: 9px; padding: 3px 8px;">
+              <i data-lucide="refresh-cw" style="width: 10px; height: 10px;"></i> Refresh Dialogs
+            </button>
+          </div>
+        </div>
 
-  <!-- CHAPTER I: THE SANMON -->
-  <section class="sec" id="gate">
-    <div class="sec-head">
-      <span class="k"><b>01</b> — The Sanmon</span>
-      <span class="rule"></span>
-      <span class="k jp">山門</span>
-    </div>
-    <div class="gate-grid">
-      <div>
-        <h2 class="display h-sec">Charred cypress, worn stone, one gate left open.</h2>
-        <div class="gate-stats" style="margin-top: 36px;">
-          <div><b id="gate-stat-processed">05</b><span>Chapters</span></div>
-          <div><b id="gate-stat-remaining">92</b><span>Minutes</span></div>
-          <div><b id="gate-stat-success">1611</b><span>Hall raised</span></div>
-          <div><b id="gate-stat-speed">&infin;</b><span>Stillness</span></div>
+        <div style="overflow-x: auto; max-height: 380px; overflow-y: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--line); color: var(--muted); text-align: left; font-size: 9px; letter-spacing: 0.08em;">
+                <th style="padding: 8px 6px;">GROUP / CHANNEL</th>
+                <th style="padding: 8px 6px;">MEMBERS</th>
+                <th style="padding: 8px 6px;">ROLE &amp; RIGHTS</th>
+                <th style="padding: 8px 6px; text-align: right;">OPERATIONAL ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody id="sanc-dialogs-tbody">
+              <tr>
+                <td colspan="4" style="text-align: center; color: var(--muted); padding: 32px;">Loading authorized Telegram dialogs...</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-      <div class="gate-copy">
-        <p class="lead">Kage begins where the city stops: a mountain gate of cedar burned black, standing in its own weather. The soot is not decoration. It is how a board is taught to survive a hundred rainy seasons, and the first thing this place asks you to understand.</p>
-        <p class="body">Climb the worn steps and the worship hall lifts out of the mist, its paper screens lit from inside like a lantern the size of a house. Above the eaves a vermilion moon holds its place, patient, half hidden. Nothing here is in a hurry. Neither, for the next ninety minutes, are you.</p>
-        <a class="arrowlink" href="#tactical-deck">
-          <span>Cross the threshold</span>
-          <span class="ar"><svg viewBox="0 0 14 14" fill="none" width="12" height="12"><path d="M3 11 11 3M5 3h6v6" stroke="#dfe7e0" stroke-width="1.3"/></svg></span>
-        </a>
-      </div>
-    </div>
 
-    <!-- Integrated Sanmon Command Deck (Tactical Directive Matrix) -->
-    <div id="tactical-deck" class="kage-box" style="margin-top: clamp(40px, 7vh, 80px);">
-      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 14px; margin-bottom: 24px;">
-        <div>
-          <span class="eyebrow"><span class="dot"></span> TACTICAL DIRECTIVE MATRIX</span>
-          <h3 class="display" style="font-size: 22px; color: var(--bone); margin-top: 6px;">Sanmon Command Deck</h3>
-        </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <span id="active-op-badge" class="badge badge-muted">STANDBY</span>
-          <button onclick="fetchDialogs()" class="kage-btn-pill" title="Refresh Target Dialogs">
-            <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i>
-            <span>Refresh</span>
+      <!-- Tactical Module Launchers Grid -->
+      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-radius: 4px; padding: 16px;">
+        <div class="eyebrow" style="color: var(--bone); font-size: 10px; margin-bottom: 12px;">RAPID WORKSPACE LAUNCHERS // 迅速展開</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+          <button type="button" onclick="openEntitiesModal()" class="kage-btn-outline" style="text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border-color: rgba(56,189,248,0.3);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <i data-lucide="shield-alert" style="width: 14px; height: 14px; color: #38bdf8;"></i>
+              <span class="badge badge-cyan" style="font-size: 8px;">IOC RADAR</span>
+            </div>
+            <b style="color: var(--bone); font-size: 11px;">Threat Intelligence</b>
+            <span style="font-size: 9px; color: var(--muted);">URLs, Invites &amp; Cashtags</span>
+          </button>
+
+          <button type="button" onclick="openSiphonModal()" class="kage-btn-outline" style="text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border-color: rgba(16,185,129,0.3);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <i data-lucide="send" style="width: 14px; height: 14px; color: #10b981;"></i>
+              <span class="badge badge-emerald" style="font-size: 8px;">SIPHON</span>
+            </div>
+            <b style="color: var(--bone); font-size: 11px;">Autonomous Siphon</b>
+            <span style="font-size: 9px; color: var(--muted);">Targeted Data Ingestion</span>
+          </button>
+
+          <button type="button" onclick="openDispatchModal()" class="kage-btn-outline" style="text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border-color: rgba(245,158,11,0.3);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <i data-lucide="send" style="width: 14px; height: 14px; color: #f59e0b;"></i>
+              <span class="badge" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid #f59e0b; font-size: 8px;">DISPATCH</span>
+            </div>
+            <b style="color: var(--bone); font-size: 11px;">Multi-Group Dispatcher</b>
+            <span style="font-size: 9px; color: var(--muted);">Controlled Broadcast</span>
+          </button>
+
+          <button type="button" onclick="openSweeperModal()" class="kage-btn-outline" style="text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border-color: rgba(239,68,68,0.3);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <i data-lucide="trash-2" style="width: 14px; height: 14px; color: #ef4444;"></i>
+              <span class="badge badge-vermilion" style="font-size: 8px;">CLEANUP</span>
+            </div>
+            <b style="color: var(--bone); font-size: 11px;">Service Sweeper</b>
+            <span style="font-size: 9px; color: var(--muted);">Clutter &amp; System Health</span>
+          </button>
+
+          <button type="button" onclick="openGraphModal()" class="kage-btn-outline" style="text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border-color: rgba(236,72,153,0.3);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <i data-lucide="share-2" style="width: 14px; height: 14px; color: #ec4899;"></i>
+              <span class="badge" style="background: rgba(236,72,153,0.15); color: #f472b6; border: 1px solid #ec4899; font-size: 8px;">GRAPH</span>
+            </div>
+            <b style="color: var(--bone); font-size: 11px;">Social Topology</b>
+            <span style="font-size: 9px; color: var(--muted);">Force-Directed Graph</span>
+          </button>
+
+          <button type="button" onclick="openVCModal()" class="kage-btn-outline" style="text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border-color: rgba(168,85,247,0.3);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <i data-lucide="mic" style="width: 14px; height: 14px; color: #c084fc;"></i>
+              <span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid #a855f7; font-size: 8px;">AUDIO</span>
+            </div>
+            <b style="color: var(--bone); font-size: 11px;">Voice Chamber</b>
+            <span style="font-size: 9px; color: var(--muted);">Apex Audio Recording</span>
           </button>
         </div>
       </div>
-
-      <div class="kage-grid-2">
-        <!-- Controls Left -->
-        <div>
-          <!-- Target Selector -->
-          <div style="margin-bottom: 18px;">
-            <label class="kage-label">TARGET ENTITY</label>
-            <select id="group-select" onchange="syncGroupSelect(this.value)" class="kage-select font-mono">
-              <option value="">Select a group...</option>
-            </select>
-          </div>
-
-          <!-- Action Selection -->
-          <div style="margin-bottom: 18px;">
-            <label class="kage-label">SELECT DIRECTIVE ACTION</label>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
-              <button type="button" onclick="setAction('ban')" id="action-ban" class="kage-btn-outline active">BAN</button>
-              <button type="button" onclick="setAction('kick')" id="action-kick" class="kage-btn-outline">KICK</button>
-              <button type="button" onclick="setAction('mute')" id="action-mute" class="kage-btn-outline">MUTE</button>
-              <button type="button" onclick="setAction('unban')" id="action-unban" class="kage-btn-outline">UNBAN</button>
-            </div>
-          </div>
-
-          <!-- Duration & Velocity -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;">
-            <div>
-              <label class="kage-label">ACTION DURATION</label>
-              <select id="duration-select" class="kage-select font-mono">
-                <option value="0" selected>Permanent</option>
-                <option value="3600">1 Hour</option>
-                <option value="86400">24 Hours</option>
-                <option value="604800">7 Days</option>
-                <option value="2592000">30 Days</option>
-              </select>
-            </div>
-            <div>
-              <label class="kage-label">VELOCITY PROFILE</label>
-              <select id="mode-select" class="kage-select font-mono">
-                <option value="stealth">Stealth (3.0s)</option>
-                <option value="normal" selected>Normal (1.5s)</option>
-                <option value="fast">Fast (0.7s)</option>
-                <option value="turbo">Turbo (0.35s)</option>
-                <option value="nuclear">Nuclear (0.15s)</option>
-              </select>
-            </div>
-          </div>
-
-          <div id="mute-options-container" style="margin-bottom: 18px; display: none;">
-            <label class="kage-label">MUTE RESTRICTION SCOPE</label>
-            <select id="mute-scope-select" class="kage-select font-mono">
-              <option value="full" selected>Full Mute (Text &amp; media blocked)</option>
-              <option value="mute_links">Mute Links Only (Chat allowed)</option>
-              <option value="mute_media">Mute Media (Text only)</option>
-            </select>
-          </div>
-
-          <!-- Checkboxes -->
-          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--bone-dim);">
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-              <input type="checkbox" id="chk-purge-msgs" style="accent-color: var(--vermilion);">
-              <span>Purge all historical messages from targets</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-              <input type="checkbox" id="chk-skip-admins" checked style="accent-color: var(--vermilion);">
-              <span style="color: #34d399;">Protect group admins &amp; whitelist</span>
-            </label>
-          </div>
-
-          <!-- Action Buttons -->
-          <div style="display: flex; gap: 12px;">
-            <button onclick="scanSelectedGroup()" id="btn-scan" class="kage-btn" style="flex: 1;">
-              <i data-lucide="radar" style="width: 14px; height: 14px;"></i> Deep Forensic Scan
-            </button>
-            <button onclick="executeAction()" id="btn-execute" class="kage-btn" style="flex: 1; background: #070b0e; border-color: var(--line);">
-              <i data-lucide="zap" style="width: 14px; height: 14px; color: var(--vermilion);"></i> Execute (<span id="selected-count">0</span>)
-            </button>
-          </div>
-        </div>
-
-        <!-- Telemetry & Velocity Right -->
-        <div>
-          <label class="kage-label">REAL-TIME DISPATCH VELOCITY</label>
-          <div style="background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); padding: 16px; border-radius: 2px;">
-            <div style="height: 180px; width: 100%;">
-              <canvas id="velocityChart"></canvas>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 14px; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted);">
-              <span>RATE LIMIT: MTPROTO SAFE</span>
-              <span>ENGINE: SOVEREIGN ASYNC</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- CHAPTER II: STILL GARDENS -->
-  <section class="sec" id="pathways">
-    <div class="sec-head">
-      <span class="k"><b>02</b> — Still Gardens</span>
-      <span class="rule"></span>
-      <span class="k jp">庭園</span>
-    </div>
-    
-    <!-- 3 Illustration Cards from Stitch Reference -->
-    <div class="cards">
-      <article class="card">
-        <div class="card-fr"><div class="card-lab"><b>Approach</b><span class="jp">参道</span></div></div>
-        <div class="card-meta"><span>The long climb</span><span>01 / 03</span></div>
-      </article>
-      <article class="card">
-        <div class="card-fr"><div class="card-lab"><b>Lanterns</b><span class="jp">灯籠</span></div></div>
-        <div class="card-meta"><span>Lantern court</span><span>02 / 03</span></div>
-      </article>
-      <article class="card">
-        <div class="card-fr"><div class="card-lab"><b>Moonwater</b><span class="jp">月影</span></div></div>
-        <div class="card-meta"><span>The wet court</span><span>03 / 03</span></div>
-      </article>
     </div>
 
-    <!-- Participant Intelligence Workbench -->
-    <div class="kage-box" style="margin-top: clamp(40px, 6vh, 70px);">
-      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 14px; margin-bottom: 24px;">
-        <div>
-          <span class="eyebrow"><span class="dot"></span> PARTICIPANT INTELLIGENCE GRID</span>
-          <h3 class="display" style="font-size: 22px; color: var(--bone); margin-top: 6px;">Heuristic Dossier &amp; Demographics</h3>
-        </div>
+    <!-- RIGHT: TASK BOARD & OPERATIONAL AUDIT LOG -->
+    <div style="display: flex; flex-direction: column; gap: 18px;">
+      
+      <!-- Task Board: 100K Recon & Background Jobs -->
+      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-radius: 4px; padding: 16px;">
+        <div class="eyebrow" style="color: var(--bone); font-size: 10px; margin-bottom: 10px;">AUTOMATED ORCHESTRATION TASKS</div>
         
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button onclick="openHeatmapModal()" class="kage-btn-secondary" style="padding: 8px 16px; font-size: 10px;">
-            <i data-lucide="bar-chart-2" style="width: 12px; height: 12px; color: #38bdf8;"></i> Activity Heatmap
-          </button>
-          <button onclick="openBroadcastModal()" class="kage-btn" style="padding: 8px 16px; font-size: 10px; background: #070b0e; border-color: var(--line);">
-            <i data-lucide="send" style="width: 12px; height: 12px; color: var(--vermilion);"></i> Drip Broadcast
-          </button>
-          <button onclick="exportCSV()" class="kage-btn-secondary" style="padding: 8px 16px; font-size: 10px;">
-            <i data-lucide="download" style="width: 12px; height: 12px; color: var(--vermilion);"></i> Export CSV
-          </button>
-          <button onclick="exportJSON()" class="kage-btn-secondary" style="padding: 8px 16px; font-size: 10px;">
-            <i data-lucide="file-code" style="width: 12px; height: 12px; color: var(--vermilion);"></i> Export JSON
-          </button>
+        <!-- Automated 100K Recon Status Card -->
+        <div style="background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px; margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <b style="color: var(--bone); font-size: 11px;">Daily 100K Reputation Recon</b>
+            <span id="sanc-recon-tag" class="badge badge-muted" style="font-size: 8px;">CONFIGURED</span>
+          </div>
+          <div id="sanc-recon-detail" style="font-size: 10px; color: var(--muted); margin-top: 4px; font-family: monospace;">
+            Schedule: Daily &bull; Target: 100,000 msgs &bull; Next: Pending sync
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <button onclick="switchViewMode('warroom'); setTimeout(() => switchSubTab('recon'), 150);" class="btn-xs-outline" style="font-size: 8.5px; padding: 2px 7px;">Open Recon Panel</button>
+          </div>
+        </div>
+
+        <!-- Active Jobs Mini-List -->
+        <div id="sanc-active-jobs-list" style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="text-align: center; color: var(--muted); font-size: 10px; padding: 12px;">No active background jobs running.</div>
         </div>
       </div>
 
-      <!-- Quick Filter Chips -->
-      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
-        <button onclick="quickSelect('ghosts')" class="kage-btn-outline">👻 Ghosts (≥60)</button>
-        <button onclick="quickSelect('scam')" class="kage-btn-outline">🚨 Suspicious (≥40)</button>
-        <button onclick="quickSelect('bots')" class="kage-btn-outline">🤖 Bots</button>
-        <button onclick="quickSelect('premium')" class="kage-btn-outline">💎 Premium</button>
-        <button onclick="quickSelect('admins')" class="kage-btn-outline">🛡️ Admins</button>
-        <button onclick="quickSelect('all')" class="kage-btn-outline">Select All</button>
-        <button onclick="quickSelect('clear')" class="kage-btn-outline">Deselect</button>
-      </div>
-
-      <!-- Search Input -->
-      <div style="margin-bottom: 16px;">
-        <input type="text" id="table-search" oninput="filterTable(this.value)" placeholder="Search members by username, full name, or Telegram ID..." class="kage-input font-mono">
-      </div>
-
-      <!-- Responsive Member Table -->
-      <div style="overflow-x: auto; max-height: 480px; overflow-y: auto;">
-        <table class="kage-table font-mono">
-          <thead>
-            <tr>
-              <th style="width: 40px;"><input type="checkbox" onchange="toggleSelectAll(this.checked)" style="accent-color: var(--vermilion);"></th>
-              <th>Participant</th>
-              <th>Username</th>
-              <th>User ID</th>
-              <th>Last Seen</th>
-              <th>Ghost Score</th>
-              <th>Risk Score</th>
-              <th style="text-align: right;">Action</th>
-            </tr>
-          </thead>
-          <tbody id="member-table-body">
-            <tr>
-              <td colspan="8" style="text-align: center; padding: 40px; color: var(--muted); font-family: 'Onest', sans-serif;">
-                No participants scanned yet. Select a target entity in <b>The Sanmon</b> above and click <b>Deep Forensic Scan</b>.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- CHAPTER III: SACRED CRAFT -->
-  <section class="sec" id="lessons">
-    <div class="sec-head">
-      <span class="k"><b>03</b> — Sacred Craft</span>
-      <span class="rule"></span>
-      <span class="k jp">手業</span>
-    </div>
-    <div class="cur-head">
-      <h2 class="display h-sec">Five chapters. Ninety minutes. One quiet mind.</h2>
-      <p class="body-lg">Each chapter is a walk, not a lecture. You arrive at the gate, climb the steps, sit with the lantern, and leave with one thing worth keeping.</p>
-    </div>
-    
-    <!-- 5 Iconic Kage Curriculum Rites (Integrated with Bot Modules) -->
-    <div class="cur">
-      
-      <!-- Rite 01: Raid Surge Bouncer -->
-      <div class="les">
-        <span class="k">01</span>
-        <h3>The Hidden Gate<em class="jp">山門</em></h3>
-        <p>Why a gate is a sentence: instant bouncer for scam keywords &amp; join surges.</p>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
-          <button onclick="toggleSentinelShield()" id="sentinel-power-btn" class="kage-btn-outline" style="font-size: 10px; padding: 6px 14px;">
-            DISENGAGED
-          </button>
-          <button onclick="openSentinelModal()" class="kage-btn-pill" title="Inspect Sentinel Telemetry">
-            <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
-          </button>
+      <!-- Live Operational Audit Stream -->
+      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-radius: 4px; padding: 16px; flex: 1; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div class="eyebrow" style="color: var(--bone); font-size: 10px;">OPERATIONAL ACTIVITY FEED // 活動履歴</div>
+          <span class="badge badge-emerald" style="font-size: 8px;">LIVE</span>
+        </div>
+        <div id="sanc-activity-stream" style="flex: 1; min-height: 220px; max-height: 340px; overflow-y: auto; background: rgba(5,7,10,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 10px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="color: var(--muted); text-align: center; padding: 20px;">Synchronizing activity log...</div>
         </div>
       </div>
 
-      <!-- Rite 02: Community Pillars -->
-      <div class="les">
-        <span class="k">02</span>
-        <h3>Borrowed Scenery<em class="jp">借景</em></h3>
-        <p>Shakkei: composing with the most active contributors who sustain your chat.</p>
-        <div style="display: flex; justify-content: flex-end;">
-          <button onclick="openPillarsModal()" class="kage-btn-secondary" style="font-size: 10px; padding: 7px 16px;">
-            Inspect Pillars ↗
-          </button>
+      <!-- Cyber Terminal REPL -->
+      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-radius: 4px; padding: 14px; font-family: 'JetBrains Mono', monospace;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span class="eyebrow" style="color: var(--vermilion); font-size: 9px;"><span class="dot"></span> SOVEREIGN TERMINAL CLI</span>
+          <span style="font-size: 9px; color: var(--muted);">Direct Kernel Directive</span>
         </div>
-      </div>
-
-      <!-- Rite 03: Service Sweeper -->
-      <div class="les">
-        <span class="k">03</span>
-        <h3>Charred Cypress<em class="jp">焼杉</em></h3>
-        <p>Yakisugi: burning clutter away so clean discourse will thrive.</p>
-        <div style="display: flex; justify-content: flex-end;">
-          <button onclick="openSweeperModal()" class="kage-btn-secondary" style="font-size: 10px; padding: 7px 16px;">
-            Sweep Clutter ↗
-          </button>
-        </div>
-      </div>
-
-      <!-- Rite 04: High-Value Leads -->
-      <div class="les">
-        <span class="k">04</span>
-        <h3>Lantern Light<em class="jp">灯籠</em></h3>
-        <p>How a single ember decides the scale of everything around it.</p>
-        <div style="display: flex; justify-content: flex-end;">
-          <button onclick="openLeadsModal()" class="kage-btn-secondary" style="font-size: 10px; padding: 7px 16px;">
-            Extract Leads ↗
-          </button>
-        </div>
-      </div>
-
-      <!-- Rite 05: Emergency Silence -->
-      <div class="les">
-        <span class="k">05</span>
-        <h3>The Vermilion Moon<em class="jp">朱月</em></h3>
-        <p>When the valley burns: immediate lockdown muting all standard participants.</p>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
-          <button onclick="triggerLockdown()" class="kage-btn" style="font-size: 10px; padding: 7px 14px; background: var(--vermilion);">
-            🔒 Lockdown
-          </button>
-          <button onclick="triggerUnlock()" class="kage-btn-secondary" style="font-size: 10px; padding: 7px 14px;">
-            🔓 Unlock
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- CHAPTER IV: AFTERLIGHT -->
-  <section class="sec fin" id="eternity">
-    <div class="eyebrow">Chapter 04 — Afterlight</div>
-    <h2 class="display">Afterlight</h2>
-    <p class="body-lg">The gate does not close behind you. Take the walk whenever the noise gets loud — it is always the same path, and never the same light.</p>
-    
-    <div class="cta-group">
-      <button onclick="openTerminalModal()" class="cta cta-primary">
-        <i data-lucide="terminal" style="width: 14px; height: 14px;"></i>
-        <span>Option 1: Terminal Mode</span>
-      </button>
-      <button onclick="toggleReplShell()" class="cta">
-        <i data-lucide="command" style="width: 14px; height: 14px;"></i>
-        <span>Option 2: Cyber REPL</span>
-      </button>
-      <a class="cta" href="#top">
-        <span>Begin the walk ↑</span>
-      </a>
-    </div>
-
-    <!-- Cyber REPL Container (Seamlessly Integrated) -->
-    <div id="cyber-repl-container" class="kage-box" style="margin-top: 50px; max-width: 820px; width: 100%; text-align: left; display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px;">
-        <div>
-          <span class="eyebrow"><span class="dot"></span> SOVEREIGN REPL SHELL</span>
-          <h4 class="display" style="font-size: 18px; color: var(--bone); margin-top: 4px;">Direct MTProto Command Kernel</h4>
-        </div>
-        <span class="badge badge-muted">MTPROTO ACTIVE</span>
-      </div>
-
-      <div class="font-mono" style="background: #030507; border: 1px solid var(--line); border-radius: 2px; padding: 18px;">
-        <div id="repl-screen" style="height: 240px; overflow-y: auto; font-size: 12px; line-height: 1.7; color: var(--bone-dim);">
-          <div style="color: var(--vermilion);">影の道 // KAGE SOVEREIGN KERNEL ACTIVE.</div>
-          <div style="color: var(--muted);">Direct socket connection to Telegram MTProto Gateway.</div>
-          <div style="color: var(--muted);">Type 'help' to inspect command directives.</div>
-        </div>
-
-        <div style="display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--line-soft); padding-top: 12px; margin-top: 12px;">
-          <span style="color: var(--vermilion); font-size: 12px; font-weight: 500;">operator@kage:~$</span>
-          <input type="text" id="repl-input" onkeydown="handleReplKey(event)" placeholder="e.g. scan, sweep, leads, shield on, lockdown, warn <id>..." style="flex: 1; background: transparent; border: none; color: var(--bone); outline: none; font-size: 12px;">
-          <button onclick="executeReplCommand()" class="kage-btn" style="padding: 6px 16px; font-size: 10px;">Send</button>
+        <div style="display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.4); border: 1px solid var(--line-soft); border-radius: 3px; padding: 4px 8px;">
+          <span style="color: var(--vermilion); font-size: 11px;">kage&gt;</span>
+          <input type="text" id="sanc-repl-input" onkeydown="if(event.key==='Enter') executeSancReplCommand()" placeholder="commands: scan, sweep, siphon, dispatch, health, logout" style="flex: 1; background: transparent; border: none; color: var(--bone); outline: none; font-size: 11px; font-family: monospace;">
+          <button onclick="executeSancReplCommand()" class="act-pill" style="font-size: 9px; padding: 2px 8px;">EXEC</button>
         </div>
       </div>
     </div>
-  </section>
-
-  <!-- FOOTER -->
-  <footer class="foot">
-    <div class="foot-grid">
-      <div class="foot-brand">
-        <svg viewBox="0 0 44 44" fill="none" width="34" height="34">
-          <circle cx="22" cy="25" r="8.6" fill="#e0231c" fill-opacity=".9"/>
-          <path d="M5 13h34M9 18.4h26M22 8.5v27" stroke="#dfe7e0" stroke-width="1.5"/>
-        </svg>
-        <p>A five-chapter night walk through a Kyoto mountain temple. Three illustrated garden field notes sit inside a live Three.js sanctuary.</p>
-      </div>
-      <div>
-        <h4>Chapters</h4>
-        <ul>
-          <li><a href="#gate">The Sanmon</a></li>
-          <li><a href="#pathways">Still Gardens</a></li>
-          <li><a href="#lessons">Sacred Craft</a></li>
-          <li><a href="#eternity">Afterlight</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Rites &amp; Defense</h4>
-        <ul>
-          <li><a href="#lessons" onclick="openSentinelModal()">Sentinel Bouncer</a></li>
-          <li><a href="#lessons" onclick="openPillarsModal()">Community Pillars</a></li>
-          <li><a href="#lessons" onclick="openSweeperModal()">Service Sweeper</a></li>
-          <li><a href="#lessons" onclick="openLeadsModal()">Lead Extraction</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Execution Modes</h4>
-        <ul>
-          <li><a href="javascript:void(0)" onclick="openTerminalModal()">Option 1: Terminal TUI</a></li>
-          <li><a href="javascript:void(0)" onclick="toggleReplShell()">Option 2: Cyber REPL</a></li>
-          <li><a href="javascript:void(0)" onclick="fetchDialogs()">Synchronize MTProto</a></li>
-          <li><a href="#top">Return to Summit ↑</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="foot-base">
-      <span>&copy; 2026 Kage — Kage no Michi</span>
-      <span class="jp">静けさは一つの技である</span>
-      <span>WebGL &middot; Onest &middot; Kyoto</span>
-    </div>
-  </footer>
+  </div>
 
 </div>
 
@@ -7781,45 +7597,144 @@ body.theme-light .kage-btn.secondary {
   </div>
 </div>
 
-<!-- MODAL: SERVICE SWEEPER -->
-<div id="sweeper-modal" class="kage-modal-overlay" style="display: none;" onclick="closeSweeperModal(event)">
-  <div class="kage-modal font-mono" style="padding: 30px;">
-    <div class="mob-sheet-handle" onclick="closeSweeperModal()" title="Tap to close sheet"></div>
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 20px;">
-      <div>
-        <span class="eyebrow" style="color: var(--vermilion);"><span class="dot"></span> RITE 03 // SERVICE SWEEPER</span>
-        <h3 class="display" style="font-size: 20px; color: var(--bone); margin-top: 4px;">Wipe Join, Leave &amp; Pin Clutter</h3>
+<!-- MODAL: SERVICE SWEEPER & SYSTEM MAINTENANCE WORKSPACE -->
+<div id="sweeper-modal" class="kage-modal-overlay" style="display: none; z-index: 10002;" onclick="closeSweeperModal(event)">
+  <div class="kage-modal font-mono" style="padding: 24px; max-width: 960px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line);">
+    <div class="mob-sheet-handle" onclick="closeSweeperModalDirect()" title="Tap to close sheet"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(239,68,68,0.15); border: 1px solid #ef4444; display: grid; place-items: center; flex-shrink: 0;">
+          <i data-lucide="trash-2" style="width: 18px; height: 18px; color: #ef4444;"></i>
+        </div>
+        <div style="min-width: 0;">
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">SWEEP SERVICE CLUTTER &amp; SYSTEM MAINTENANCE</h4>
+          <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">STORAGE HEALTH &bull; DUPLICATE DETECTION &bull; ORPHAN PRUNING &bull; TELEGRAM SERVICE SWEEPER</span>
+        </div>
       </div>
-      <button onclick="document.getElementById('sweeper-modal').style.display = 'none'" class="kage-btn-pill">✕ Close</button>
+      <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+        <button onclick="inspectSystemClutter()" class="kage-btn-pill" title="Inspect system clutter"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Inspect</span><span class="mob-txt">Inspect</span></button>
+        <button onclick="closeSweeperModalDirect()" class="kage-btn-pill">✕ Close</button>
+      </div>
     </div>
 
-    <div style="margin-bottom: 16px;">
-      <label class="kage-label">TARGET GROUP</label>
-      <select id="sweeper-group-select" onchange="syncGroupSelect(this.value)" class="kage-select font-mono">
-        <option value="">Select group...</option>
-      </select>
-    </div>
+    <!-- 2-Column Cockpit: System Clutter Inspection vs Telegram Service Message Sweeper -->
+    <div class="sweeper-modal-cockpit" style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-height: 0; overflow-y: auto;">
+      
+      <!-- LEFT: SYSTEM STORAGE & DATABASE HYGIENE -->
+      <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span class="eyebrow" style="color: var(--bone); font-size: 10px;">SYSTEM STORAGE &amp; DATA HEALTH</span>
+          <span id="maint-health-pill" class="badge badge-emerald" style="font-size: 8px;">HEALTHY</span>
+        </div>
 
-    <div style="margin-bottom: 20px;">
-      <label class="kage-label">SCAN DEPTH (MESSAGES)</label>
-      <select id="sweeper-limit" class="kage-select font-mono">
-        <option value="500">500 messages</option>
-        <option value="1000">1,000 messages</option>
-        <option value="2500" selected>2,500 messages (Recommended)</option>
-        <option value="5000">5,000 messages (Deep Sweep)</option>
-      </select>
-    </div>
+        <!-- 4 Small Metrics -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;">
+          <div style="background: rgba(8,12,16,0.8); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px;">
+            <div style="font-size: 9px; color: var(--muted);">DATABASE SIZE</div>
+            <div id="maint-db-size" style="font-size: 14px; font-weight: bold; color: var(--bone); margin-top: 2px;">--</div>
+          </div>
+          <div style="background: rgba(8,12,16,0.8); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px;">
+            <div style="font-size: 9px; color: var(--muted);">PREVIEW CACHE</div>
+            <div id="maint-cache-size" style="font-size: 14px; font-weight: bold; color: #38bdf8; margin-top: 2px;">--</div>
+          </div>
+          <div style="background: rgba(8,12,16,0.8); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px;">
+            <div style="font-size: 9px; color: var(--muted);">TEMP DISK USAGE</div>
+            <div id="maint-temp-size" style="font-size: 14px; font-weight: bold; color: var(--bone); margin-top: 2px;">--</div>
+          </div>
+          <div style="background: rgba(8,12,16,0.8); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px;">
+            <div style="font-size: 9px; color: var(--muted);">CLUTTER CANDIDATES</div>
+            <div id="maint-total-clutter" style="font-size: 14px; font-weight: bold; color: #f59e0b; margin-top: 2px;">0 items</div>
+          </div>
+        </div>
 
-    <button onclick="cleanServiceMessages()" id="btn-sweep" class="kage-btn" style="width: 100%; margin-bottom: 20px;">
-      <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Sweep Service Clutter Now
-    </button>
+        <div class="eyebrow" style="color: var(--muted); font-size: 9px; margin-bottom: 8px;">SELECTIVE MAINTENANCE CATEGORIES (SAFE PRUNING)</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; background: rgba(0,0,0,0.3); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px;">
+          <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--bone); cursor: pointer;">
+            <span style="display: inline-flex; align-items: center; gap: 6px;">
+              <input type="checkbox" id="maint-chk-cache" checked>
+              <span>Stale Media Preview Cache</span>
+            </span>
+            <span id="maint-count-cache" style="color: var(--muted); font-size: 10px;">0 files</span>
+          </label>
+          <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--bone); cursor: pointer;">
+            <span style="display: inline-flex; align-items: center; gap: 6px;">
+              <input type="checkbox" id="maint-chk-dup-records" checked>
+              <span>Duplicate Ingestion Records</span>
+            </span>
+            <span id="maint-count-dup-records" style="color: var(--muted); font-size: 10px;">0 dups</span>
+          </label>
+          <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--bone); cursor: pointer;">
+            <span style="display: inline-flex; align-items: center; gap: 6px;">
+              <input type="checkbox" id="maint-chk-dup-logs" checked>
+              <span>Redundant Security Audit Logs</span>
+            </span>
+            <span id="maint-count-dup-logs" style="color: var(--muted); font-size: 10px;">0 dups</span>
+          </label>
+          <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--bone); cursor: pointer;">
+            <span style="display: inline-flex; align-items: center; gap: 6px;">
+              <input type="checkbox" id="maint-chk-sessions" checked>
+              <span>Expired Inactive Sessions</span>
+            </span>
+            <span id="maint-count-sessions" style="color: var(--muted); font-size: 10px;">0 sessions</span>
+          </label>
+          <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--bone); cursor: pointer;">
+            <span style="display: inline-flex; align-items: center; gap: 6px;">
+              <input type="checkbox" id="maint-chk-orphans" checked>
+              <span>Abandoned / Stuck Executions</span>
+            </span>
+            <span id="maint-count-orphans" style="color: var(--muted); font-size: 10px;">0 stuck</span>
+          </label>
+        </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
-      <span class="kage-label">SWEEPER AUDIT LOG</span>
-      <span id="sweeper-total-badge" class="badge badge-vermilion">0 Purged</span>
-    </div>
-    <div id="sweeper-log" style="height: 180px; overflow-y: auto; background: rgba(5,7,10,0.6); border: 1px solid var(--line-soft); padding: 12px; font-size: 11px; line-height: 1.8; color: var(--bone-dim);">
-      <div style="color: var(--muted);">Ready. Click "Sweep Service Clutter Now".</div>
+        <div style="display: flex; gap: 8px; margin-top: auto;">
+          <button type="button" onclick="inspectSystemClutter()" class="btn-xs-outline" style="flex: 1; padding: 7px 10px; font-size: 10px;">
+            <i data-lucide="search" style="width: 11px; height: 11px;"></i> Inspect / Preview
+          </button>
+          <button type="button" onclick="confirmPurgeClutter()" class="kage-btn" style="flex: 1; padding: 7px 10px; font-size: 10px; background: #b91c1c; border-color: #991b1b; color: #fff;">
+            <i data-lucide="trash-2" style="width: 11px; height: 11px;"></i> Purge Selected
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT: TELEGRAM SERVICE MESSAGE SWEEPER -->
+      <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span class="eyebrow" style="color: #ef4444; font-size: 10px;">GROUP SERVICE MESSAGE CLEANER</span>
+          <span id="sweeper-total-badge" class="badge badge-vermilion">0 Purged</span>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+          <label class="kage-label" style="font-size: 9px;">TARGET GROUP</label>
+          <select id="sweeper-group-select" onchange="syncGroupSelect(this.value)" class="kage-select font-mono" style="font-size: 11px; padding: 6px 8px;">
+            <option value="">Select target group...</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label class="kage-label" style="font-size: 9px;">SCAN DEPTH (MESSAGES)</label>
+          <select id="sweeper-limit" class="kage-select font-mono" style="font-size: 11px; padding: 6px 8px;">
+            <option value="500">500 messages</option>
+            <option value="1000">1,000 messages</option>
+            <option value="2500" selected>2,500 messages (Recommended)</option>
+            <option value="5000">5,000 messages (Deep Sweep)</option>
+          </select>
+        </div>
+
+        <!-- Preview & Clean Buttons -->
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <button type="button" onclick="previewServiceClutter()" id="btn-preview-sweep" class="btn-xs-outline" style="flex: 1; padding: 8px 10px; font-size: 10px;">
+            <i data-lucide="eye" style="width: 12px; height: 12px;"></i> Preview Service Noise
+          </button>
+          <button type="button" onclick="cleanServiceMessages()" id="btn-sweep" class="kage-btn" style="flex: 1; padding: 8px 10px; font-size: 10px; background: #dc2626; border-color: #b91c1c; color: #fff;">
+            <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i> Sweep Now
+          </button>
+        </div>
+
+        <div class="eyebrow" style="color: var(--muted); font-size: 9px; margin-bottom: 6px;">SWEEPER AUDIT &amp; EXECUTION LOG</div>
+        <div id="sweeper-log" style="flex: 1; min-height: 140px; max-height: 200px; overflow-y: auto; background: rgba(5,7,10,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px; font-size: 10px; line-height: 1.6; color: var(--bone-dim); font-family: 'JetBrains Mono', monospace;">
+          <div style="color: var(--muted);">Ready. Click "Preview Service Noise" to check without deleting, or "Sweep Now" to clean.</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -8392,21 +8307,23 @@ body.theme-light .kage-btn.secondary {
   </div>
 </div>
 
-<!-- MODAL: SIGNAL & IOC ENTITY RADAR -->
+<!-- MODAL: THREAT INTELLIGENCE RADAR -->
 <div id="entities-modal" class="kage-modal-overlay" style="display: none; z-index: 10002;" onclick="closeEntitiesModal(event)">
   <div class="kage-modal font-mono" style="padding: 24px; max-width: 950px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line);">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(16,185,129,0.15); border: 1px solid #10b981; display: grid; place-items: center;">
-          <i data-lucide="wallet" style="width: 18px; height: 18px; color: #10b981;"></i>
+    <div class="mob-sheet-handle" onclick="closeEntitiesModalDirect()" title="Tap to close sheet"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; display: grid; place-items: center; flex-shrink: 0;">
+          <i data-lucide="shield-alert" style="width: 18px; height: 18px; color: #38bdf8;"></i>
         </div>
-        <div>
-          <h4 class="display" style="font-size: 17px; color: var(--bone); margin: 0;">SIGNAL &amp; IOC ENTITY RADAR</h4>
-          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">REAL-TIME EXTRACTION OF CRYPTO WALLETS, TELEGRAM INVITES &amp; CASHTAGS</span>
+        <div style="min-width: 0;">
+          <h4 class="display" style="font-size: 17px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">THREAT INTELLIGENCE RADAR</h4>
+          <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">PROVENANCE-INDEXED IOC DETECTION &bull; SUSPICIOUS DOMAINS &bull; ATTRIBUTED TELEGRAM SIGNATURES</span>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button onclick="refreshEntitiesRadar()" class="kage-btn-pill" title="Refresh signal feed"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> Sync</button>
+      <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+        <button onclick="exportRadarIndicators()" class="kage-btn-pill" style="border-color: rgba(56,189,248,0.4); color: #38bdf8;" title="Export indicators as CSV"><i data-lucide="download" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Export CSV</span><span class="mob-txt">CSV</span></button>
+        <button onclick="refreshEntitiesRadar()" class="kage-btn-pill" title="Refresh intelligence feed"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Sync</span><span class="mob-txt">Sync</span></button>
         <button onclick="closeEntitiesModalDirect()" class="kage-btn-pill">✕ Close</button>
       </div>
     </div>
@@ -8414,22 +8331,20 @@ body.theme-light .kage-btn.secondary {
     <!-- Filter Buttons & Search Bar -->
     <div style="display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;">
       <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-        <button id="ent-tab-all" onclick="setEntityFilter('all')" class="kage-btn-outline active" style="padding: 5px 10px; font-size: 10px;">ALL SIGNALS (<span id="ent-count-all">0</span>)</button>
-        <button id="ent-tab-crypto_sol" onclick="setEntityFilter('crypto_sol')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #c084fc; border-color: rgba(192,132,252,0.4);">SOLANA (<span id="ent-count-sol">0</span>)</button>
-        <button id="ent-tab-crypto_eth" onclick="setEntityFilter('crypto_eth')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #60a5fa; border-color: rgba(96,165,250,0.4);">EVM/ETH (<span id="ent-count-eth">0</span>)</button>
-        <button id="ent-tab-crypto_btc" onclick="setEntityFilter('crypto_btc')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #fbbf24; border-color: rgba(251,191,36,0.4);">BITCOIN (<span id="ent-count-btc">0</span>)</button>
-        <button id="ent-tab-crypto_ton" onclick="setEntityFilter('crypto_ton')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #38bdf8; border-color: rgba(56,189,248,0.4);">TON (<span id="ent-count-ton">0</span>)</button>
-        <button id="ent-tab-tg_invite" onclick="setEntityFilter('tg_invite')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #34d399; border-color: rgba(52,211,153,0.4);">TG INVITES (<span id="ent-count-invite">0</span>)</button>
-        <button id="ent-tab-cashtag" onclick="setEntityFilter('cashtag')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #f43f5e; border-color: rgba(244,63,94,0.4);">CASHTAGS (<span id="ent-count-cashtag">0</span>)</button>
+        <button id="radar-tab-all" onclick="setRadarFilter('all')" class="kage-btn-outline active" style="padding: 5px 10px; font-size: 10px;">ALL INDICATORS (<span id="radar-count-all">0</span>)</button>
+        <button id="radar-tab-url" onclick="setRadarFilter('url')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #38bdf8; border-color: rgba(56,189,248,0.4);">SUSPICIOUS URLS (<span id="radar-count-url">0</span>)</button>
+        <button id="radar-tab-invite" onclick="setRadarFilter('invite')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #34d399; border-color: rgba(52,211,153,0.4);">TG INVITES (<span id="radar-count-invite">0</span>)</button>
+        <button id="radar-tab-cashtag" onclick="setRadarFilter('cashtag')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #fb7185; border-color: rgba(251,113,133,0.4);">CASHTAGS (<span id="radar-count-cashtag">0</span>)</button>
+        <button id="radar-tab-signature" onclick="setRadarFilter('signature')" class="kage-btn-outline" style="padding: 5px 10px; font-size: 10px; color: #fbbf24; border-color: rgba(251,191,36,0.4);">SIGNATURES (<span id="radar-count-sig">0</span>)</button>
       </div>
       <div style="flex: 1; min-width: 180px;">
-        <input type="text" id="ent-search-input" oninput="renderEntitiesFeed()" placeholder="Search address, ticker, domain, sender..." class="kage-input font-mono" style="padding: 5px 10px; font-size: 11px; width: 100%;">
+        <input type="text" id="radar-search-input" oninput="renderRadarFeed()" placeholder="Search domain, url, keyword, sender..." class="kage-input font-mono" style="padding: 5px 10px; font-size: 11px; width: 100%;">
       </div>
     </div>
 
-    <!-- Live Extracted Signals Feed -->
+    <!-- Live Extracted Intelligence Feed -->
     <div id="entities-feed-container" style="flex: 1; overflow-y: auto; border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; background: rgba(5,7,10,0.6); display: flex; flex-direction: column; gap: 8px;">
-      <div style="text-align: center; color: var(--muted); padding: 40px;">Scanning incoming MTProto streams for intelligence entities...</div>
+      <div style="text-align: center; color: var(--muted); padding: 40px;">Scanning incoming MTProto streams for intelligence indicators...</div>
     </div>
   </div>
 </div>
@@ -8520,9 +8435,9 @@ body.theme-light .kage-btn.secondary {
   </div>
 </div>
 
-<!-- MODAL: AUTONOMOUS SIGNAL SIPHON -->
+<!-- MODAL: AUTONOMOUS SIPHON MATRIX (AUTHORIZED INTELLIGENCE INGESTION) -->
 <div id="siphon-modal" class="kage-modal-overlay" style="display: none; z-index: 10002;" onclick="closeSiphonModal(event)">
-  <div class="kage-modal font-mono" style="padding: 24px; max-width: 950px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line);">
+  <div class="kage-modal font-mono" style="padding: 24px; max-width: 1000px; width: 95vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line);">
     <div class="mob-sheet-handle" onclick="closeSiphonModalDirect()" title="Tap to close sheet"></div>
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px; gap: 8px;">
       <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
@@ -8530,56 +8445,89 @@ body.theme-light .kage-btn.secondary {
           <i data-lucide="send" style="width: 18px; height: 18px; color: #38bdf8;"></i>
         </div>
         <div style="min-width: 0;">
-          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">SIGNAL SIPHON MATRIX</h4>
-          <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">REAL-TIME PHONE PUSH • TELEGRAM SAVED MESSAGES</span>
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">AUTONOMOUS SIPHON MATRIX</h4>
+          <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">AUTHORIZED TELEGRAM INTELLIGENCE INGESTION &bull; PERSISTENT RECORD ARCHIVE</span>
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-        <button onclick="testSiphonPing()" class="kage-btn-pill" style="color: #38bdf8; border-color: rgba(56,189,248,0.4);" title="Test Saved Messages phone push notification">
-          <i data-lucide="smartphone" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Test Phone Push</span><span class="mob-txt">Test Push</span>
-        </button>
-        <button onclick="refreshSiphonData()" class="kage-btn-pill" title="Refresh rules and logs"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Sync</span><span class="mob-txt">Sync</span></button>
+        <button onclick="exportSiphonRecords()" class="kage-btn-pill" style="border-color: rgba(56,189,248,0.4); color: #38bdf8;" title="Export collected records to CSV"><i data-lucide="download" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Export CSV</span><span class="mob-txt">CSV</span></button>
+        <button onclick="refreshSiphonData()" class="kage-btn-pill" title="Refresh jobs and records"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Sync</span><span class="mob-txt">Sync</span></button>
         <button onclick="closeSiphonModalDirect()" class="kage-btn-pill">✕ Close</button>
       </div>
     </div>
 
-    <!-- Add Siphon Target Bar -->
-    <div class="siphon-arm-bar" style="background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; margin-bottom: 14px;">
-      <div class="eyebrow" style="margin-bottom: 8px; color: var(--bone); font-size: 10px;">+ ARM NEW AUTONOMOUS SIPHON ROUTE</div>
-      <div class="siphon-arm-inputs" style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <input type="text" id="siphon-name-input" placeholder="Rule Name (e.g. 'Solana Alpha', 'Whale Alert')" class="kage-input font-mono" style="flex: 1; min-width: 140px; font-size: 11px; padding: 6px 10px;">
-        <select id="siphon-type-select" onchange="toggleSiphonValField(this.value)" class="kage-select font-mono" style="width: 170px; font-size: 11px; padding: 6px 10px;">
-          <option value="crypto">CRYPTO WALLETS (ANY)</option>
-          <option value="all_deleted">ALL DELETED MESSAGES</option>
-          <option value="keyword">KEYWORD MATCH</option>
-          <option value="user">TARGET USER ID / HANDLE</option>
+    <!-- 4-Stat Live Ingestion Counter -->
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;">
+      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #38bdf8; border-radius: 3px; padding: 8px 10px;">
+        <div style="font-size: 8.5px; color: #38bdf8; letter-spacing: 0.08em;">MESSAGES COLLECTED</div>
+        <div id="siphon-stat-collected" style="font-size: 16px; font-weight: bold; color: var(--bone); margin-top: 2px;">0</div>
+      </div>
+      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #10b981; border-radius: 3px; padding: 8px 10px;">
+        <div style="font-size: 8.5px; color: #10b981; letter-spacing: 0.08em;">PROCESSED RECORDS</div>
+        <div id="siphon-stat-processed" style="font-size: 16px; font-weight: bold; color: var(--bone); margin-top: 2px;">0</div>
+      </div>
+      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #f59e0b; border-radius: 3px; padding: 8px 10px;">
+        <div style="font-size: 8.5px; color: #f59e0b; letter-spacing: 0.08em;">PENDING QUEUE</div>
+        <div id="siphon-stat-pending" style="font-size: 16px; font-weight: bold; color: var(--bone); margin-top: 2px;">0</div>
+      </div>
+      <div style="background: rgba(8,12,16,0.85); border: 1px solid var(--line-soft); border-left: 3px solid #ef4444; border-radius: 3px; padding: 8px 10px;">
+        <div style="font-size: 8.5px; color: #ef4444; letter-spacing: 0.08em;">FAILED INGESTIONS</div>
+        <div id="siphon-stat-failed" style="font-size: 16px; font-weight: bold; color: var(--bone); margin-top: 2px;">0</div>
+      </div>
+    </div>
+
+    <!-- Configure & Launch Siphon Ingestion Job -->
+    <div style="background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; margin-bottom: 14px;">
+      <div class="eyebrow" style="margin-bottom: 8px; color: var(--bone); font-size: 10px;">+ LAUNCH AUTHORIZED INGESTION JOB</div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <select id="siphon-source-select" class="kage-select font-mono" style="flex: 1.5; min-width: 170px; font-size: 11px; padding: 6px 8px;">
+          <option value="">Select authorized target group...</option>
         </select>
-        <input type="text" id="siphon-val-input" placeholder="Value (e.g. 'airdrop', '0x...', '@handle')" class="kage-input font-mono" style="flex: 1.5; min-width: 160px; font-size: 11px; padding: 6px 10px; display: none;">
-        <button type="button" onclick="addSiphonRule()" class="kage-btn" style="padding: 6px 16px; font-size: 11px; background: #0284c7; border-color: #0369a1; color: #fff; font-weight: bold;">
-          + ARM SIPHON
+        <select id="siphon-limit-select" class="kage-select font-mono" style="width: 130px; font-size: 11px; padding: 6px 8px;">
+          <option value="100">100 msgs</option>
+          <option value="500" selected>500 msgs</option>
+          <option value="1000">1,000 msgs</option>
+          <option value="5000">5,000 msgs</option>
+          <option value="10000">10,000 msgs</option>
+        </select>
+        <select id="siphon-type-select" class="kage-select font-mono" style="width: 120px; font-size: 11px; padding: 6px 8px;">
+          <option value="all">All Types</option>
+          <option value="text">Text Only</option>
+          <option value="photo">Photos</option>
+          <option value="video">Videos</option>
+          <option value="document">Documents</option>
+        </select>
+        <input type="text" id="siphon-keyword-input" placeholder="Keyword filter (optional)" class="kage-input font-mono" style="flex: 1; min-width: 140px; font-size: 11px; padding: 6px 8px;">
+        <button type="button" onclick="startSiphonCollection()" id="btn-start-siphon" class="kage-btn" style="padding: 6px 14px; font-size: 11px; background: #0284c7; border-color: #0369a1; color: #fff; font-weight: bold;">
+          + START INGESTION
         </button>
       </div>
     </div>
 
-    <!-- 2-Column: Active Rules vs Siphon Log -->
-    <div class="siphon-modal-cockpit" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; gap: 14px; min-height: 0; overflow: hidden;">
+    <!-- 2-Column: Active & Historic Jobs vs Collected Records -->
+    <div class="siphon-modal-cockpit" style="flex: 1; display: grid; grid-template-columns: 340px 1fr; gap: 14px; min-height: 0; overflow: hidden;">
+      
+      <!-- LEFT: INGESTION JOBS ROSTER -->
       <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 12px; overflow: hidden;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <span class="eyebrow" style="color: var(--bone); font-size: 10px;">ACTIVE SIPHON ROUTES</span>
-          <span id="siphon-rules-count" class="badge badge-muted" style="font-size: 9px;">0 Active</span>
+          <span class="eyebrow" style="color: var(--bone); font-size: 10px;">INGESTION JOBS &amp; CHECKPOINTS</span>
+          <span id="siphon-jobs-count" class="badge badge-muted" style="font-size: 9px;">0 Jobs</span>
         </div>
-        <div id="siphon-rules-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
-          <div style="text-align: center; color: var(--muted); padding: 24px;">No active siphon routes.</div>
+        <div id="siphon-jobs-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+          <div style="text-align: center; color: var(--muted); padding: 24px;">No siphon collection jobs recorded yet.</div>
         </div>
       </div>
 
+      <!-- RIGHT: COLLECTED INTELLIGENCE RECORDS FEED -->
       <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 12px; overflow: hidden;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <span class="eyebrow" style="color: #38bdf8; font-size: 10px;">DISPATCH LOG (PUSHED TO SAVED MESSAGES)</span>
-          <span id="siphon-logs-count" class="badge badge-emerald" style="font-size: 9px;">0 Dispatches</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+          <span class="eyebrow" style="color: #38bdf8; font-size: 10px;">PERSISTENT COLLECTED RECORDS FEED</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span id="siphon-records-count" class="badge badge-emerald" style="font-size: 9px;">0 Records</span>
+          </div>
         </div>
-        <div id="siphon-logs-feed" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-          <div style="text-align: center; color: var(--muted); padding: 24px;">Awaiting siphon triggers...</div>
+        <div id="siphon-records-feed" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <div style="text-align: center; color: var(--muted); padding: 24px;">Awaiting collected intelligence records...</div>
         </div>
       </div>
     </div>
@@ -8619,61 +8567,122 @@ body.theme-light .kage-btn.secondary {
 
 <div id="toast-container"></div>
 
-<!-- MODAL: STEALTH HUMANIZED MULTI-GROUP BROADCAST -->
-<div id="stealth-broadcast-modal" class="kage-modal-overlay" style="display: none; z-index: 10003;" onclick="if(event.target===this) closeStealthBroadcastModal()">
-  <div class="kage-modal font-mono" style="padding: 24px; max-width: 680px; width: 94vw; background: #080c10; border: 1px solid var(--line);">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 18px;">
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <div style="width: 34px; height: 34px; border-radius: 50%; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; display: grid; place-items: center;">
-          <i data-lucide="send" style="width: 16px; height: 16px; color: #38bdf8;"></i>
+<!-- MODAL: MULTI-GROUP DISPATCHER (CONTROLLED MULTI-DESTINATION MESSAGING) -->
+<div id="dispatch-modal" class="kage-modal-overlay" style="display: none; z-index: 10003;" onclick="if(event.target===this) closeDispatchModal()">
+  <div class="kage-modal font-mono" style="padding: 24px; max-width: 820px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line);">
+    <div class="mob-sheet-handle" onclick="closeDispatchModal()" title="Tap to close sheet"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; display: grid; place-items: center; flex-shrink: 0;">
+          <i data-lucide="send" style="width: 18px; height: 18px; color: #38bdf8;"></i>
         </div>
-        <div>
-          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0;">STEALTH MULTI-GROUP DISPATCHER // 隠密一斉送信</h4>
-          <span class="eyebrow" style="color: var(--muted); font-size: 9px;">NON-ADMIN HUMANIZED SPREAD • TYPING EMULATION TO BYPASS SPAM FILTERS</span>
+        <div style="min-width: 0;">
+          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">MULTI-GROUP DISPATCHER // 認可一斉配信</h4>
+          <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">AUTHORIZED DESTINATIONS &bull; CONTROLLED INTERVALS &bull; REAL DELIVERY TELEMETRY</span>
         </div>
       </div>
-      <button onclick="closeStealthBroadcastModal()" class="kage-btn-pill">✕ Close</button>
-    </div>
-
-    <!-- Group Selection Checkboxes -->
-    <div style="margin-bottom: 14px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <span class="kage-label">SELECT DESTINATION GROUPS</span>
-        <button type="button" onclick="toggleSelectAllStealthGroups()" class="btn-xs-outline" id="btn-toggle-all-groups">Select All</button>
-      </div>
-      <div id="stealth-groups-list" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px 10px; background: rgba(5,7,10,0.6); display: flex; flex-direction: column; gap: 6px;">
-        <div style="color: var(--muted); font-size: 11px;">Loading available groups...</div>
+      <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+        <button onclick="loadDispatchHistory()" class="kage-btn-pill" title="Refresh delivery jobs"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Sync</span><span class="mob-txt">Sync</span></button>
+        <button onclick="closeDispatchModal()" class="kage-btn-pill">✕ Close</button>
       </div>
     </div>
 
-    <!-- Message Content -->
-    <div style="margin-bottom: 14px;">
-      <span class="kage-label">MESSAGE CONTENT (SUPPORTS TELEGRAM MARKDOWN)</span>
-      <textarea id="stealth-broadcast-text" rows="4" class="kage-input font-mono" style="width: 100%; padding: 10px; font-size: 12px; margin-top: 4px;" placeholder="Type announcement or alpha call to dispatch..."></textarea>
+    <!-- Active Delivery Banner (Hidden when idle) -->
+    <div id="dispatch-active-banner" style="display: none; background: rgba(56,189,248,0.08); border: 1px solid #38bdf8; border-radius: 4px; padding: 10px 14px; margin-bottom: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="live-dot-pulse"></span>
+          <b style="color: #38bdf8; font-size: 11px;" id="dispatch-banner-title">DISPATCH JOB IN PROGRESS</b>
+          <span id="dispatch-banner-stats" style="font-size: 10px; color: var(--bone);">0/0 sent</span>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button onclick="stopActiveDispatchJob()" class="btn-xs-outline" style="color: #ef4444; border-color: rgba(239,68,68,0.4); font-size: 9px; padding: 2px 8px;">Stop Job</button>
+          <button onclick="retryActiveDispatchFailed()" id="btn-dispatch-retry" class="btn-xs-outline" style="color: #f59e0b; border-color: rgba(245,158,11,0.4); font-size: 9px; padding: 2px 8px; display: none;">Retry Failures</button>
+        </div>
+      </div>
+      <div style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 8px;">
+        <div id="dispatch-progress-bar" style="height: 100%; width: 0%; background: #38bdf8; transition: width 0.3s ease;"></div>
+      </div>
     </div>
 
-    <!-- Humanized Typing Emulation Slider -->
-    <div style="background: rgba(10,14,18,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-      <div>
-        <div style="font-size: 11px; font-weight: 600; color: var(--bone);">Simulated Human Typing Duration</div>
-        <div style="font-size: 10px; color: var(--muted);">Emulates userbot 'typing...' status in chat before dispatching</div>
+    <div style="flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 14px;">
+      
+      <!-- Destination Selection & Parameters -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;" class="dispatch-config-cols">
+        <!-- Authorized Groups Selection -->
+        <div style="border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; background: rgba(5,7,10,0.5);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span class="eyebrow" style="color: var(--bone); font-size: 10px;">AUTHORIZED DESTINATIONS</span>
+            <button type="button" onclick="toggleSelectAllDispatchDestinations()" class="btn-xs-outline" id="btn-toggle-dispatch-all" style="font-size: 9px; padding: 2px 7px;">Select All</button>
+          </div>
+          <div id="dispatch-destinations-list" style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+            <div style="color: var(--muted); font-size: 11px; padding: 10px;">Loading authorized destinations...</div>
+          </div>
+        </div>
+
+        <!-- Controlled Sending Parameters -->
+        <div style="border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; background: rgba(5,7,10,0.5); display: flex; flex-direction: column; gap: 10px;">
+          <span class="eyebrow" style="color: var(--bone); font-size: 10px;">DELIVERY CONTROLS</span>
+          
+          <div>
+            <label class="kage-label" style="font-size: 9px;">BATCH SIZE (DESTINATIONS PER CYCLE)</label>
+            <select id="dispatch-batch-size" class="kage-select font-mono" style="font-size: 11px; padding: 5px 8px;">
+              <option value="1">1 destination per cycle (Safest)</option>
+              <option value="2" selected>2 destinations per cycle (Recommended)</option>
+              <option value="5">5 destinations per cycle (Conservative batch)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="kage-label" style="font-size: 9px;">SENDING INTERVAL (RATE LIMIT PROTECTION)</label>
+            <select id="dispatch-interval-sec" class="kage-select font-mono" style="font-size: 11px; padding: 5px 8px;">
+              <option value="3.0">3.0 seconds (Normal pacing)</option>
+              <option value="5.0" selected>5.0 seconds (Conservative safe pacing)</option>
+              <option value="10.0">10.0 seconds (High-pacing protection)</option>
+              <option value="15.0">15.0 seconds (Ultra-slow staggered drip)</option>
+            </select>
+          </div>
+
+          <div style="font-size: 9px; color: var(--muted); line-height: 1.4; margin-top: auto;">
+            ⚡ <b>Rate-Limit Policy:</b> All messages are delivered sequentially through authorized Telegram client sessions with persistent audit trails.
+          </div>
+        </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <input type="range" id="stealth-typing-slider" min="1" max="8" value="3" oninput="document.getElementById('stealth-typing-val').innerText = this.value + 's'" style="width: 100px; accent-color: #38bdf8;">
-        <b id="stealth-typing-val" style="color: #38bdf8; font-size: 12px; width: 25px;">3s</b>
+
+      <!-- Message Composer -->
+      <div style="border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; background: rgba(5,7,10,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span class="eyebrow" style="color: var(--bone); font-size: 10px;">MESSAGE COMPOSER</span>
+          <span id="dispatch-char-count" style="font-size: 9px; color: var(--muted);">0 characters</span>
+        </div>
+        <textarea id="dispatch-message-text" rows="4" oninput="updateDispatchCharCount()" class="kage-input font-mono" style="width: 100%; padding: 10px; font-size: 12px; resize: vertical;" placeholder="Type broadcast message or announcement text (Telegram markdown formatting supported)..."></textarea>
+      </div>
+
+      <!-- Recent Delivery Logs & Per-Destination Telemetry -->
+      <div style="border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; background: rgba(5,7,10,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span class="eyebrow" style="color: #38bdf8; font-size: 10px;">DELIVERY TELEMETRY &amp; HISTORY</span>
+          <span id="dispatch-history-count" class="badge badge-muted" style="font-size: 9px;">0 Jobs</span>
+        </div>
+        <div id="dispatch-history-list" style="max-height: 140px; overflow-y: auto; font-size: 10px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="text-align: center; color: var(--muted); padding: 14px;">No multi-group dispatch jobs recorded yet.</div>
+        </div>
       </div>
     </div>
 
     <!-- Action Buttons -->
-    <div style="display: flex; gap: 10px; justify-content: flex-end;">
-      <button onclick="closeStealthBroadcastModal()" class="kage-btn-secondary" style="padding: 10px 16px;">Cancel</button>
-      <button id="btn-deploy-stealth-broadcast" onclick="deployStealthBroadcast()" class="kage-btn" style="padding: 10px 20px; background: #0284c7; border-color: #38bdf8; display: inline-flex; align-items: center; gap: 6px;">
-        <i data-lucide="zap" style="width: 13px; height: 13px;"></i>
-        <span>Launch Stealth Dispatch</span>
+    <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 14px; border-top: 1px solid var(--line-soft); margin-top: 10px;">
+      <button onclick="closeDispatchModal()" class="kage-btn-secondary" style="padding: 8px 16px; font-size: 11px;">Cancel</button>
+      <button id="btn-deploy-dispatch" onclick="previewAndConfirmDispatch()" class="kage-btn" style="padding: 8px 20px; font-size: 11px; background: #0284c7; border-color: #38bdf8; display: inline-flex; align-items: center; gap: 6px; font-weight: bold;">
+        <i data-lucide="send" style="width: 13px; height: 13px;"></i>
+        <span>Review &amp; Dispatch</span>
       </button>
     </div>
   </div>
 </div>
+
+<!-- COMPATIBILITY ALIAS FOR OLD DIALOG CALLS -->
+<div id="stealth-broadcast-modal" style="display:none;"></div>
 
 <!-- MODAL: MASTER OWNER OPERATOR CLEARANCE REGISTRY -->
 <div id="operator-clearance-modal" class="kage-modal-overlay" style="display: none; z-index: 10004;" onclick="if(event.target===this) closeOperatorClearanceModal()">
@@ -8976,20 +8985,15 @@ body.theme-light .kage-btn.secondary {
         <b>Drip Outreach</b>
         <span>Mass Message</span>
       </button>
-      <button type="button" onclick="openStealthBroadcastModal(); closeMobileToolsSheet();" class="mobile-tool-card">
+      <button type="button" onclick="openDispatchModal(); closeMobileToolsSheet();" class="mobile-tool-card">
         <i data-lucide="send" style="color: #38bdf8;"></i>
-        <b>Stealth Dispatch</b>
-        <span>Humanized Multi-Group</span>
+        <b>Group Dispatcher</b>
+        <span>Multi-Group Broadcast</span>
       </button>
       <button id="mob-clearance-card" type="button" onclick="openOperatorClearanceModal(); closeMobileToolsSheet();" class="mobile-tool-card" style="display: none; border-color: rgba(56,189,248,0.4);">
         <i data-lucide="shield-check" style="color: #38bdf8;"></i>
         <b>Clearances</b>
         <span>Manage Operators</span>
-      </button>
-      <button type="button" onclick="quickSiphonAllCAs(); closeMobileToolsSheet();" class="mobile-tool-card">
-        <i data-lucide="coins" style="color: #10b981;"></i>
-        <b>Siphon CAs</b>
-        <span>Extract Group Alpha</span>
       </button>
       <button type="button" onclick="showDeviceDiagnostics(); closeMobileToolsSheet();" class="mobile-tool-card">
         <i data-lucide="smartphone"></i>
@@ -10696,41 +10700,191 @@ body.theme-light .kage-btn.secondary {
     downloadFile(csv, `kage_leads_${Date.now()}.csv`, "text/csv;charset=utf-8;");
   }
 
-  // SERVICE SWEEPER
-  async function cleanServiceMessages() {
-    const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first.");
-    const limit = parseInt(document.getElementById('sweeper-limit').value) || 2500;
-    const btn = document.getElementById('btn-sweep');
-    btn.disabled = true;
-    btn.innerText = "Sweeping service clutter...";
-    playSound('click');
+  // SERVICE SWEEPER & SYSTEM MAINTENANCE WORKSPACE
+  function openSweeperModal() {
+    const m = document.getElementById('sweeper-modal');
+    if (!m) return;
+    m.style.display = 'flex';
+    syncSweeperGroupOptions();
+    inspectSystemClutter();
+  }
 
+  function closeSweeperModalDirect() {
+    const m = document.getElementById('sweeper-modal');
+    if (m) m.style.display = 'none';
+  }
+
+  function closeSweeperModal(e) {
+    if (e.target.id === 'sweeper-modal') closeSweeperModalDirect();
+  }
+
+  function syncSweeperGroupOptions() {
+    const sel = document.getElementById('sweeper-group-select');
+    if (!sel) return;
+    const dialogs = window.cachedDialogsList || [];
+    const activeGid = getActiveGroupId();
+    sel.innerHTML = '<option value="">Select target group...</option>' + 
+      dialogs.map(d => `<option value="${d.id}" ${String(d.id) === String(activeGid) ? 'selected' : ''}>${escapeHtml(d.title || 'Chat #' + d.id)}</option>`).join('');
+  }
+
+  async function inspectSystemClutter() {
+    const healthPill = document.getElementById('maint-health-pill');
+    try {
+      const res = await fetch('/api/maintenance/inspect');
+      if (res.ok) {
+        const data = await res.json();
+        const m = data.metrics || {};
+        const c = data.clutter_counts || {};
+
+        const dbEl = document.getElementById('maint-db-size');
+        const cacheEl = document.getElementById('maint-cache-size');
+        const tempEl = document.getElementById('maint-temp-size');
+        const totalEl = document.getElementById('maint-total-clutter');
+
+        if (dbEl) dbEl.innerText = m.database_size_display || '--';
+        if (cacheEl) cacheEl.innerText = m.cache_size_display || '--';
+        if (tempEl) tempEl.innerText = m.temp_size_display || '--';
+        if (totalEl) totalEl.innerText = `${data.total_clutter_detected || 0} items`;
+
+        const countCache = document.getElementById('maint-count-cache');
+        const countDupRec = document.getElementById('maint-count-dup-records');
+        const countDupLogs = document.getElementById('maint-count-dup-logs');
+        const countSess = document.getElementById('maint-count-sessions');
+        const countOrph = document.getElementById('maint-count-orphans');
+
+        if (countCache) countCache.innerText = `${c.stale_cache_files || 0} files`;
+        if (countDupRec) countDupRec.innerText = `${c.duplicate_siphon_records || 0} dups`;
+        if (countDupLogs) countDupLogs.innerText = `${c.duplicate_security_logs || 0} dups`;
+        if (countSess) countSess.innerText = `${c.stale_sessions || 0} sessions`;
+        if (countOrph) countOrph.innerText = `${c.orphaned_executions || 0} stuck`;
+
+        if (healthPill) {
+          healthPill.innerText = (data.total_clutter_detected || 0) > 200 ? 'ATTENTION' : 'HEALTHY';
+          healthPill.className = (data.total_clutter_detected || 0) > 200 ? 'badge badge-amber' : 'badge badge-emerald';
+        }
+      }
+    } catch (e) {
+      console.error('Error inspecting system clutter:', e);
+    }
+  }
+
+  async function confirmPurgeClutter() {
+    const pruneCache = document.getElementById('maint-chk-cache')?.checked || false;
+    const pruneDupRec = document.getElementById('maint-chk-dup-records')?.checked || false;
+    const pruneDupLogs = document.getElementById('maint-chk-dup-logs')?.checked || false;
+    const pruneSessions = document.getElementById('maint-chk-sessions')?.checked || false;
+    const pruneOrphans = document.getElementById('maint-chk-orphans')?.checked || false;
+
+    if (!pruneCache && !pruneDupRec && !pruneDupLogs && !pruneSessions && !pruneOrphans) {
+      showToast('Select at least one maintenance category to prune', 'error');
+      return;
+    }
+
+    const confirmed = confirm('Are you sure you want to purge the selected maintenance categories? Safe audit logs will be preserved.');
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch('/api/maintenance/clean', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prune_cache: pruneCache,
+          prune_duplicate_records: pruneDupRec,
+          prune_duplicate_logs: pruneDupLogs,
+          prune_stale_sessions: pruneSessions,
+          prune_orphaned_jobs: pruneOrphans
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        playZenSound('bell');
+        showToast(`Maintenance complete: Cleaned ${data.total_purged} clutter items!`, 'success');
+        inspectSystemClutter();
+      }
+    } catch (e) {
+      showToast('Maintenance error: ' + e.message, 'error');
+    }
+  }
+
+  async function previewServiceClutter() {
+    const sel = document.getElementById('sweeper-group-select');
+    const gid = sel ? sel.value : getActiveGroupId();
+    if (!gid) {
+      showToast('Select a target group first', 'error');
+      return;
+    }
+    const limit = parseInt(document.getElementById('sweeper-limit')?.value || '2500', 10);
     const logBox = document.getElementById('sweeper-log');
     const addLog = (txt) => {
+      if (!logBox) return;
       const d = document.createElement('div');
       d.innerText = `[${formatLocalTime()}] ${txt}`;
       logBox.appendChild(d);
       logBox.scrollTop = logBox.scrollHeight;
     };
-    addLog(`Initiating service message sweep on group ID ${groupId}... Depth: ${limit} messages.`);
+
+    addLog(`🔍 Previewing service clutter on Group ID ${gid} (Depth: ${limit} msgs)...`);
+    try {
+      const res = await fetch(`/api/maintenance/service_clutter?group_id=${gid}&limit=${limit}`);
+      if (res.ok) {
+        const data = await res.json();
+        addLog(`📊 PREVIEW: Found ${data.total_service_messages} service messages (${data.breakdown?.joins || 0} joins, ${data.breakdown?.leaves || 0} leaves, ${data.breakdown?.pins || 0} pins) in ${data.scanned} scanned.`);
+        showToast(`Preview: ${data.total_service_messages} clutter events identified`, 'info');
+      }
+    } catch (e) {
+      addLog(`[ERROR] Preview failed: ${e.message}`);
+    }
+  }
+
+  async function cleanServiceMessages() {
+    const sel = document.getElementById('sweeper-group-select');
+    const gid = sel ? sel.value : getActiveGroupId();
+    if (!gid) {
+      showToast('Select a target group first', 'error');
+      return;
+    }
+    const limit = parseInt(document.getElementById('sweeper-limit')?.value || '2500', 10);
+    const confirmed = confirm(`Are you sure you want to sweep up to ${limit} service messages from Group ID ${gid}?`);
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btn-sweep');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader" class="hud-spin" style="width: 14px; height: 14px;"></i> Sweeping...`;
+    }
+
+    const logBox = document.getElementById('sweeper-log');
+    const addLog = (txt) => {
+      if (!logBox) return;
+      const d = document.createElement('div');
+      d.innerText = `[${formatLocalTime()}] ${txt}`;
+      logBox.appendChild(d);
+      logBox.scrollTop = logBox.scrollHeight;
+    };
+    addLog(`🧹 Executing service message sweep on Group ID ${gid}...`);
 
     try {
-      const res = await fetch('/api/service_messages/clean', {
+      const res = await fetch('/api/maintenance/service_clutter/purge', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ group_id: parseInt(groupId), limit: limit })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: parseInt(gid, 10), limit: limit })
       });
       const data = await res.json();
-      addLog(`✓ Sweep complete. Purged ${data.purged} clutter events.`);
-      document.getElementById('sweeper-total-badge').innerText = `${data.purged} Purged`;
-      showToast(`Purged ${data.purged} service events`);
-      playSound('blip');
+      if (!res.ok) throw new Error(data.detail || 'Sweep failed');
+
+      addLog(`✓ Sweep complete: Purged ${data.purged} clutter events from group.`);
+      const badge = document.getElementById('sweeper-total-badge');
+      if (badge) badge.innerText = `${data.purged} Purged`;
+      playZenSound('bell');
+      showToast(`Purged ${data.purged} service messages`, 'success');
     } catch (e) {
       addLog(`[ERROR] Sweep failed: ${e.message}`);
+      showToast('Sweep error: ' + e.message, 'error');
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Sweep Service Clutter Now';
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Sweep Now`;
+      }
       safeCreateIcons();
     }
   }
@@ -12743,7 +12897,8 @@ body.theme-light .kage-btn.secondary {
       if (wiretapAutoScroll) {
         updateWiretapScrollButtons(true, 'SCROLL: AUTO');
       }
-      smoothScrollWiretap(stream, targetTop, 240);
+      stream.scrollTop = targetTop;
+      lastWiretapScrollTop = targetTop;
       return;
     }
 
@@ -12756,28 +12911,18 @@ body.theme-light .kage-btn.secondary {
     // Respect user scroll-up pause
     if (!wiretapAutoScroll || userScrolledUpWiretap) return;
 
-    const distFromBottom = targetTop - stream.scrollTop;
-    if (distFromBottom <= 2) {
-      stream.scrollTop = targetTop;
-      lastWiretapScrollTop = targetTop;
-      return;
-    }
-
-    // If large distance accumulated, leap near bottom and glide smoothly
-    if (distFromBottom > 800) {
-      stream.scrollTop = targetTop - 200;
-    }
-
-    smoothScrollWiretap(stream, targetTop, 200);
+    // Stable, rock-solid autoscroll: Directly pin to bottom without animation jitter
+    stream.scrollTop = targetTop;
+    lastWiretapScrollTop = targetTop;
   }
 
   function onWiretapMediaLoaded() {
     if (typeof activeCenterTab !== 'undefined' && activeCenterTab !== 'wiretap') return;
-    if (wiretapAutoScroll && !userScrolledUpWiretap && !isTouchDragging) {
-      if (mediaScrollTimer) clearTimeout(mediaScrollTimer);
-      mediaScrollTimer = setTimeout(() => {
-        scrollWiretapToBottom(false);
-      }, 35);
+    const stream = document.getElementById('wiretap-stream');
+    if (!stream) return;
+    const dist = stream.scrollHeight - stream.clientHeight - stream.scrollTop;
+    if (wiretapAutoScroll && !userScrolledUpWiretap && !isTouchDragging && dist <= 30) {
+      stream.scrollTop = stream.scrollHeight - stream.clientHeight;
     }
   }
 
@@ -12992,6 +13137,10 @@ body.theme-light .kage-btn.secondary {
 
       if (typeof window.startSanctuary3D === 'function') {
         window.startSanctuary3D();
+      }
+
+      if (typeof initSanctuaryDashboard === 'function') {
+        initSanctuaryDashboard();
       }
 
       if (window.updateKageScrollMetrics) {
@@ -13670,52 +13819,18 @@ body.theme-light .kage-btn.secondary {
       </span>
     ` : '');
 
-    // Non-Admin Sovereign Radar: Detect Crypto Contract Addresses (CAs)
-    const rawText = data.text || '';
-    const ethMatch = rawText.match(/\b0x[a-fA-F0-9]{40}\b/);
-    const solMatch = rawText.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/);
-    let detectedCA = null;
-    if (ethMatch) {
-      detectedCA = ethMatch[0];
-    } else if (solMatch && solMatch[0].length >= 32 && !['http', 'https', 't.me', 'joinchat'].some(x => solMatch[0].toLowerCase().includes(x))) {
-      detectedCA = solMatch[0];
-    }
-
-    let alphaHtml = '';
-    if (detectedCA) {
-      const shortCA = detectedCA.length > 16 ? `${detectedCA.slice(0, 6)}...${detectedCA.slice(-4)}` : detectedCA;
-      const isEth = detectedCA.startsWith('0x');
-      const sniperUrl = isEth ? `https://dexscreener.com/ethereum/${detectedCA}` : `https://photon-sol.tinyastro.io/en/lp/${detectedCA}`;
-      alphaHtml = `
-        <div class="wiretap-alpha-pill">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 10px; color: #10b981; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
-              <i data-lucide="zap" style="width: 11px; height: 11px; color: #10b981;"></i>
-              <span>ALPHA CA: <code>${shortCA}</code></span>
-            </span>
-            <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
-              <button type="button" onclick="navigator.clipboard.writeText('${detectedCA}'); showToast('Contract Address Copied!', 'success');" class="btn-xs-outline" style="font-size: 9px; padding: 2px 7px;">📋 Copy</button>
-              <button type="button" onclick="quickCheckDex('${detectedCA}', 'dex-box-${data.message_id}')" class="btn-xs-outline" style="font-size: 9px; padding: 2px 7px; color: #38bdf8; border-color: rgba(56,189,248,0.4);">📊 Check DEX</button>
-              <button type="button" onclick="window.open('${sniperUrl}', '_blank')" class="btn-xs-outline" style="font-size: 9px; padding: 2px 7px; color: #f59e0b; border-color: rgba(245,158,11,0.4);">⚡ Sniper</button>
-              <button type="button" onclick="quickSiphonForward(${effectiveGid}, ${data.message_id})" class="btn-xs-outline" style="font-size: 9px; padding: 2px 7px; color: #10b981; border-color: rgba(16,185,129,0.4);">📥 Siphon</button>
-            </div>
-          </div>
-          <div id="dex-box-${data.message_id}" style="display: none; margin-top: 6px; font-size: 10px; padding: 6px 8px; background: rgba(5,7,10,0.85); border: 1px solid var(--line-soft); border-radius: 2px;"></div>
-        </div>
-      `;
-    }
-
     const reactionHtml = `
       <div class="wiretap-react-bar">
         <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '👍')" class="react-pill" title="Drop 👍 Reaction">👍</button>
-        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '🔥')" class="react-pill" title="Drop 🔥 Reaction (Alpha)">🔥</button>
-        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '🚀')" class="react-pill" title="Drop 🚀 Reaction (Moon)">🚀</button>
-        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '🤡')" class="react-pill" title="Drop 🤡 Reaction (Scam/Rival)">🤡</button>
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '🔥')" class="react-pill" title="Drop 🔥 Reaction">🔥</button>
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '🚀')" class="react-pill" title="Drop 🚀 Reaction">🚀</button>
+        <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '🤡')" class="react-pill" title="Drop 🤡 Reaction">🤡</button>
         <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '❤️')" class="react-pill" title="Drop ❤️ Reaction">❤️</button>
         <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '⚡')" class="react-pill" title="Drop ⚡ Reaction">⚡</button>
         <button type="button" onclick="quickReact(${effectiveGid}, ${data.message_id}, '⚠️')" class="react-pill" title="Drop ⚠️ Warning Reaction">⚠️</button>
         <button type="button" onclick="openMessageReactorsModal(${effectiveGid}, ${data.message_id})" class="react-pill" style="border-color: rgba(56,189,248,0.4); color: #38bdf8; font-weight: 700;" title="Inspect who reacted to Message #${data.message_id}">👀</button>
       </div>
+    `;
     `;
 
     const reactionsRowHtml = renderWiretapReactionsRowHtml(data.reactions || [], effectiveGid, data.message_id);
@@ -13802,7 +13917,6 @@ body.theme-light .kage-btn.secondary {
       ${replyHtml}
       ${mediaHtml}
       ${ghostContentHtml}
-      ${alphaHtml}
       ${reactionsRowHtml}
       ${data.is_threat ? `
         <div class="wiretap-threat-badge">
@@ -13870,12 +13984,17 @@ body.theme-light .kage-btn.secondary {
     stream.appendChild(card);
     wiretapMessageCount++;
 
-    // Keep DOM buffer bounded to 160 cards for butter-smooth 60/120 FPS performance
+    // Keep DOM buffer bounded to 160 cards with scroll-anchoring to prevent jump
     const MAX_WIRETAP_DOM_CARDS = 160;
     while (stream.children.length > MAX_WIRETAP_DOM_CARDS) {
       const oldest = stream.firstElementChild;
       if (!oldest || oldest.classList.contains('wiretap-init-state')) break;
+      const oldestHeight = oldest.offsetHeight + 8;
+      const distFromBottom = stream.scrollHeight - stream.clientHeight - stream.scrollTop;
       oldest.remove();
+      if (distFromBottom > 40) {
+        stream.scrollTop -= oldestHeight;
+      }
     }
 
     if (wiretapSeenIds.size > 3000) {
@@ -13890,16 +14009,10 @@ body.theme-light .kage-btn.secondary {
     const scannedEl = document.getElementById('hud-stat-scanned');
     if (scannedEl) scannedEl.innerText = parseInt(scannedEl.innerText || '0') + 1;
 
-    // Detect CA for audio alert
-    const rawText = data.text || '';
-    const hasCA = (rawText.match(/\b0x[a-fA-F0-9]{40}\b/) || (rawText.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/) && !['http', 'https', 't.me', 'joinchat'].some(x => rawText.toLowerCase().includes(x))));
-
     if (data.is_threat) {
       const threatsEl = document.getElementById('hud-stat-threats');
       if (threatsEl) threatsEl.innerText = parseInt(threatsEl.innerText || '0') + 1;
       if (playSoundFx) playZenSound('alarm');
-    } else if (hasCA) {
-      if (playSoundFx) playZenSound('alpha');
     } else if (playSoundFx) {
       playZenSound('blip');
     }
@@ -14231,112 +14344,247 @@ body.theme-light .kage-btn.secondary {
   }
 
   // ═══════════════════════════════════════════════════════
-  //   STEALTH MULTI-GROUP BROADCAST & GROUP CA SIPHONING
+  //   MULTI-GROUP DISPATCHER (CONTROLLED MULTI-DESTINATION)
   // ═══════════════════════════════════════════════════════
-  let stealthAllSelected = false;
+  let dispatchAllSelected = false;
+  let activeDispatchJobId = null;
 
-  function openStealthBroadcastModal() {
+  function openDispatchModal() {
     playZenSound('clack');
-    const m = document.getElementById('stealth-broadcast-modal');
-    const listEl = document.getElementById('stealth-groups-list');
-    if (!m || !listEl) return;
-
+    const m = document.getElementById('dispatch-modal');
+    if (!m) return;
     m.style.display = 'flex';
-    const groups = window.cachedDialogsList || [];
-    if (groups.length === 0) {
-      listEl.innerHTML = '<div style="color: var(--muted); font-size: 11px;">No groups loaded. Link Telegram or refresh dialogs first.</div>';
-      return;
-    }
-
-    listEl.innerHTML = groups.map(g => `
-      <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--bone); cursor: pointer; padding: 3px 0;">
-        <input type="checkbox" class="stealth-group-chk" value="${g.id}">
-        <span><b>${escapeHtml(g.title || 'Group #' + g.id)}</b> <span style="color: var(--muted); font-size: 10px;">(${g.participants_count ? g.participants_count.toLocaleString() + ' members' : 'Chat'})</span></span>
-      </label>
-    `).join('');
-    safeCreateIcons();
+    loadDispatchDestinations();
+    loadDispatchHistory();
   }
 
-  function closeStealthBroadcastModal() {
-    const m = document.getElementById('stealth-broadcast-modal');
+  function closeDispatchModal() {
+    const m = document.getElementById('dispatch-modal');
     if (m) m.style.display = 'none';
   }
 
-  function toggleSelectAllStealthGroups() {
-    stealthAllSelected = !stealthAllSelected;
-    const btn = document.getElementById('btn-toggle-all-groups');
-    if (btn) btn.innerText = stealthAllSelected ? 'Deselect All' : 'Select All';
-    document.querySelectorAll('.stealth-group-chk').forEach(chk => chk.checked = stealthAllSelected);
+  // Compatibility aliases
+  function openStealthBroadcastModal() { openDispatchModal(); }
+  function closeStealthBroadcastModal() { closeDispatchModal(); }
+
+  async function loadDispatchDestinations() {
+    const listEl = document.getElementById('dispatch-destinations-list');
+    if (!listEl) return;
+    try {
+      const res = await fetch('/api/siphon/sources');
+      if (res.ok) {
+        const sources = await res.json();
+        if (!sources || sources.length === 0) {
+          listEl.innerHTML = '<div style="color: var(--muted); font-size: 11px; padding: 10px;">No authorized Telegram destinations found. Link account first.</div>';
+          return;
+        }
+        listEl.innerHTML = sources.map(s => {
+          const canPost = s.can_send_messages !== false;
+          const statusBadge = canPost
+            ? `<span class="badge badge-emerald" style="font-size: 7.5px;">CAN POST</span>`
+            : `<span class="badge badge-vermilion" style="font-size: 7.5px;">READ ONLY</span>`;
+          return `
+            <label style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: ${canPost ? 'var(--bone)' : 'var(--muted)'}; cursor: ${canPost ? 'pointer' : 'not-allowed'}; padding: 4px 6px; background: rgba(8,12,16,0.6); border-radius: 3px;">
+              <span style="display: inline-flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <input type="checkbox" class="dispatch-dest-chk" value="${s.id}" ${canPost ? '' : 'disabled'}>
+                <b style="font-size: 11px; font-weight: 500;">${escapeHtml(s.title || 'Chat #' + s.id)}</b>
+              </span>
+              <span style="display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                <span style="color: var(--muted); font-size: 9px;">${s.participants_count ? s.participants_count.toLocaleString() + ' mem' : ''}</span>
+                ${statusBadge}
+              </span>
+            </label>
+          `;
+        }).join('');
+        safeCreateIcons();
+      }
+    } catch (e) {
+      listEl.innerHTML = `<div style="color: var(--ember); font-size: 10px;">Error loading destinations: ${escapeHtml(e.message)}</div>`;
+    }
   }
 
-  async function deployStealthBroadcast() {
-    const text = (document.getElementById('stealth-broadcast-text')?.value || '').trim();
-    if (!text) return alert('Enter message content to broadcast.');
+  function toggleSelectAllDispatchDestinations() {
+    dispatchAllSelected = !dispatchAllSelected;
+    const btn = document.getElementById('btn-toggle-dispatch-all');
+    if (btn) btn.innerText = dispatchAllSelected ? 'Deselect All' : 'Select All';
+    document.querySelectorAll('.dispatch-dest-chk:not(:disabled)').forEach(chk => chk.checked = dispatchAllSelected);
+  }
 
-    const selectedGids = Array.from(document.querySelectorAll('.stealth-group-chk:checked')).map(c => Number(c.value));
-    if (selectedGids.length === 0) return alert('Select at least one destination group.');
+  function updateDispatchCharCount() {
+    const text = document.getElementById('dispatch-message-text')?.value || '';
+    const el = document.getElementById('dispatch-char-count');
+    if (el) el.innerText = `${text.length} characters`;
+  }
 
-    const typingDelay = parseFloat(document.getElementById('stealth-typing-slider')?.value || '3.0');
-    const btn = document.getElementById('btn-deploy-stealth-broadcast');
+  async function previewAndConfirmDispatch() {
+    const text = (document.getElementById('dispatch-message-text')?.value || '').trim();
+    if (!text) {
+      showToast('Please enter message content to dispatch.', 'error');
+      return;
+    }
+
+    const selectedBoxes = Array.from(document.querySelectorAll('.dispatch-dest-chk:checked'));
+    const selectedGids = selectedBoxes.map(c => Number(c.value));
+    if (selectedGids.length === 0) {
+      showToast('Select at least one authorized destination group.', 'error');
+      return;
+    }
+
+    const batchSize = parseInt(document.getElementById('dispatch-batch-size')?.value || '2', 10);
+    const intervalSec = parseFloat(document.getElementById('dispatch-interval-sec')?.value || '5.0');
+
+    const confirmed = confirm(
+      `CONFIRM MULTI-GROUP DISPATCH:\n\n` +
+      `• Destinations: ${selectedGids.length} authorized groups\n` +
+      `• Batch size: ${batchSize} per cycle\n` +
+      `• Pacing interval: ${intervalSec}s between deliveries\n` +
+      `• Message preview: "${text.slice(0, 80)}${text.length > 80 ? '...' : ''}"\n\n` +
+      `Proceed with real controlled dispatch?`
+    );
+
+    if (!confirmed) return;
+    await executeDispatchJob(selectedGids, text, batchSize, intervalSec);
+  }
+
+  async function executeDispatchJob(groupIds, text, batchSize, intervalSec) {
+    const btn = document.getElementById('btn-deploy-dispatch');
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<i data-lucide="loader" class="hud-spin" style="width: 13px; height: 13px;"></i> Launching...`;
+      btn.innerHTML = `<i data-lucide="loader" class="hud-spin" style="width: 13px; height: 13px;"></i> Initializing...`;
     }
 
     playZenSound('strike');
-    showToast(`Launching humanized broadcast to ${selectedGids.length} groups with ${typingDelay}s typing simulation...`, 'info');
+    showToast(`Launching dispatch job to ${groupIds.length} destinations...`, 'info');
 
     try {
-      const res = await fetch('/api/broadcast/stealth', {
+      const res = await fetch('/api/dispatcher/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          group_ids: selectedGids,
+          group_ids: groupIds,
           text: text,
-          typing_delay: typingDelay
+          batch_size: batchSize,
+          interval_seconds: intervalSec
         })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Broadcast failed');
+      if (!res.ok) throw new Error(data.detail || 'Failed to start dispatch job');
 
-      const sentCount = (data.results || []).filter(r => r.status === 'sent').length;
-      playZenSound('gong');
-      showToast(`⚡ Broadcast Complete: Delivered to ${sentCount}/${data.total} groups without spam triggers!`, 'success');
-      closeStealthBroadcastModal();
+      activeDispatchJobId = data.job_id;
+      showToast(`⚡ Dispatch Job #${data.job_id} launched! Tracking live progress...`, 'success');
+      loadDispatchHistory();
+      monitorDispatchProgress(data.job_id);
     } catch (err) {
-      showToast(`Broadcast error: ${err.message}`, 'error');
+      showToast(`Dispatch error: ${err.message}`, 'error');
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="zap" style="width: 13px; height: 13px;"></i> Launch Stealth Dispatch`;
+        btn.innerHTML = `<i data-lucide="send" style="width: 13px; height: 13px;"></i> Review &amp; Dispatch`;
       }
       safeCreateIcons();
     }
   }
 
-  async function quickSiphonAllCAs() {
-    const gid = getActiveGroupId();
-    if (!gid) return alert('Select a target group first.');
+  async function monitorDispatchProgress(jobId) {
+    const banner = document.getElementById('dispatch-active-banner');
+    const pBar = document.getElementById('dispatch-progress-bar');
+    const pStats = document.getElementById('dispatch-banner-stats');
+    const retryBtn = document.getElementById('btn-dispatch-retry');
+    if (banner) banner.style.display = 'block';
 
-    playZenSound('alpha');
-    showToast('Scanning group history for crypto contract addresses and siphoning...', 'info');
+    const checkInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/dispatcher/jobs/${jobId}`);
+        if (!res.ok) { clearInterval(checkInterval); return; }
+        const job = await res.json();
+        const total = job.total_destinations || 1;
+        const sent = job.sent_count || 0;
+        const failed = job.failed_count || 0;
+        const pct = Math.min(Math.round(((sent + failed) / total) * 100), 100);
 
-    try {
-      const res = await fetch(`/api/entities/radar?group_id=${gid}&limit=50`);
-      const data = await res.json();
-      const items = data.items || [];
-      const caItems = items.filter(it => it.entity_type === 'SOL' || it.entity_type === 'ETH' || it.entity_type === 'TON' || it.entity_type === 'CRYPTO_ADDR');
+        if (pBar) pBar.style.width = `${pct}%`;
+        if (pStats) pStats.innerText = `${sent} sent, ${failed} failed / ${total} total (${pct}%)`;
 
-      if (caItems.length === 0) {
-        showToast('No active crypto contract addresses detected in this group yet.', 'info');
-        return;
+        if (failed > 0 && retryBtn) retryBtn.style.display = 'inline-block';
+
+        if (job.status === 'completed' || job.status === 'failed' || job.status === 'stopped') {
+          clearInterval(checkInterval);
+          playZenSound('gong');
+          showToast(`Dispatch Job #${jobId} ended: ${job.status.toUpperCase()} (${sent} sent, ${failed} failed)`, job.status === 'completed' ? 'success' : 'info');
+          loadDispatchHistory();
+        }
+      } catch (e) {
+        clearInterval(checkInterval);
       }
+    }, 2000);
+  }
 
-      showToast(`🚀 Found ${caItems.length} crypto CAs! Check your Telegram Saved Messages!`, 'success');
-      playZenSound('gong');
-    } catch (e) {
-      showToast('Siphon scan notice: ' + e.message, 'error');
-    }
+  async function stopActiveDispatchJob() {
+    if (!activeDispatchJobId) return;
+    try {
+      const res = await fetch(`/api/dispatcher/jobs/${activeDispatchJobId}/stop`, { method: 'POST' });
+      if (res.ok) {
+        showToast(`Dispatch Job #${activeDispatchJobId} stopped`, 'info');
+        loadDispatchHistory();
+      }
+    } catch (e) {}
+  }
+
+  async function retryActiveDispatchFailed() {
+    if (!activeDispatchJobId) return;
+    try {
+      const res = await fetch(`/api/dispatcher/jobs/${activeDispatchJobId}/retry`, { method: 'POST' });
+      if (res.ok) {
+        showToast(`Retrying eligible failed destinations for Job #${activeDispatchJobId}...`, 'info');
+        monitorDispatchProgress(activeDispatchJobId);
+      }
+    } catch (e) {}
+  }
+
+  async function loadDispatchHistory() {
+    const listEl = document.getElementById('dispatch-history-list');
+    const badge = document.getElementById('dispatch-history-count');
+    if (!listEl) return;
+    try {
+      const res = await fetch('/api/dispatcher/jobs?limit=15');
+      if (res.ok) {
+        const jobs = await res.json();
+        if (badge) badge.innerText = `${jobs.length} Jobs`;
+        if (jobs.length === 0) {
+          listEl.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 14px;">No multi-group dispatch jobs recorded yet.</div>';
+          return;
+        }
+        listEl.innerHTML = jobs.map(j => {
+          let stBadge = '<span class="badge badge-muted" style="font-size: 8px;">PENDING</span>';
+          if (j.status === 'running') stBadge = '<span class="badge badge-cyan" style="font-size: 8px;">RUNNING</span>';
+          else if (j.status === 'completed') stBadge = '<span class="badge badge-emerald" style="font-size: 8px;">COMPLETED</span>';
+          else if (j.status === 'failed') stBadge = '<span class="badge badge-vermilion" style="font-size: 8px;">FAILED</span>';
+          else if (j.status === 'stopped') stBadge = '<span class="badge badge-muted" style="font-size: 8px;">STOPPED</span>';
+
+          return `
+            <div style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+              <div style="overflow: hidden; flex: 1;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  ${stBadge}
+                  <b style="color: var(--bone); font-size: 11px;">Job #${j.id}</b>
+                  <span style="color: var(--muted); font-size: 9px;">${escapeHtml(j.created_at || '')}</span>
+                </div>
+                <div style="font-size: 10px; color: var(--bone-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  "${escapeHtml(j.message_text || '')}"
+                </div>
+                <div style="font-size: 9px; color: #38bdf8; margin-top: 2px;">
+                  Sent: ${j.sent_count || 0} &bull; Failed: ${j.failed_count || 0} / ${j.total_destinations || 0} destinations
+                </div>
+              </div>
+              <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                ${j.status === 'running' ? `<button onclick="activeDispatchJobId=${j.id}; stopActiveDispatchJob();" class="btn-xs-outline" style="color: #ef4444; border-color: rgba(239,68,68,0.4); font-size: 8px; padding: 2px 6px;">Stop</button>` : ''}
+                ${j.failed_count > 0 ? `<button onclick="activeDispatchJobId=${j.id}; retryActiveDispatchFailed();" class="btn-xs-outline" style="color: #f59e0b; border-color: rgba(245,158,11,0.4); font-size: 8px; padding: 2px 6px;">Retry</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    } catch (e) {}
   }
 
   // ==========================================
@@ -17457,10 +17705,10 @@ body.theme-light .kage-btn.secondary {
   }
 
   // ==========================================
-  // SIGNAL & IOC ENTITY RADAR
+  // THREAT INTELLIGENCE RADAR (IOCs, DOMAINS, INVITES)
   // ==========================================
-  let entityFilter = 'all';
-  let entitiesCache = [];
+  let radarFilter = 'all';
+  let radarIndicatorsCache = [];
 
   function openEntitiesModal() {
     const m = document.getElementById('entities-modal');
@@ -17479,65 +17727,68 @@ body.theme-light .kage-btn.secondary {
     if (m) m.style.display = 'none';
   }
 
-  function setEntityFilter(filter) {
-    entityFilter = filter;
-    ['all', 'crypto_sol', 'crypto_eth', 'crypto_btc', 'crypto_ton', 'tg_invite', 'cashtag'].forEach(f => {
-      const btn = document.getElementById(`ent-tab-${f}`);
+  function setRadarFilter(filter) {
+    radarFilter = filter;
+    ['all', 'url', 'invite', 'cashtag', 'signature'].forEach(f => {
+      const btn = document.getElementById(`radar-tab-${f}`);
       if (btn) {
         if (f === filter) btn.classList.add('active');
         else btn.classList.remove('active');
       }
     });
-    renderEntitiesFeed();
+    renderRadarFeed();
   }
+
+  // Compatibility alias
+  function setEntityFilter(filter) { setRadarFilter(filter); }
 
   async function refreshEntitiesRadar() {
     const container = document.getElementById('entities-feed-container');
     if (!container) return;
     const gid = getActiveGroupId();
     try {
-      const url = gid ? `/api/entities/radar?group_id=${gid}&limit=120` : `/api/entities/radar?limit=120`;
-      const res = await fetch(url);
+      const url = gid ? `/api/radar/indicators?group_id=${gid}&limit=120` : `/api/radar/indicators?limit=120`;
+      const [res, statsRes] = await Promise.all([
+        fetch(url),
+        fetch('/api/radar/stats' + (gid ? `?group_id=${gid}` : ''))
+      ]);
+
       if (res.ok) {
         const data = await res.json();
-        entitiesCache = data.items || [];
-        const stats = data.stats || {};
-        
-        const countAll = document.getElementById('ent-count-all');
-        if (countAll) countAll.innerText = data.total || 0;
-        const countSol = document.getElementById('ent-count-sol');
-        if (countSol) countSol.innerText = stats.crypto_sol || 0;
-        const countEth = document.getElementById('ent-count-eth');
-        if (countEth) countEth.innerText = stats.crypto_eth || 0;
-        const countBtc = document.getElementById('ent-count-btc');
-        if (countBtc) countBtc.innerText = stats.crypto_btc || 0;
-        const countTon = document.getElementById('ent-count-ton');
-        if (countTon) countTon.innerText = stats.crypto_ton || 0;
-        const countInv = document.getElementById('ent-count-invite');
-        if (countInv) countInv.innerText = stats.tg_invite || 0;
-        const countCash = document.getElementById('ent-count-cashtag');
-        if (countCash) countCash.innerText = stats.cashtag || 0;
-
-        renderEntitiesFeed();
+        radarIndicatorsCache = data.items || [];
       }
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        const countAll = document.getElementById('radar-count-all');
+        if (countAll) countAll.innerText = stats.total || 0;
+        const countUrl = document.getElementById('radar-count-url');
+        if (countUrl) countUrl.innerText = stats.by_type?.url || 0;
+        const countInv = document.getElementById('radar-count-invite');
+        if (countInv) countInv.innerText = stats.by_type?.invite || 0;
+        const countCash = document.getElementById('radar-count-cashtag');
+        if (countCash) countCash.innerText = stats.by_type?.cashtag || 0;
+        const countSig = document.getElementById('radar-count-sig');
+        if (countSig) countSig.innerText = stats.by_type?.signature || 0;
+      }
+      renderRadarFeed();
     } catch (e) {
-      container.innerHTML = `<div style="text-align: center; color: var(--ember); padding: 20px;">Failed to load Entity Radar: ${escapeHtml(e.message)}</div>`;
+      container.innerHTML = `<div style="text-align: center; color: var(--ember); padding: 20px;">Failed to load Threat Radar: ${escapeHtml(e.message)}</div>`;
     }
   }
 
-  function renderEntitiesFeed() {
+  function renderRadarFeed() {
     const container = document.getElementById('entities-feed-container');
-    const searchVal = (document.getElementById('ent-search-input')?.value || '').toLowerCase();
+    const searchVal = (document.getElementById('radar-search-input')?.value || '').toLowerCase();
     if (!container) return;
 
-    let list = entitiesCache || [];
-    if (entityFilter !== 'all') {
-      list = list.filter(e => e.entity_type === entityFilter);
+    let list = radarIndicatorsCache || [];
+    if (radarFilter !== 'all') {
+      list = list.filter(e => e.indicator_type === radarFilter);
     }
 
     if (searchVal) {
       list = list.filter(e => 
-        (e.entity_value && e.entity_value.toLowerCase().includes(searchVal)) ||
+        (e.indicator_value && e.indicator_value.toLowerCase().includes(searchVal)) ||
         (e.sender_name && e.sender_name.toLowerCase().includes(searchVal)) ||
         (e.context && e.context.toLowerCase().includes(searchVal)) ||
         (e.group_title && e.group_title.toLowerCase().includes(searchVal))
@@ -17545,53 +17796,40 @@ body.theme-light .kage-btn.secondary {
     }
 
     if (list.length === 0) {
-      container.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 40px;">No extracted entities match active filter.</div>`;
+      container.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 40px;">No threat intelligence indicators match active filter.</div>`;
       return;
     }
 
     container.innerHTML = list.map(e => {
-      let typeBadge = '';
-      let explorerBtn = '';
-      const val = escapeHtml(e.entity_value);
+      let sevBadge = '<span class="badge badge-muted" style="font-size: 8px;">INFO</span>';
+      if (e.severity === 'critical') sevBadge = '<span class="badge badge-vermilion" style="font-size: 8px;">CRITICAL</span>';
+      else if (e.severity === 'high') sevBadge = '<span class="badge" style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid #ef4444; font-size: 8px;">HIGH</span>';
+      else if (e.severity === 'medium') sevBadge = '<span class="badge badge-amber" style="font-size: 8px;">MEDIUM</span>';
+      else if (e.severity === 'low') sevBadge = '<span class="badge badge-cyan" style="font-size: 8px;">LOW</span>';
 
-      if (e.entity_type === 'crypto_sol') {
-        typeBadge = `<span class="badge" style="background: rgba(192,132,252,0.15); color: #c084fc; border: 1px solid #c084fc; font-size: 9px;">🟣 SOLANA WALLET</span>`;
-        explorerBtn = `<a href="https://solscan.io/account/${val}" target="_blank" class="btn-xs-outline" style="color: #c084fc; border-color: rgba(192,132,252,0.4); text-decoration: none;">Solscan ↗</a>`;
-      } else if (e.entity_type === 'crypto_eth') {
-        typeBadge = `<span class="badge" style="background: rgba(96,165,250,0.15); color: #60a5fa; border: 1px solid #60a5fa; font-size: 9px;">🔷 EVM / ETH WALLET</span>`;
-        explorerBtn = `<a href="https://etherscan.io/address/${val}" target="_blank" class="btn-xs-outline" style="color: #60a5fa; border-color: rgba(96,165,250,0.4); text-decoration: none;">Etherscan ↗</a>`;
-      } else if (e.entity_type === 'crypto_btc') {
-        typeBadge = `<span class="badge" style="background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid #fbbf24; font-size: 9px;">🪙 BITCOIN ADDRESS</span>`;
-        explorerBtn = `<a href="https://www.blockchain.com/explorer/addresses/btc/${val}" target="_blank" class="btn-xs-outline" style="color: #fbbf24; border-color: rgba(251,191,36,0.4); text-decoration: none;">Blockchain ↗</a>`;
-      } else if (e.entity_type === 'crypto_ton') {
-        typeBadge = `<span class="badge" style="background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid #38bdf8; font-size: 9px;">💎 TON ADDRESS</span>`;
-        explorerBtn = `<a href="https://tonscan.org/address/${val}" target="_blank" class="btn-xs-outline" style="color: #38bdf8; border-color: rgba(56,189,248,0.4); text-decoration: none;">Tonscan ↗</a>`;
-      } else if (e.entity_type === 'tg_invite') {
-        typeBadge = `<span class="badge" style="background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid #34d399; font-size: 9px;">🔗 TELEGRAM INVITE</span>`;
-        const linkHref = val.startsWith('http') ? val : `https://${val}`;
-        explorerBtn = `<a href="${linkHref}" target="_blank" class="btn-xs-outline" style="color: #34d399; border-color: rgba(52,211,153,0.4); text-decoration: none;">Inspect Link ↗</a>`;
-      } else if (e.entity_type === 'cashtag') {
-        typeBadge = `<span class="badge" style="background: rgba(244,63,94,0.15); color: #fb7185; border: 1px solid #f43f5e; font-size: 9px;">💲 CASHTAG</span>`;
-      } else {
-        typeBadge = `<span class="badge badge-muted" style="font-size: 9px;">🌐 URL / LINK</span>`;
-      }
+      let typeBadge = `<span class="badge badge-cyan" style="font-size: 8px;">${escapeHtml((e.indicator_type || 'IOC').toUpperCase())}</span>`;
+      const val = escapeHtml(e.indicator_value);
+      const isAck = Boolean(e.acknowledged);
 
       return `
-        <div style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-radius: 4px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-left: 3px solid ${e.severity === 'critical' || e.severity === 'high' ? '#ef4444' : '#38bdf8'}; border-radius: 4px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
             <div style="display: flex; align-items: center; gap: 8px;">
+              ${sevBadge}
               ${typeBadge}
               <b style="color: var(--bone); font-size: 12px; font-family: monospace; word-break: break-all;">${val}</b>
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
-              <button onclick="copyToClipboard('${escapeQuote(e.entity_value)}')" class="btn-xs-outline" title="Copy to clipboard">📋 COPY</button>
-              ${explorerBtn}
-              <span style="font-size: 9px; color: var(--muted); font-family: monospace;">${escapeHtml(e.timestamp)}</span>
+              <span class="badge badge-muted" style="font-size: 8px;">Seen: ${e.detection_count || 1}x</span>
+              <button onclick="copyToClipboard('${escapeQuote(e.indicator_value)}')" class="btn-xs-outline" title="Copy indicator">📋 Copy</button>
+              ${!isAck ? `<button onclick="acknowledgeRadarIndicator(${e.id})" class="act-pill" style="font-size: 8.5px; padding: 2px 7px;">Ack</button>` : `<span style="font-size: 8.5px; color: #10b981;">✓ Acked</span>`}
+              <span style="font-size: 9px; color: var(--muted); font-family: monospace;">${escapeHtml(e.last_seen || e.timestamp || '')}</span>
             </div>
           </div>
           <div style="font-size: 11px; color: var(--muted); line-height: 1.4; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 2px;">
             <span style="color: var(--bone); font-weight: bold; cursor: pointer;" onclick="openOSINTModal(${e.sender_id})">${escapeHtml(e.sender_name || 'User #' + e.sender_id)}</span>
-            ${e.group_title ? `<span style="color: var(--muted);"> in <i>${escapeHtml(e.group_title)}</i></span>` : ''}:
+            ${e.group_title ? `<span style="color: var(--muted);"> in <i>${escapeHtml(e.group_title)}</i></span>` : ''}
+            ${e.message_id ? `<span style="color: var(--muted); font-size: 9px;"> (Msg #${e.message_id})</span>` : ''}:
             <span style="color: #cbd5e1;">${escapeHtml(e.context || '')}</span>
           </div>
         </div>
@@ -17600,10 +17838,30 @@ body.theme-light .kage-btn.secondary {
     safeCreateIcons();
   }
 
+  function renderEntitiesFeed() { renderRadarFeed(); }
+
+  async function acknowledgeRadarIndicator(id) {
+    try {
+      const res = await fetch(`/api/radar/indicators/${id}/acknowledge`, { method: 'POST' });
+      if (res.ok) {
+        showToast("Indicator acknowledged", "info");
+        const item = radarIndicatorsCache.find(it => it.id === id);
+        if (item) item.acknowledged = 1;
+        renderRadarFeed();
+      }
+    } catch (e) {}
+  }
+
+  function exportRadarIndicators() {
+    const gid = getActiveGroupId();
+    const url = `/api/radar/export` + (gid ? `?group_id=${gid}` : '');
+    window.open(url, '_blank');
+  }
+
   function handleEntityDiscovered(data) {
     if (data.entities && data.entities.length > 0) {
       const topEnt = data.entities[0];
-      showToast(`🎯 Signal Extracted: [${topEnt.entity_type.toUpperCase()}] ${topEnt.entity_value.slice(0, 16)}...`, "info");
+      showToast(`🎯 Threat Indicator: [${topEnt.entity_type.toUpperCase()}] ${topEnt.entity_value.slice(0, 20)}...`, "info");
       playZenSound('bell');
       refreshEntitiesRadar();
     }
@@ -17677,13 +17935,13 @@ body.theme-light .kage-btn.secondary {
     const graphCenterX = (minX + maxX) / 2;
     const graphCenterY = (minY + maxY) / 2;
 
-    const padX = Math.max(w * 0.08, 36);
-    const padY = Math.max(h * 0.08, 36);
+    const padX = Math.max(w * 0.05, 20);
+    const padY = Math.max(h * 0.05, 20);
     const availW = Math.max(w - padX * 2, 80);
     const availH = Math.max(h - padY * 2, 80);
 
     const fitScale = Math.min(availW / graphW, availH / graphH);
-    graphScale = Math.max(0.35, Math.min(fitScale, 1.25));
+    graphScale = Math.max(0.40, Math.min(fitScale, 1.35));
 
     graphPanX = (w / 2) - (graphCenterX * graphScale);
     graphPanY = (h / 2) - (graphCenterY * graphScale);
@@ -17919,10 +18177,13 @@ body.theme-light .kage-btn.secondary {
     const nodeMap = {};
     const totalNodes = Math.max(nodes.length, 1);
     
-    // Spread nodes generously across wide circle so no clumping occurs
+    // Spread nodes generously across wide ellipse matching viewport aspect ratio so no clumping occurs
+    const aspect = Math.max(w / Math.max(h, 1), 1.25);
+    let simFrameCount = 0;
     graphNodes = nodes.map((n, i) => {
       const angle = (i / totalNodes) * Math.PI * 2;
-      const radiusDist = 180 + (i % 3) * 55;
+      const radiusDistX = (175 + (i % 4) * 45) * aspect;
+      const radiusDistY = 155 + (i % 4) * 35;
       const deg = n.degree || 1;
       const cleanLabel = formatInfluencerName(n);
       const node = {
@@ -17931,8 +18192,8 @@ body.theme-light .kage-btn.secondary {
         initials: getInitials(cleanLabel),
         degree: deg,
         r: Math.min(Math.max(16 + deg * 2, 18), 30),
-        x: cx + Math.cos(angle) * radiusDist,
-        y: cy + Math.sin(angle) * radiusDist,
+        x: cx + Math.cos(angle) * radiusDistX,
+        y: cy + Math.sin(angle) * radiusDistY,
         vx: 0,
         vy: 0
       };
@@ -18199,18 +18460,33 @@ body.theme-light .kage-btn.secondary {
         l.target.vy -= fy;
       }
 
-      // 3. Very subtle gravity toward center & energy tally
+      // 3. Center-of-mass stabilization & subtle gravity toward center
       let totalEnergy = 0;
+      if (graphNodes.length > 0 && !draggedGraphNode && !isPanningGraph) {
+        let sumX = 0, sumY = 0;
+        for (let n of graphNodes) { sumX += n.x; sumY += n.y; }
+        const comX = sumX / graphNodes.length;
+        const comY = sumY / graphNodes.length;
+        const shiftX = (cx - comX) * 0.04;
+        const shiftY = (cy - comY) * 0.04;
+        for (let n of graphNodes) { n.x += shiftX; n.y += shiftY; }
+      }
+
       for (let n of graphNodes) {
         if (n !== draggedGraphNode) {
-          n.vx += (cx - n.x) * 0.0008;
-          n.vy += (cy - n.y) * 0.0008;
+          n.vx += (cx - n.x) * 0.0012;
+          n.vy += (cy - n.y) * 0.0012;
           n.vx *= 0.85;
           n.vy *= 0.85;
           n.x += n.vx;
           n.y += n.vy;
           totalEnergy += Math.abs(n.vx) + Math.abs(n.vy);
         }
+      }
+
+      simFrameCount = (typeof simFrameCount === 'number' ? simFrameCount : 0) + 1;
+      if ((simFrameCount === 25 || simFrameCount === 65) && !draggedGraphNode && !isPanningGraph && !selectedGraphNode) {
+        autoFitSocialGraph();
       }
 
       // 4. Render with Zoom & Pan transform
@@ -18431,14 +18707,20 @@ body.theme-light .kage-btn.secondary {
   // ==========================================
   // AUTONOMOUS SIGNAL SIPHON MATRIX
   // ==========================================
-  let siphonRules = [];
-  let siphonLogs = [];
+  let siphonJobs = [];
+  let siphonRecords = [];
+  let siphonSources = [];
+  let siphonPollTimer = null;
 
   function openSiphonModal() {
     const m = document.getElementById('siphon-modal');
     if (m) {
       m.style.display = 'flex';
+      loadSiphonSources();
       refreshSiphonData();
+      if (!siphonPollTimer) {
+        siphonPollTimer = setInterval(refreshSiphonData, 6000);
+      }
     }
   }
 
@@ -18449,167 +18731,597 @@ body.theme-light .kage-btn.secondary {
   function closeSiphonModalDirect() {
     const m = document.getElementById('siphon-modal');
     if (m) m.style.display = 'none';
+    if (siphonPollTimer) {
+      clearInterval(siphonPollTimer);
+      siphonPollTimer = null;
+    }
   }
 
-  function toggleSiphonValField(type) {
-    const input = document.getElementById('siphon-val-input');
-    if (!input) return;
-    if (type === 'crypto' || type === 'all_deleted') {
-      input.style.display = 'none';
-    } else {
-      input.style.display = 'block';
-      input.placeholder = type === 'user' ? "Target User ID or @username" : "Target keyword phrase";
+  async function loadSiphonSources(preselectId) {
+    const sel = document.getElementById('siphon-source-select');
+    if (!sel) return;
+    try {
+      const res = await fetch('/api/siphon/sources');
+      if (res.ok) {
+        const data = await res.json();
+        siphonSources = data.sources || [];
+        sel.innerHTML = '<option value="">Select authorized target group...</option>' + 
+          siphonSources.map(s => `<option value="${s.id}" ${preselectId && String(preselectId) === String(s.id) ? 'selected' : ''}>${escapeHtml(s.title || 'Chat #' + s.id)} (${escapeHtml(s.type)})</option>`).join('');
+      }
+    } catch (e) {
+      console.error("Failed to load siphon sources:", e);
     }
   }
 
   async function refreshSiphonData() {
-    await Promise.all([refreshSiphonRules(), refreshSiphonLogs()]);
+    await Promise.all([loadSiphonJobs(), loadSiphonRecords()]);
   }
 
-  async function refreshSiphonRules() {
+  async function loadSiphonJobs() {
     try {
-      const res = await fetch('/api/siphon/rules');
+      const res = await fetch('/api/siphon/jobs');
       if (res.ok) {
-        siphonRules = await res.json();
-        renderSiphonRules();
+        const data = await res.json();
+        siphonJobs = data.jobs || [];
+        renderSiphonJobs(siphonJobs);
+        updateSiphonStats(siphonJobs);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Failed to load siphon jobs:", e);
+    }
   }
 
-  async function refreshSiphonLogs() {
-    try {
-      const res = await fetch('/api/siphon/logs?limit=50');
-      if (res.ok) {
-        siphonLogs = await res.json();
-        renderSiphonLogs();
-      }
-    } catch (e) {}
+  function updateSiphonStats(jobs) {
+    let totalCollected = 0;
+    let totalProcessed = 0;
+    let pendingCount = 0;
+    let failedCount = 0;
+
+    for (const j of jobs) {
+      totalCollected += (j.collected_count || 0);
+      totalProcessed += (j.collected_count || 0);
+      if (j.status === 'running' || j.status === 'pending') pendingCount++;
+      if (j.status === 'failed') failedCount++;
+    }
+
+    const cEl = document.getElementById('siphon-stat-collected');
+    const prEl = document.getElementById('siphon-stat-processed');
+    const pEl = document.getElementById('siphon-stat-pending');
+    const fEl = document.getElementById('siphon-stat-failed');
+
+    if (cEl) cEl.innerText = totalCollected.toLocaleString();
+    if (prEl) prEl.innerText = totalProcessed.toLocaleString();
+    if (pEl) pEl.innerText = pendingCount;
+    if (fEl) fEl.innerText = failedCount;
   }
 
-  function renderSiphonRules() {
-    const list = document.getElementById('siphon-rules-list');
-    const tag = document.getElementById('siphon-rules-count');
+  function renderSiphonJobs(jobs) {
+    const list = document.getElementById('siphon-jobs-list');
+    const tag = document.getElementById('siphon-jobs-count');
     if (!list) return;
 
-    if (tag) tag.innerText = `${siphonRules.length} Active`;
+    if (tag) tag.innerText = `${jobs.length} Jobs`;
 
-    if (!siphonRules || siphonRules.length === 0) {
-      list.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">No active siphon routes.</div>`;
+    if (!jobs || jobs.length === 0) {
+      list.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">No siphon collection jobs recorded yet.</div>`;
       return;
     }
 
-    list.innerHTML = siphonRules.map(r => `
-      <div style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-        <div style="overflow: hidden;">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="badge badge-emerald" style="font-size: 8px;">${escapeHtml(r.match_type.toUpperCase())}</span>
-            <b style="color: var(--bone); font-size: 11px;">${escapeHtml(r.rule_name)}</b>
+    list.innerHTML = jobs.map(j => {
+      const isRunning = j.status === 'running';
+      const isPaused = j.status === 'paused';
+      const isCompleted = j.status === 'completed';
+      const isFailed = j.status === 'failed';
+
+      let statusBadge = `<span class="badge badge-emerald" style="font-size: 8px;">COMPLETED</span>`;
+      if (isRunning) statusBadge = `<span class="badge badge-cyan" style="font-size: 8px; animation: pulse 1.5s infinite;">COLLECTING</span>`;
+      else if (isPaused) statusBadge = `<span class="badge badge-amber" style="font-size: 8px;">PAUSED</span>`;
+      else if (isFailed) statusBadge = `<span class="badge badge-crimson" style="font-size: 8px;">FAILED</span>`;
+
+      return `
+        <div style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+              ${statusBadge}
+              <b style="color: var(--bone); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(j.target_title || 'Group ' + j.group_id)}</b>
+            </div>
+            <div style="display: flex; gap: 4px; flex-shrink: 0;">
+              ${isRunning ? `<button onclick="stopSiphonCollection('${j.job_id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 6px; color: #f59e0b;" title="Pause / Stop collection">⏸ Pause</button>` : ''}
+              ${(isPaused || isFailed) ? `<button onclick="resumeSiphonCollection('${j.job_id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 6px; color: #38bdf8;" title="Resume collection from checkpoint">▶ Resume</button>` : ''}
+              <button onclick="exportSiphonRecords('${j.job_id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 6px;" title="Export job records">CSV</button>
+            </div>
           </div>
-          ${r.match_value ? `<div style="font-size: 10px; color: var(--muted); margin-top: 2px;">Value: "${escapeHtml(r.match_value)}"</div>` : ''}
-          <div style="font-size: 8px; color: #38bdf8; margin-top: 2px;">⚡ Pushed: ${r.siphoned_count || 0} times &bull; Dest: ${escapeHtml(r.destination)}</div>
+          <div style="font-size: 9.5px; color: var(--muted); display: flex; justify-content: space-between; align-items: center;">
+            <span>Target: <b style="color: #38bdf8;">${j.collected_count || 0} / ${j.limit_count || 500}</b> msgs</span>
+            <span>Offset: ${j.last_offset_id || 0}</span>
+          </div>
+          ${j.error_message ? `<div style="font-size: 9px; color: var(--ember); background: rgba(224,35,28,0.1); padding: 4px 6px; border-radius: 2px;">${escapeHtml(j.error_message)}</div>` : ''}
         </div>
-        <button onclick="deleteSiphonRule(${r.id})" class="btn-icon-xs" title="Retire rule" style="color: var(--ember); border-color: rgba(224,35,28,0.3);">✕</button>
-      </div>
-    `).join('');
+      `;
+    }).join('');
     safeCreateIcons();
   }
 
-  function renderSiphonLogs() {
-    const feed = document.getElementById('siphon-logs-feed');
-    const tag = document.getElementById('siphon-logs-count');
+  async function loadSiphonRecords(jobId) {
+    try {
+      const url = jobId ? `/api/siphon/records?job_id=${encodeURIComponent(jobId)}&limit=60` : `/api/siphon/records?limit=60`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        siphonRecords = data.records || [];
+        renderSiphonRecords(siphonRecords);
+      }
+    } catch (e) {
+      console.error("Failed to load siphon records:", e);
+    }
+  }
+
+  function renderSiphonRecords(records) {
+    const feed = document.getElementById('siphon-records-feed');
+    const tag = document.getElementById('siphon-records-count');
     if (!feed) return;
 
-    if (tag) tag.innerText = `${siphonLogs.length} Dispatches`;
+    if (tag) tag.innerText = `${records.length} Records`;
 
-    if (!siphonLogs || siphonLogs.length === 0) {
-      feed.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">Awaiting siphon triggers...</div>`;
+    if (!records || records.length === 0) {
+      feed.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">Awaiting collected intelligence records...</div>`;
       return;
     }
 
-    feed.innerHTML = siphonLogs.map(l => `
-      <div style="background: rgba(56,189,248,0.04); border: 1px solid rgba(56,189,248,0.35); border-left: 3px solid #38bdf8; border-radius: 3px; padding: 10px 12px;">
+    feed.innerHTML = records.map(r => `
+      <div style="background: rgba(8,12,16,0.65); border: 1px solid var(--line-soft); border-left: 3px solid #38bdf8; border-radius: 3px; padding: 8px 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 4px;">
           <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="badge" style="background: rgba(56,189,248,0.2); color: #7dd3fc; border: 1px solid #38bdf8; font-size: 9px; font-weight: bold;">
-              🛸 SIPHON: ${escapeHtml(l.rule_name)}
+            <span class="badge" style="background: rgba(56,189,248,0.15); color: #7dd3fc; border: 1px solid rgba(56,189,248,0.4); font-size: 8.5px; font-weight: bold;">
+              ${escapeHtml(r.media_type || 'TEXT')}
             </span>
-            <span style="font-weight: bold; color: var(--bone); font-size: 11px;">${escapeHtml(l.sender_name)}</span>
-            ${l.group_title ? `<span style="color: var(--muted); font-size: 9px;">in ${escapeHtml(l.group_title)}</span>` : ''}
+            <span style="font-weight: bold; color: var(--bone); font-size: 11px;">${escapeHtml(r.sender_name || 'User ' + r.sender_id)}</span>
+            ${r.group_title ? `<span style="color: var(--muted); font-size: 9px;">in ${escapeHtml(r.group_title)}</span>` : ''}
           </div>
-          <span style="font-size: 9px; color: var(--muted); font-family: monospace;">${escapeHtml(l.timestamp)}</span>
+          <span style="font-size: 9px; color: var(--muted); font-family: monospace;">${escapeHtml(r.created_at || '')}</span>
         </div>
         <div style="font-size: 11px; color: #bae6fd; line-height: 1.4; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 2px; word-break: break-word;">
-          ${escapeHtml(l.matched_text || '')}
+          ${escapeHtml(r.text_content || '[No text content]')}
         </div>
       </div>
     `).join('');
     safeCreateIcons();
   }
 
-  async function addSiphonRule() {
-    const name = (document.getElementById('siphon-name-input')?.value || '').trim();
-    const type = document.getElementById('siphon-type-select')?.value || 'crypto';
-    const val = (document.getElementById('siphon-val-input')?.value || '').trim();
+  async function startSiphonCollection() {
+    const sourceSelect = document.getElementById('siphon-source-select');
+    const limitSelect = document.getElementById('siphon-limit-select');
+    const typeSelect = document.getElementById('siphon-type-select');
+    const keywordInput = document.getElementById('siphon-keyword-input');
+    const btn = document.getElementById('btn-start-siphon');
 
-    if (!name) {
-      showToast("Please enter a name for the Siphon rule", "error");
+    const groupId = sourceSelect ? sourceSelect.value : '';
+    if (!groupId) {
+      showToast("Please select an authorized target group first", "error");
       return;
     }
 
+    const limit = parseInt(limitSelect ? limitSelect.value : '500', 10) || 500;
+    const filterMedia = typeSelect ? typeSelect.value : 'all';
+    const keyword = (keywordInput ? keywordInput.value : '').trim();
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "LAUNCHING...";
+    }
+
     try {
-      const res = await fetch('/api/siphon/rules', {
+      const res = await fetch('/api/siphon/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rule_name: name, match_type: type, match_value: val, destination: "me" })
+        body: JSON.stringify({
+          group_id: groupId,
+          limit: limit,
+          filter_media: filterMedia,
+          keyword: keyword
+        })
       });
+
       if (res.ok) {
-        showToast(`🛸 Siphon armed: [${type.toUpperCase()}] "${name}" -> Saved Messages`, "success");
-        document.getElementById('siphon-name-input').value = '';
-        document.getElementById('siphon-val-input').value = '';
-        refreshSiphonRules();
+        const data = await res.json();
+        showToast(`🛸 Siphon job launched: ${limit} messages requested`, "success");
+        if (keywordInput) keywordInput.value = '';
+        await refreshSiphonData();
       } else {
         const err = await res.json().catch(() => ({}));
-        showToast(err.detail || "Failed to arm siphon", "error");
+        showToast(err.detail || "Failed to start siphon job", "error");
       }
     } catch (e) {
-      showToast("Error: " + e.message, "error");
+      showToast("Siphon launch error: " + e.message, "error");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = "+ START INGESTION";
+      }
     }
   }
 
-  async function deleteSiphonRule(id) {
+  async function stopSiphonCollection(jobId) {
+    if (!jobId) return;
     try {
-      const res = await fetch(`/api/siphon/rules?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/siphon/jobs/${encodeURIComponent(jobId)}/stop`, { method: 'POST' });
       if (res.ok) {
-        showToast("Siphon route retired", "info");
-        refreshSiphonRules();
+        showToast("Siphon collection halted", "info");
+        await refreshSiphonData();
       }
     } catch (e) {
-      showToast("Failed to delete rule", "error");
+      showToast("Failed to stop job: " + e.message, "error");
     }
   }
 
-  async function testSiphonPing() {
-    showToast("Dispatching test alert to Telegram Saved Messages...", "info");
+  async function resumeSiphonCollection(jobId) {
+    if (!jobId) return;
     try {
-      const res = await fetch('/api/siphon/test', { method: 'POST' });
+      const res = await fetch(`/api/siphon/jobs/${encodeURIComponent(jobId)}/resume`, { method: 'POST' });
       if (res.ok) {
-        showToast("📱 PUSH DELIVERED! Check your Telegram Saved Messages on phone.", "success");
-        playZenSound('bell');
-        refreshSiphonLogs();
-      } else {
-        showToast("Delivery failed", "error");
+        showToast("Siphon collection resumed from checkpoint", "success");
+        await refreshSiphonData();
       }
     } catch (e) {
-      showToast("Test ping error: " + e.message, "error");
+      showToast("Failed to resume job: " + e.message, "error");
     }
   }
 
+  function exportSiphonRecords(jobId) {
+    const url = jobId ? `/api/siphon/export?job_id=${encodeURIComponent(jobId)}` : `/api/siphon/export`;
+    window.open(url, '_blank');
+  }
+
+  // Backward compatibility stubs for legacy calls
+  function toggleSiphonValField() {}
+  function addSiphonRule() {}
+  function deleteSiphonRule() {}
+  function testSiphonPing() {
+    showToast("Autonomous Siphon Matrix is operating in persistent database mode", "info");
+  }
   function handleSiphonTriggered(alert) {
-    showToast(`🛸 SIPHON FIRED: "${alert.rule_name}" pushed to Saved Messages!`, "success");
-    playZenSound('bell');
-    siphonLogs.unshift(alert);
-    renderSiphonLogs();
+    refreshSiphonData();
   }
+
+  // ==========================================
+  // SANCTUARY OPERATIONAL COMMAND CENTER
+  // ==========================================
+  let sanctuaryInitialized = false;
+
+  async function initSanctuaryDashboard() {
+    try {
+      const [healthRes, sourcesRes, reconRes] = await Promise.all([
+        fetch('/api/system/health').catch(() => null),
+        fetch('/api/siphon/sources').catch(() => null),
+        fetch('/api/recon/schedule').catch(() => null)
+      ]);
+
+      let health = null, sources = [], recon = null;
+      if (healthRes && healthRes.ok) health = await healthRes.json();
+      if (sourcesRes && sourcesRes.ok) {
+        const sdata = await sourcesRes.json();
+        sources = sdata.sources || [];
+      }
+      if (reconRes && reconRes.ok) recon = await reconRes.json();
+
+      // 1. Connected Node Profile Card
+      const nodeStatus = document.getElementById('sanc-node-status');
+      if (nodeStatus) {
+        if (health && health.telegram_connected) {
+          nodeStatus.innerText = "ONLINE / ARMED";
+          nodeStatus.className = "badge badge-emerald";
+        } else {
+          nodeStatus.innerText = "STANDBY";
+          nodeStatus.className = "badge badge-amber";
+        }
+      }
+
+      // 2. Metrics Strip
+      const groupsCount = sources.filter(s => s.type !== 'channel').length;
+      const channelsCount = sources.filter(s => s.type === 'channel').length;
+
+      const gEl = document.getElementById('sanc-stat-groups');
+      const chEl = document.getElementById('sanc-stat-channels');
+      const intelEl = document.getElementById('sanc-stat-intel-count');
+      const jobsEl = document.getElementById('sanc-stat-active-jobs');
+
+      if (gEl) gEl.innerText = groupsCount;
+      if (chEl) chEl.innerText = channelsCount;
+      if (intelEl) intelEl.innerText = (health && health.total_messages ? health.total_messages : '100,000+');
+      if (jobsEl) jobsEl.innerText = (health ? health.active_jobs_count : 0);
+
+      // 3. Authorized Dialogs Table
+      renderSanctuaryDialogs(sources);
+
+      // 4. Reconnaissance Schedule Board
+      renderSanctuarySchedule(recon);
+
+      // 5. Activity Stream
+      renderSanctuaryActivityStream();
+
+      sanctuaryInitialized = true;
+    } catch (e) {
+      console.error("Sanctuary initialization error:", e);
+    }
+  }
+
+  function renderSanctuaryDialogs(sources) {
+    const tbody = document.getElementById('sanc-groups-tbody');
+    if (!tbody) return;
+
+    if (!sources || sources.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 24px;">No authorized dialogs available.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = sources.map(s => `
+      <tr style="border-bottom: 1px solid var(--line-soft);">
+        <td style="padding: 10px 12px; font-weight: bold; color: var(--bone);">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="${s.type === 'channel' ? 'volume-2' : 'users'}" style="width: 14px; height: 14px; color: #38bdf8; flex-shrink: 0;"></i>
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;">${escapeHtml(s.title || 'Chat #' + s.id)}</span>
+          </div>
+        </td>
+        <td style="padding: 10px 12px; font-family: monospace; font-size: 11px; color: var(--muted);">${s.id}</td>
+        <td style="padding: 10px 12px;">
+          <span class="badge ${s.type === 'channel' ? 'badge-muted' : 'badge-cyan'}" style="font-size: 8.5px;">${escapeHtml((s.type || 'group').toUpperCase())}</span>
+        </td>
+        <td style="padding: 10px 12px; color: var(--muted); font-size: 11px;">${s.participants_count ? s.participants_count.toLocaleString() : '—'}</td>
+        <td style="padding: 10px 12px;">
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <button onclick="setSurveillanceTargetAndSwitch('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 8px; color: #38bdf8;" title="Target in War Room">Target</button>
+            <button onclick="openScanModalWithTarget('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 8px; color: #10b981;" title="Deep Reputation Scan">Scan</button>
+            <button onclick="openSiphonModalWithTarget('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 8px; color: #ec4899;" title="Siphon Ingestion">Ingest</button>
+            <button onclick="openSweeperModalWithTarget('${s.id}')" class="kage-btn-pill" style="font-size: 9px; padding: 2px 8px; color: #f59e0b;" title="Sweep Clutter">Sweep</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+    safeCreateIcons();
+  }
+
+  function renderSanctuarySchedule(recon) {
+    const list = document.getElementById('sanc-sched-tasks-list');
+    if (!list) return;
+
+    if (!recon) {
+      list.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 18px;">Automated reconnaissance service initialized.</div>`;
+      return;
+    }
+
+    const isEnabled = recon.enabled !== false;
+    list.innerHTML = `
+      <div style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-left: 3px solid ${isEnabled ? '#10b981' : '#f59e0b'}; border-radius: 3px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="badge ${isEnabled ? 'badge-emerald' : 'badge-amber'}" style="font-size: 8.5px;">${isEnabled ? 'SCHEDULE ACTIVE' : 'SCHEDULE PAUSED'}</span>
+            <b style="color: var(--bone); font-size: 11px;">DAILY 100K REPUTATION SCAN</b>
+          </div>
+          <div style="font-size: 9.5px; color: var(--muted); margin-top: 3px;">
+            Time: <b style="color: var(--bone);">${recon.schedule_time || '04:00 UTC'}</b> &bull; Target: <b style="color: #38bdf8;">${(recon.target_message_count || 100000).toLocaleString()} msgs</b>
+          </div>
+          <div style="font-size: 9px; color: #38bdf8; margin-top: 2px;">
+            Next: ${recon.next_run || 'Tomorrow 04:00 UTC'} &bull; Last: ${recon.last_status || 'Success'}
+          </div>
+        </div>
+        <button onclick="switchViewMode('warroom'); switchCenterTab('recon');" class="kage-btn-pill" style="font-size: 9px; padding: 4px 8px;">Configure</button>
+      </div>
+    `;
+    safeCreateIcons();
+  }
+
+  function renderSanctuaryActivityStream() {
+    const feed = document.getElementById('sanc-activity-feed');
+    if (!feed) return;
+
+    const events = [
+      { tag: "KERNEL", time: "Now", desc: "MTProto session verified. Wiretap buffer streaming active." },
+      { tag: "DISPATCH", time: "Active", desc: "Multi-group dispatcher ready for controlled broadcast." },
+      { tag: "RADAR", time: "Armed", desc: "Threat intelligence indicators engine monitoring IOCs." },
+      { tag: "SIPHON", time: "Standby", desc: "Autonomous ingestion matrix waiting for trigger." }
+    ];
+
+    feed.innerHTML = events.map(e => `
+      <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 10px; line-height: 1.4;">
+        <span class="badge badge-muted" style="font-size: 8px; flex-shrink: 0; padding: 1px 4px;">${e.tag}</span>
+        <span style="color: var(--bone); flex: 1;">${e.desc}</span>
+        <span style="color: var(--muted); font-size: 9px; flex-shrink: 0;">${e.time}</span>
+      </div>
+    `).join('');
+  }
+
+  function setSurveillanceTargetAndSwitch(groupId) {
+    const sel = document.getElementById('target-group-select');
+    if (sel) {
+      sel.value = groupId;
+      sel.dispatchEvent(new Event('change'));
+    }
+    switchViewMode('warroom');
+  }
+
+  function openScanModalWithTarget(groupId) {
+    setSurveillanceTargetAndSwitch(groupId);
+    switchCenterTab('recon');
+  }
+
+  function openSiphonModalWithTarget(groupId) {
+    openSiphonModal();
+    setTimeout(() => {
+      loadSiphonSources(groupId);
+    }, 200);
+  }
+
+  function openSweeperModalWithTarget(groupId) {
+    openSweeperModal();
+    setTimeout(() => {
+      const sel = document.getElementById('sweeper-group-select');
+      if (sel) {
+        sel.value = groupId;
+        sel.dispatchEvent(new Event('change'));
+      }
+    }, 200);
+  }
+
+  function handleSancCliKey(e) {
+    if (e.key === 'Enter') {
+      const input = document.getElementById('sanc-cli-input');
+      if (!input) return;
+      const cmd = input.value.trim();
+      if (!cmd) return;
+      input.value = '';
+      executeSancReplCommand(cmd);
+    }
+  }
+
+  function executeSancReplCommand(cmdStr) {
+    const out = document.getElementById('sanc-cli-output');
+    if (!out) return;
+
+    const printLine = (txt, color = 'var(--bone)') => {
+      const div = document.createElement('div');
+      div.style.color = color;
+      div.style.marginBottom = '2px';
+      div.innerText = txt;
+      out.appendChild(div);
+      out.scrollTop = out.scrollHeight;
+    };
+
+    printLine(`kage-sovereign:~$ ${cmdStr}`, '#38bdf8');
+
+    const parts = cmdStr.split(' ');
+    const cmd = parts[0].toLowerCase();
+
+    switch (cmd) {
+      case 'help':
+        printLine("AVAILABLE SOVEREIGN COMMANDS:");
+        printLine("  help               - Display this help reference");
+        printLine("  status / health    - Inspect MTProto ingestion & API daemon state");
+        printLine("  scan               - Launch 100K deep reputation recon interface");
+        printLine("  siphon             - Open Autonomous Siphon Matrix workspace");
+        printLine("  dispatch           - Open Multi-Group Dispatcher workspace");
+        printLine("  sweep              - Open System Clutter & Maintenance workspace");
+        printLine("  radar              - Open Threat Intelligence Radar");
+        printLine("  clear              - Clear terminal console screen");
+        break;
+
+      case 'status':
+      case 'health':
+        fetch('/api/system/health')
+          .then(r => r.json())
+          .then(data => {
+            printLine(`[SYSTEM STATUS] MTProto Connected: ${data.telegram_connected} | API: ${data.backend_healthy ? 'HEALTHY' : 'DOWN'}`);
+            printLine(`[ACTIVE JOBS] Total: ${data.active_jobs_count} (Scans: ${data.active_scans}, Siphons: ${data.active_siphons}, Dispatches: ${data.active_dispatches})`);
+            printLine(`[SYNCHRONIZATION] Last Sync: ${data.last_sync}`);
+          })
+          .catch(err => printLine(`Error retrieving status: ${err.message}`, 'var(--ember)'));
+        break;
+
+      case 'scan':
+        printLine("Switching to Member Recon scan interface...", '#10b981');
+        switchViewMode('warroom');
+        switchCenterTab('recon');
+        break;
+
+      case 'siphon':
+        printLine("Opening Autonomous Siphon Matrix workspace...", '#38bdf8');
+        openSiphonModal();
+        break;
+
+      case 'dispatch':
+        printLine("Opening Multi-Group Dispatcher workspace...", '#ec4899');
+        openDispatchModal();
+        break;
+
+      case 'sweep':
+        printLine("Opening Clutter Sweeper & System Maintenance...", '#f59e0b');
+        openSweeperModal();
+        break;
+
+      case 'radar':
+        printLine("Opening Threat Intelligence Radar...", '#ef4444');
+        openEntitiesModal();
+        break;
+
+      case 'clear':
+        out.innerHTML = '<div style="color: var(--muted); margin-bottom: 6px;">KAGE Sovereign Terminal Console v3.8. Type "help" for command matrix.</div>';
+        break;
+
+      default:
+        printLine(`Unknown command: "${cmd}". Type "help" for available commands.`, 'var(--ember)');
+        break;
+    }
+  }
+
+  // ==========================================
+  // COMPACT SYSTEM HEALTH MONITOR
+  // ==========================================
+  async function pollSystemHealth() {
+    try {
+      const res = await fetch('/api/system/health');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      // 1. Telegram MTProto connection
+      const tgStatus = document.getElementById('health-tg-status');
+      const tgDot = document.getElementById('health-tg-dot');
+      if (tgStatus && tgDot) {
+        if (data.telegram_connected) {
+          tgStatus.innerText = "TG: ONLINE";
+          tgDot.className = "health-dot active";
+        } else {
+          tgStatus.innerText = "TG: OFFLINE";
+          tgDot.className = "health-dot error";
+        }
+      }
+
+      // 2. Backend API health
+      const beStatus = document.getElementById('health-backend-status');
+      const beDot = document.getElementById('health-be-dot');
+      if (beStatus && beDot) {
+        if (data.backend_healthy) {
+          beStatus.innerText = "API: OK";
+          beDot.className = "health-dot active";
+        } else {
+          beStatus.innerText = "API: ERR";
+          beDot.className = "health-dot error";
+        }
+      }
+
+      // 3. Active Jobs
+      const jobsStatus = document.getElementById('health-jobs-status');
+      const jobsDot = document.getElementById('health-jobs-dot');
+      if (jobsStatus && jobsDot) {
+        if (data.active_jobs_count > 0) {
+          jobsStatus.innerText = `JOBS: ${data.active_jobs_count} ACTIVE`;
+          jobsDot.className = "health-dot active";
+        } else {
+          jobsStatus.innerText = "JOBS: IDLE";
+          jobsDot.className = "health-dot idle";
+        }
+      }
+
+      // 4. Last Sync
+      const syncTime = document.getElementById('health-sync-time');
+      if (syncTime) {
+        if (data.last_sync && data.last_sync !== 'None' && data.last_sync !== 'Live') {
+          syncTime.innerText = `SYNC: ${data.last_sync.substring(11, 19) || data.last_sync}`;
+        } else {
+          syncTime.innerText = "SYNC: LIVE";
+        }
+      }
+    } catch (e) {
+      const beStatus = document.getElementById('health-backend-status');
+      const beDot = document.getElementById('health-be-dot');
+      if (beStatus && beDot) {
+        beStatus.innerText = "API: DOWN";
+        beDot.className = "health-dot error";
+      }
+    }
+  }
+
+  // Poll system health every 10 seconds
+  setInterval(pollSystemHealth, 10000);
+  setTimeout(pollSystemHealth, 1500);
 
   // ==========================================
   // GLOBAL FORENSIC FULL-TEXT SEARCH
@@ -19084,15 +19796,24 @@ body.theme-light .kage-btn.secondary {
     try {
       await fetch('/api/owner/logout', { method: 'POST' });
     } catch (e) {}
-    sessionStorage.removeItem('owner_token');
-    sessionStorage.removeItem('operator_username');
-    sessionStorage.removeItem('operator_role');
+    sessionStorage.clear();
+    localStorage.removeItem('owner_token');
+    localStorage.removeItem('operator_username');
+    localStorage.removeItem('operator_role');
     isOwnerVerified = false;
+    operatorRole = 'guest';
     if (ws) {
       try { ws.close(); } catch(e) {}
     }
-    window.location.reload();
+    // Prevent back navigation restoring cached authenticated session
+    window.location.replace('/?logout=' + Date.now());
   }
+
+  window.addEventListener('pageshow', function(event) {
+    if (event.persisted && !sessionStorage.getItem('owner_token')) {
+      window.location.replace('/');
+    }
+  });
 
   // ═══════════════════════════════════════════════════════
   //   ADAPTIVE FORM FACTOR DETECTION (MOBILE / TABLET / MONITOR)

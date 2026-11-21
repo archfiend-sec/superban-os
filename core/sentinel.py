@@ -1152,6 +1152,19 @@ class SentinelShield:
                         group_id, effective_uid, username,
                         threat_type, confidence, trigger_reason, action_taken
                     )
+                    # Real traceable Threat Intel Indicator recording
+                    sev = "CRITICAL" if confidence >= 95 else ("HIGH" if confidence >= 80 else "MEDIUM")
+                    await self.db.record_threat_indicator(
+                        indicator_type=threat_type.lower(),
+                        indicator_value=text[:160],
+                        group_id=group_id,
+                        group_title=group_title,
+                        message_id=event.id,
+                        sender_id=effective_uid,
+                        sender_name=f"{first_name} {last_name}".strip() or username or f"User #{effective_uid}",
+                        severity=sev,
+                        context=trigger_reason
+                    )
                     await self.emit_sentinel_event("ai_threat_neutralized", {
                         "group_id": group_id, "user_id": effective_uid,
                         "threat_type": threat_type, "confidence": confidence,
@@ -1247,52 +1260,11 @@ class SentinelShield:
 
     def _extract_entities(self, text: str, group_id: int, group_title: str, 
                           message_id: int, sender_id: int, sender_name: str) -> List[Dict[str, Any]]:
-        """Extract cryptocurrency addresses, Telegram invites, URLs, and cashtags."""
+        """Extract security indicators: Telegram invites, URLs, and cashtags/mentions (Crypto tracking stripped)."""
         if not text:
             return []
         entities = []
         seen = set()
-
-        # EVM / Ethereum
-        for eth in ETH_REGEX.findall(text):
-            if eth.lower() not in seen:
-                seen.add(eth.lower())
-                entities.append({
-                    "group_id": group_id, "group_title": group_title, "message_id": message_id,
-                    "sender_id": sender_id, "sender_name": sender_name,
-                    "entity_type": "crypto_eth", "entity_value": eth, "context": text
-                })
-
-        # Solana
-        for sol in SOL_REGEX.findall(text):
-            if sol.lower() not in seen and len(sol) >= 32 and not sol.startswith('http'):
-                if not sol.startswith('0x') and any(c.isdigit() for c in sol) and any(c.isalpha() for c in sol):
-                    seen.add(sol.lower())
-                    entities.append({
-                        "group_id": group_id, "group_title": group_title, "message_id": message_id,
-                        "sender_id": sender_id, "sender_name": sender_name,
-                        "entity_type": "crypto_sol", "entity_value": sol, "context": text
-                    })
-
-        # Bitcoin
-        for btc in BTC_REGEX.findall(text):
-            if btc.lower() not in seen:
-                seen.add(btc.lower())
-                entities.append({
-                    "group_id": group_id, "group_title": group_title, "message_id": message_id,
-                    "sender_id": sender_id, "sender_name": sender_name,
-                    "entity_type": "crypto_btc", "entity_value": btc, "context": text
-                })
-
-        # TON
-        for ton in TON_REGEX.findall(text):
-            if ton.lower() not in seen:
-                seen.add(ton.lower())
-                entities.append({
-                    "group_id": group_id, "group_title": group_title, "message_id": message_id,
-                    "sender_id": sender_id, "sender_name": sender_name,
-                    "entity_type": "crypto_ton", "entity_value": ton, "context": text
-                })
 
         # Telegram Invites
         for inv in TG_INVITE_REGEX.findall(text):
@@ -1304,7 +1276,7 @@ class SentinelShield:
                     "entity_type": "tg_invite", "entity_value": inv, "context": text
                 })
 
-        # Cashtags ($SOL, $BTC)
+        # Cashtags ($TICKER)
         for tag in CASHTAG_REGEX.findall(text):
             tag_clean = tag.upper()
             if tag_clean not in seen:
@@ -1393,11 +1365,16 @@ class SentinelShield:
                     matched = True
                 elif m_type == "user" and (m_val == uid_str or m_val == u_lower or m_val.lstrip('@') == u_lower.lstrip('@')):
                     matched = True
-                elif m_type == "crypto":
-                    crypto_entities = [e for e in entities if e["entity_type"].startswith("crypto_")]
-                    if crypto_entities:
+                elif m_type == "invite":
+                    invite_entities = [e for e in entities if e["entity_type"] == "tg_invite"]
+                    if invite_entities:
                         matched = True
-                        matched_snippet = f"[{crypto_entities[0]['entity_type'].upper()}] {crypto_entities[0]['entity_value']}\n{text}"
+                        matched_snippet = f"[INVITE] {invite_entities[0]['entity_value']}\n{text}"
+                elif m_type == "url":
+                    url_entities = [e for e in entities if e["entity_type"] == "url"]
+                    if url_entities:
+                        matched = True
+                        matched_snippet = f"[URL] {url_entities[0]['entity_value']}\n{text}"
 
                 if matched:
                     logger.warning(f"🛸 SIPHON TRIGGERED [{rule_name}] -> Forwarding to {dest}!")

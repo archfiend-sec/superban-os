@@ -2919,44 +2919,289 @@ def create_app(engine: SuperBanEngine):
     async def test_siphon():
         return await engine.test_siphon_ping()
 
-    @app.get("/api/crypto/dexscreener")
-    async def get_dexscreener_info(address: str):
-        import re
-        cleaned_addr = re.sub(r"[^a-zA-Z0-9_-]", "", address.strip())
-        if not cleaned_addr or len(cleaned_addr) > 128:
-            return {
-                "found": False,
-                "address": address,
-                "url": "https://dexscreener.com"
-            }
-        url = f"https://api.dexscreener.com/latest/dex/tokens/{cleaned_addr}"
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        pairs = data.get("pairs") or []
-                        if pairs:
-                            pairs.sort(key=lambda p: float(p.get("liquidity", {}).get("usd") or 0), reverse=True)
-                            p = pairs[0]
-                            return {
-                                "found": True,
-                                "name": p.get("baseToken", {}).get("name", "Unknown"),
-                                "symbol": p.get("baseToken", {}).get("symbol", "???"),
-                                "chain": p.get("chainId", ""),
-                                "dex": p.get("dexId", ""),
-                                "price_usd": p.get("priceUsd", "0.00"),
-                                "liquidity_usd": p.get("liquidity", {}).get("usd", 0),
-                                "fdv": p.get("fdv", 0),
-                                "price_change_24h": p.get("priceChange", {}).get("h24", 0),
-                                "url": p.get("url", f"https://dexscreener.com/search?q={cleaned_addr}")
-                            }
-        except Exception as e:
-            logger.debug(f"DexScreener proxy error: {e}")
+    # =========================================================================
+    #  AUTONOMOUS SIPHON MATRIX (AUTHORIZED INGESTION & COLLECTION WORKSPACE)
+    # =========================================================================
+    @app.get("/api/siphon/sources")
+    async def get_siphon_sources():
+        """Retrieve authorized and connected Telegram sources for intelligence ingestion."""
+        return await engine.get_authorized_sources()
+
+    @app.get("/api/siphon/jobs")
+    async def get_siphon_jobs(limit: int = 50):
+        if not engine.db:
+            return []
+        return await engine.db.get_siphon_jobs(limit=limit)
+
+    class CreateSiphonJobReq(BaseModel):
+        group_id: int
+        scope_limit: int = 1000
+        limit: Optional[int] = None
+        date_since: Optional[str] = None
+        message_types: str = "all"
+        filter_media: Optional[str] = None
+        keyword: Optional[str] = None
+        title: Optional[str] = None
+
+    @app.post("/api/siphon/jobs")
+    async def create_siphon_job(req: CreateSiphonJobReq):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        
+        # Prevent duplicate active siphon jobs on the same target group
+        norm_gid = engine.normalize_gid(req.group_id)
+        active_jobs = await engine.db.get_siphon_jobs(limit=100)
+        for aj in active_jobs:
+            if aj.get("group_id") == norm_gid and aj.get("status") in ("running", "pending"):
+                raise HTTPException(status_code=400, detail="An active siphon job is already running on this group.")
+
+        import uuid
+        job_id = f"siph_{uuid.uuid4().hex[:8]}"
+        eff_limit = req.limit or req.scope_limit or 1000
+        eff_types = req.filter_media or req.message_types or "all"
+        return await engine.start_siphon_collection(
+            job_id=job_id,
+            group_id=req.group_id,
+            scope_limit=eff_limit,
+            date_since=req.date_since,
+            message_types=eff_types
+        )
+
+    @app.post("/api/siphon/jobs/{job_id}/stop")
+    async def stop_siphon_job(job_id: str):
+        success = await engine.stop_siphon_collection(job_id)
+        return {"success": success, "job_id": job_id}
+
+    @app.post("/api/siphon/jobs/{job_id}/resume")
+    async def resume_siphon_job(job_id: str):
+        return await engine.resume_siphon_collection(job_id)
+
+    @app.get("/api/siphon/records")
+    async def get_siphon_records(
+        job_id: Optional[str] = None,
+        group_id: Optional[int] = None,
+        message_type: Optional[str] = None,
+        sender: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0
+    ):
+        if not engine.db:
+            return []
+        return await engine.db.get_siphon_records(
+            job_id=job_id,
+            group_id=group_id,
+            message_type=message_type,
+            sender=sender,
+            limit=limit,
+            offset=offset
+        )
+
+    @app.get("/api/siphon/export")
+    async def export_siphon_records(job_id: Optional[str] = None, group_id: Optional[int] = None, format: str = "csv"):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        records = await engine.db.get_siphon_records(job_id=job_id, group_id=group_id, limit=5000)
+        if format == "json":
+            return records
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Job ID", "Group ID", "Group Title", "Message ID", "Sender ID", "Sender Name", "Username", "Message Type", "Collected At", "Message Text"])
+        for r in records:
+            writer.writerow([
+                r.get("id"), r.get("job_id"), r.get("group_id"), r.get("group_title"),
+                r.get("message_id"), r.get("sender_id"), r.get("sender_name"),
+                r.get("sender_username"), r.get("message_type"), r.get("collected_at"),
+                _sanitize_csv_cell(r.get("message_text") or "")
+            ])
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=kage_siphon_collected_intel.csv"}
+        )
+
+    # =========================================================================
+    #  MULTI-GROUP DISPATCHER (CONTROLLED & RELIABLE MESSAGING SYSTEM)
+    # =========================================================================
+    @app.get("/api/dispatcher/jobs")
+    async def get_dispatch_jobs(limit: int = 50):
+        if not engine.db:
+            return []
+        return await engine.db.get_dispatch_jobs(limit=limit)
+
+    @app.get("/api/dispatcher/jobs/{job_id}")
+    async def get_dispatch_job_detail(job_id: str):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        job = await engine.db.get_dispatch_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Dispatch job not found")
+        deliveries = await engine.db.get_dispatch_deliveries(job_id)
+        return {"job": job, "deliveries": deliveries}
+
+    class CreateDispatchJobReq(BaseModel):
+        title: str = "Multi-Group Broadcast"
+        message_text: str
+        group_ids: List[int]
+        batch_size: int = 5
+        sending_interval_sec: float = 3.0
+        media_path: Optional[str] = None
+
+    @app.post("/api/dispatcher/jobs")
+    async def create_dispatch_job(req: CreateDispatchJobReq):
+        import uuid
+        job_id = f"disp_{uuid.uuid4().hex[:8]}"
+        return await engine.dispatch_multi_group_messages(
+            job_id=job_id,
+            title=req.title,
+            text=req.message_text,
+            group_ids=req.group_ids,
+            batch_size=req.batch_size,
+            interval_sec=req.sending_interval_sec,
+            media_path=req.media_path
+        )
+
+    @app.post("/api/dispatcher/jobs/{job_id}/stop")
+    async def stop_dispatch_job(job_id: str):
+        success = await engine.stop_dispatch_job(job_id)
+        return {"success": success, "job_id": job_id}
+
+    @app.post("/api/dispatcher/jobs/{job_id}/retry")
+    async def retry_dispatch_job(job_id: str):
+        return await engine.retry_dispatch_failed(job_id)
+
+    # =========================================================================
+    #  SWEEP MAINTENANCE WORKSPACE (SAFE CLUTTER INSPECTION & CLEANUP)
+    # =========================================================================
+    @app.get("/api/maintenance/inspect")
+    async def inspect_maintenance():
+        if not engine.db:
+            return {"error": "Database offline"}
+        return await engine.db.inspect_system_clutter()
+
+    class MaintenanceCleanReq(BaseModel):
+        options: Dict[str, bool]
+
+    @app.post("/api/maintenance/clean")
+    async def clean_maintenance(req: MaintenanceCleanReq, request: Request):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        op = getattr(request.state, "operator", {})
+        operator_name = op.get("username") or "Master Owner"
+        return await engine.db.cleanup_system_clutter(req.options, operator=operator_name)
+
+    @app.get("/api/maintenance/service_clutter")
+    async def preview_service_clutter(group_id: int, limit: int = 1500):
+        return await engine.preview_service_clutter(group_id, limit=limit)
+
+    class PurgeServiceClutterReq(BaseModel):
+        group_id: int
+        limit: int = 2500
+
+    @app.post("/api/maintenance/service_clutter/purge")
+    async def purge_service_clutter(req: PurgeServiceClutterReq):
+        entity = await engine.get_group_entity(req.group_id)
+        if not entity:
+            raise HTTPException(status_code=404, detail="Target group not found")
+        purged = await engine.clean_service_messages(entity, limit=req.limit)
+        return {"status": "purged", "group_id": req.group_id, "purged": purged}
+
+    # =========================================================================
+    #  THREAT INTELLIGENCE RADAR (GENUINE IOC & THREAT PATTERN TRACKING)
+    # =========================================================================
+    @app.get("/api/radar/indicators")
+    async def get_radar_indicators(
+        indicator_type: Optional[str] = None,
+        severity: Optional[str] = None,
+        acknowledged: Optional[bool] = None,
+        search: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ):
+        if not engine.db:
+            return []
+        return await engine.db.get_threat_indicators(
+            indicator_type=indicator_type,
+            severity=severity,
+            acknowledged=acknowledged,
+            search=search,
+            limit=limit,
+            offset=offset
+        )
+
+    @app.post("/api/radar/indicators/{indicator_id}/acknowledge")
+    async def acknowledge_indicator(indicator_id: int, request: Request):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        op = getattr(request.state, "operator", {})
+        operator_name = op.get("username") or "Master Owner"
+        success = await engine.db.acknowledge_threat_indicator(indicator_id, operator=operator_name)
+        return {"success": success, "indicator_id": indicator_id}
+
+    @app.get("/api/radar/stats")
+    async def get_radar_stats():
+        if not engine.db:
+            return {"total": 0, "critical": 0, "high": 0, "unacknowledged": 0, "by_type": {}}
+        return await engine.db.get_threat_indicator_stats()
+
+    @app.get("/api/radar/export")
+    async def export_radar_indicators(format: str = "csv"):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        indicators = await engine.db.get_threat_indicators(limit=5000)
+        if format == "json":
+            return indicators
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Type", "Indicator Value", "Group ID", "Group Title", "Severity", "Sender Name", "Occurrences", "Acknowledged", "First Seen", "Last Seen", "Context"])
+        for ind in indicators:
+            writer.writerow([
+                ind.get("id"), ind.get("indicator_type"), _sanitize_csv_cell(ind.get("indicator_value") or ""),
+                ind.get("group_id"), ind.get("group_title"), ind.get("severity"),
+                _sanitize_csv_cell(ind.get("sender_name") or ""), ind.get("occurrence_count"),
+                "YES" if ind.get("is_acknowledged") else "NO",
+                ind.get("first_seen"), ind.get("last_seen"),
+                _sanitize_csv_cell(ind.get("context") or "")
+            ])
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=kage_threat_intel_indicators.csv"}
+        )
+
+    # =========================================================================
+    #  COMPACT SYSTEM HEALTH & REAL-TIME TELEMETRY
+    # =========================================================================
+    @app.get("/api/system/health")
+    async def get_system_health():
+        is_conn = bool(engine.client and engine.client.is_connected())
+        active_scans = len(getattr(engine, "active_deep_scans", {}))
+        active_siphons = len(getattr(engine, "active_siphon_tasks", {}))
+        active_dispatches = len(getattr(engine, "active_dispatch_tasks", {}))
+        total_active_jobs = active_scans + active_siphons + active_dispatches
+
+        # Retrieve last message timestamp
+        last_sync = "Live"
+        if engine.db:
+            try:
+                engine.db.cursor.execute("SELECT MAX(created_at) FROM intercepted_messages")
+                row = engine.db.cursor.fetchone()
+                if row and row[0]:
+                    last_sync = str(row[0])
+            except Exception:
+                pass
+
         return {
-            "found": False,
-            "address": cleaned_addr,
-            "url": f"https://dexscreener.com/search?q={cleaned_addr}"
+            "telegram_connected": is_conn,
+            "backend_healthy": True,
+            "active_jobs_count": total_active_jobs,
+            "active_scans": active_scans,
+            "active_siphons": active_siphons,
+            "active_dispatches": active_dispatches,
+            "last_sync": last_sync
         }
 
     @app.get("/api/export/members")
@@ -3115,7 +3360,7 @@ def create_app(engine: SuperBanEngine):
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=superban_crypto_signals_alpha.csv"}
+            headers={"Content-Disposition": "attachment; filename=kage_threat_indicators.csv"}
         )
 
     @app.get("/api/export/ghost")
