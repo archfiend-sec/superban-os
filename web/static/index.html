@@ -209,15 +209,25 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 /* Toast Notifications - Stacked, Non-Blocking, High-Z */
 #toast-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  top: calc(var(--nav-h, 50px) + 14px);
+  right: 20px;
+  bottom: auto;
   z-index: 999999;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 8px;
   pointer-events: none;
   max-width: 440px;
-  width: calc(100vw - 48px);
+  width: calc(100vw - 40px);
+}
+@media (max-width: 768px) {
+  #toast-container {
+    top: calc(var(--nav-h, 50px) + 8px);
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
 }
 .toast {
   position: relative !important;
@@ -1472,26 +1482,29 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-height: 80px;
+  min-height: auto;
   max-width: 380px;
+  width: fit-content;
   contain: layout;
 }
 .wiretap-sticker-box {
   align-items: flex-start;
-  min-height: 100px;
+  min-height: auto;
+  width: fit-content;
+  max-width: 100%;
 }
 .wiretap-sticker-inner {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 100px;
-  min-width: 100px;
+  min-height: auto;
+  min-width: auto;
   contain: layout;
 }
 .wiretap-sticker-img {
-  max-width: 140px;
-  max-height: 140px;
-  min-height: 80px;
+  max-width: 130px;
+  max-height: 130px;
+  min-height: auto;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -2466,6 +2479,7 @@ video.wiretap-sticker-img {
   header .kage-btn-pill:not(.mob-action-pill) { display: none !important; }
   .kage-nav-dropdown-wrap { display: none !important; }
   .nav-mobile-status { display: none !important; }
+  .kage-sys-health-bar, #kage-sys-health-compact { display: none !important; }
 
   /* Clean Mobile Target Group Selector Pill in Header */
   .nav-mob-group-pill {
@@ -2480,7 +2494,7 @@ video.wiretap-sticker-img {
     font-size: 12px !important;
     font-family: 'Onest', sans-serif !important;
     font-weight: 600 !important;
-    max-width: 170px !important;
+    max-width: clamp(100px, 36vw, 160px) !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -2513,8 +2527,8 @@ video.wiretap-sticker-img {
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.55) !important;
     z-index: 999 !important;
   }
-  .page {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  .page, #top.page {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 16px)) !important;
   }
 
   /* ── 3. WAR ROOM HUD: ZERO CLUTTER, FULL VIEWPORT FIT ── */
@@ -2582,7 +2596,7 @@ video.wiretap-sticker-img {
     overscroll-behavior-y: contain !important;
     touch-action: pan-y !important;
     border: none !important;
-    padding: 12px 14px calc(24px + env(safe-area-inset-bottom, 16px)) 14px !important;
+    padding: 12px 14px calc(84px + env(safe-area-inset-bottom, 16px)) 14px !important;
     scroll-behavior: auto !important;
   }
   .hud-body .hud-col-left.mobile-active,
@@ -2721,7 +2735,7 @@ video.wiretap-sticker-img {
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
     touch-action: pan-y !important;
-    padding: 8px 10px calc(24px + env(safe-area-inset-bottom, 12px)) 10px !important;
+    padding: 8px 10px calc(84px + env(safe-area-inset-bottom, 16px)) 10px !important;
   }
 
   /* Modern Native Message Card (Telegram Dark / Linear Style) */
@@ -8788,6 +8802,26 @@ body.theme-light .kage-btn.secondary {
 <!-- COMPATIBILITY ALIAS FOR OLD DIALOG CALLS -->
 <div id="stealth-broadcast-modal" style="display:none;"></div>
 
+<!-- MODAL: KAGE OBSIDIAN SOVEREIGN CONFIRMATION DIALOG -->
+<div id="kage-confirm-modal" class="kage-modal-overlay" style="display: none; z-index: 100000; align-items: center; justify-content: center; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); background: rgba(3, 5, 8, 0.82);">
+  <div class="font-mono" style="background: rgba(11, 15, 23, 0.98); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; box-shadow: 0 24px 60px rgba(0,0,0,0.85), 0 0 35px rgba(239, 68, 68, 0.15); width: 92%; max-width: 460px; padding: 22px; box-sizing: border-box;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px; border-bottom: 1px solid var(--line-soft); padding-bottom: 10px;">
+      <div id="kage-confirm-icon-wrap" style="width: 28px; height: 28px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); display: grid; place-items: center; flex-shrink: 0;">
+        <i id="kage-confirm-icon" data-lucide="alert-triangle" style="width: 14px; height: 14px; color: #ef4444;"></i>
+      </div>
+      <div>
+        <h4 id="kage-confirm-title" style="font-size: 13px; color: var(--bone); margin: 0; font-weight: 700; letter-spacing: 0.05em;">CONFIRM DIRECTIVE // 確認</h4>
+        <span class="eyebrow" style="color: var(--muted); font-size: 8.5px;">SOVEREIGN OPERATIONAL VERIFICATION</span>
+      </div>
+    </div>
+    <div id="kage-confirm-message" style="font-size: 11.5px; line-height: 1.6; color: var(--bone-dim); margin-bottom: 20px; white-space: pre-wrap; word-break: break-word;"></div>
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button type="button" id="kage-confirm-cancel-btn" class="btn-xs-outline" style="padding: 8px 16px; font-size: 11px;">CANCEL / 取消</button>
+      <button type="button" id="kage-confirm-ok-btn" class="kage-btn" style="padding: 8px 18px; font-size: 11px; background: #dc2626; border-color: #b91c1c; color: #ffffff; font-weight: 600;">CONFIRM / 執行</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: MASTER OWNER OPERATOR CLEARANCE REGISTRY -->
 <div id="operator-clearance-modal" class="kage-modal-overlay" style="display: none; z-index: 10004;" onclick="if(event.target===this) closeOperatorClearanceModal()">
   <div class="kage-modal font-mono" style="padding: 24px; max-width: 640px; width: 94vw; background: #080c10; border: 1px solid var(--line); border-radius: 8px;">
@@ -9639,25 +9673,132 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
-  function showToast(msg) {
+  function safeSetText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = (text !== undefined && text !== null) ? text : '';
+  }
+
+  function safeSetHtml(id, html) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = (html !== undefined && html !== null) ? html : '';
+  }
+
+  function showToast(msg, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;
     const t = document.createElement('div');
-    t.className = 'toast';
+    t.className = `toast toast-${type}`;
+    let iconColor = 'var(--vermilion)';
+    let borderLeftColor = 'var(--vermilion)';
+    if (type === 'success') {
+      iconColor = '#10b981';
+      borderLeftColor = '#10b981';
+    } else if (type === 'warning') {
+      iconColor = '#f59e0b';
+      borderLeftColor = '#f59e0b';
+    } else if (type === 'error') {
+      iconColor = '#ef4444';
+      borderLeftColor = '#ef4444';
+    } else if (type === 'info') {
+      iconColor = '#38bdf8';
+      borderLeftColor = '#38bdf8';
+    }
+    t.style.borderLeft = `3px solid ${borderLeftColor}`;
+    const cleanMsg = (typeof msg === 'string') ? msg : String(msg);
     t.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-        <span class="live-dot-pulse" style="width: 6px; height: 6px; flex-shrink: 0;"></span>
-        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${msg}</span>
+      <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+        <span class="live-dot-pulse" style="width: 6px; height: 6px; flex-shrink: 0; background: ${iconColor}; box-shadow: 0 0 6px ${iconColor};"></span>
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; word-break: break-word;">${cleanMsg}</span>
       </div>
-      <button type="button" class="toast-close" onclick="this.closest('.toast').remove()">&times;</button>
+      <button type="button" class="toast-close" onclick="this.closest('.toast').remove()" style="margin-left: 8px; flex-shrink: 0; cursor: pointer; background: transparent; border: none; color: var(--muted); font-size: 16px;">&times;</button>
     `;
     container.appendChild(t);
     requestAnimationFrame(() => t.classList.add('show'));
     setTimeout(() => {
       t.style.opacity = '0';
-      t.style.transform = 'translateY(8px)';
+      t.style.transform = 'translateY(-6px)';
       setTimeout(() => t.remove(), 250);
-    }, 4000);
+    }, 4500);
+  }
+
+  // Override browser native alert to non-blocking obsidian toast
+  window.alert = function(msg) {
+    showToast(msg, 'warning');
+  };
+
+  let kageConfirmResolver = null;
+  function showKageConfirm(message, options = {}) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('kage-confirm-modal');
+      const msgEl = document.getElementById('kage-confirm-message');
+      const titleEl = document.getElementById('kage-confirm-title');
+      const okBtn = document.getElementById('kage-confirm-ok-btn');
+      const cancelBtn = document.getElementById('kage-confirm-cancel-btn');
+      const iconWrap = document.getElementById('kage-confirm-icon-wrap');
+      const icon = document.getElementById('kage-confirm-icon');
+
+      if (!modal || !msgEl || !okBtn || !cancelBtn) {
+        return resolve(window.confirm ? window.confirm(message) : true);
+      }
+
+      kageConfirmResolver = resolve;
+      msgEl.innerText = message || '';
+      if (titleEl) titleEl.innerText = options.title || 'CONFIRM DIRECTIVE // 確認';
+      if (okBtn) okBtn.innerText = options.confirmText || 'CONFIRM / 執行';
+      if (cancelBtn) cancelBtn.innerText = options.cancelText || 'CANCEL / 取消';
+
+      if (options.danger === false) {
+        if (okBtn) {
+          okBtn.style.background = '#0284c7';
+          okBtn.style.borderColor = '#38bdf8';
+        }
+        if (iconWrap) {
+          iconWrap.style.background = 'rgba(56, 189, 248, 0.15)';
+          iconWrap.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+        }
+        if (icon) icon.style.color = '#38bdf8';
+      } else {
+        if (okBtn) {
+          okBtn.style.background = '#dc2626';
+          okBtn.style.borderColor = '#b91c1c';
+        }
+        if (iconWrap) {
+          iconWrap.style.background = 'rgba(239, 68, 68, 0.15)';
+          iconWrap.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        }
+        if (icon) icon.style.color = '#ef4444';
+      }
+
+      modal.style.display = 'flex';
+      safeCreateIcons();
+      okBtn.focus();
+
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          cleanup(false);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          cleanup(true);
+        }
+      };
+
+      const cleanup = (result) => {
+        window.removeEventListener('keydown', onKeyDown);
+        modal.style.display = 'none';
+        if (kageConfirmResolver) {
+          const r = kageConfirmResolver;
+          kageConfirmResolver = null;
+          r(result);
+        }
+      };
+
+      okBtn.onclick = () => cleanup(true);
+      cancelBtn.onclick = () => cleanup(false);
+      modal.onclick = (e) => {
+        if (e.target === modal) cleanup(false);
+      };
+      window.addEventListener('keydown', onKeyDown);
+    });
   }
 
   function initCharts() {
@@ -10426,7 +10567,7 @@ body.theme-light .kage-btn.secondary {
 
   async function scanSelectedGroup() {
     const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first.");
+    if (!groupId) return showToast("Select a target entity first.", "warning");
 
     const btn = document.getElementById('btn-scan');
     if (btn) {
@@ -10450,7 +10591,7 @@ body.theme-light .kage-btn.secondary {
       playSound('blip');
       showToast(`Loaded ${scannedMembers.length} participants`);
     } catch (e) {
-      alert("Scan notice: " + e.message);
+      showToast("Scan notice: " + (e.message || e), "error");
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -10554,8 +10695,8 @@ body.theme-light .kage-btn.secondary {
 
   async function quickSingleAction(userId, action) {
     const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first.");
-    if (!confirm(`Execute ${action.toUpperCase()} on user #${userId}?`)) return;
+    if (!groupId) return showToast("Select a target entity first.", "warning");
+    if (!await showKageConfirm(`Execute ${action.toUpperCase()} on user #${userId}?`, { danger: action === 'ban' })) return;
     try {
       showToast(`Executing ${action.toUpperCase()} on user #${userId}...`);
       const res = await fetch('/api/user_action', {
@@ -10576,39 +10717,41 @@ body.theme-light .kage-btn.secondary {
         showToast(`Action notice: Could not complete ${action}`);
       }
     } catch (e) {
-      showToast("Action error: " + e.message);
+      showToast("Action error: " + e.message, "error");
     }
   }
 
   function openDossier(user) {
     playSound('click');
     selectedDossierUser = user;
-    document.getElementById('dossier-name').innerText = user.full_name || 'No Name';
-    document.getElementById('dossier-handle').innerText = user.username ? '@' + user.username : 'No handle';
-    document.getElementById('dossier-id').innerText = user.id;
-    document.getElementById('dossier-lastseen').innerText = user.last_seen;
-    document.getElementById('dossier-ghost').innerText = `${user.ghost_score} / 100`;
-    document.getElementById('dossier-avatar').innerText = (user.full_name || 'U').charAt(0).toUpperCase();
+    safeSetText('dossier-name', user.full_name || 'No Name');
+    safeSetText('dossier-handle', user.username ? '@' + user.username : 'No handle');
+    safeSetText('dossier-id', user.id);
+    safeSetText('dossier-lastseen', user.last_seen);
+    safeSetText('dossier-ghost', `${user.ghost_score} / 100`);
+    safeSetText('dossier-avatar', (user.full_name || 'U').charAt(0).toUpperCase());
 
     const reasons = user.reasons && user.reasons.length ? user.reasons.join('\n• ') : 'No high-risk keywords detected.';
-    document.getElementById('dossier-reasons').innerText = '• ' + reasons;
+    safeSetText('dossier-reasons', '• ' + reasons);
 
     const groupId = getActiveGroupId();
-    document.getElementById('dossier-strikes').innerText = "0 / 3";
+    safeSetText('dossier-strikes', "0 / 3");
     if (groupId) {
       fetch(`/api/warnings?group_id=${parseInt(groupId)}`)
         .then(r => r.json())
         .then(warnings => {
           const w = warnings.find(item => item.user_id === user.id);
-          if (w) document.getElementById('dossier-strikes').innerText = `${w.strikes} / 3`;
+          if (w) safeSetText('dossier-strikes', `${w.strikes} / 3`);
         })
         .catch(() => {});
     }
-    document.getElementById('dossier-modal').style.display = 'flex';
+    const modal = document.getElementById('dossier-modal');
+    if (modal) modal.style.display = 'flex';
   }
 
   function closeDossier() {
-    document.getElementById('dossier-modal').style.display = 'none';
+    const modal = document.getElementById('dossier-modal');
+    if (modal) modal.style.display = 'none';
     selectedDossierUser = null;
   }
 
@@ -10625,15 +10768,15 @@ body.theme-light .kage-btn.secondary {
         body: JSON.stringify({ group_id: parseInt(groupId), user_id: selectedDossierUser.id, reason: reason })
       });
       const data = await res.json();
-      document.getElementById('dossier-strikes').innerText = `${data.strikes} / 3`;
+      safeSetText('dossier-strikes', `${data.strikes} / 3`);
       if (data.auto_banned) {
-        alert("🚨 User reached 3 strikes and has been AUTOMATICALLY BANNED!");
+        showToast("🚨 User reached 3 strikes and has been AUTOMATICALLY BANNED!", "error");
         closeDossier();
       } else {
         showToast(`⚠️ Strike issued (${data.strikes}/3)`);
       }
     } catch (e) {
-      alert("Failed: " + e);
+      showToast("Failed: " + (e.message || e), "error");
     }
   }
 
@@ -10646,7 +10789,7 @@ body.theme-light .kage-btn.secondary {
   async function executeSingleAction(action) {
     const groupId = getActiveGroupId();
     if (!selectedDossierUser || !groupId) return;
-    if (!confirm(`Execute [${action.toUpperCase()}] on ${selectedDossierUser.full_name || selectedDossierUser.id}?`)) return;
+    if (!await showKageConfirm(`Execute [${action.toUpperCase()}] on ${selectedDossierUser.full_name || selectedDossierUser.id}?`, { danger: action === 'ban' })) return;
 
     try {
       const res = await fetch('/api/user_action', {
@@ -10663,7 +10806,7 @@ body.theme-light .kage-btn.secondary {
       showToast(`✓ Executed ${action} on user ${selectedDossierUser.id}`);
       closeDossier();
     } catch (e) {
-      alert("Error: " + e);
+      showToast("Error: " + (e.message || e), "error");
     }
   }
 
@@ -10694,7 +10837,9 @@ body.theme-light .kage-btn.secondary {
   }
 
   function updateSelectedCount() {
-    document.getElementById('selected-count').innerText = selectedIds.size;
+    safeSetText('selected-count', selectedIds.size);
+    const badge = document.getElementById('selected-count-badge');
+    if (badge) badge.innerText = `${selectedIds.size} Selected`;
   }
 
   function setAction(act) {
@@ -10705,20 +10850,21 @@ body.theme-light .kage-btn.secondary {
     if (btn) btn.classList.add('active');
 
     const muteOptions = document.getElementById('mute-options-container');
-    if (act === 'mute') muteOptions.style.display = 'block';
-    else muteOptions.style.display = 'none';
+    if (muteOptions) {
+      muteOptions.style.display = (act === 'mute') ? 'block' : 'none';
+    }
   }
 
   async function executeAction() {
     const groupId = getActiveGroupId();
-    if (!groupId || selectedIds.size === 0) return alert("Select a target entity and at least one participant.");
-    if (!confirm(`Execute [${currentAction.toUpperCase()}] on ${selectedIds.size} participants?`)) return;
+    if (!groupId || selectedIds.size === 0) return showToast("Select a target entity and at least one participant.", "warning");
+    if (!await showKageConfirm(`Execute [${currentAction.toUpperCase()}] on ${selectedIds.size} participants?`, { danger: currentAction === 'ban' })) return;
 
-    const mode = document.getElementById('mode-select').value;
-    const purge = document.getElementById('chk-purge-msgs').checked;
-    const skipAdmins = document.getElementById('chk-skip-admins').checked;
-    const duration = parseInt(document.getElementById('duration-select').value) || 0;
-    const muteScope = document.getElementById('mute-scope-select').value || "full";
+    const mode = document.getElementById('mode-select')?.value || 'ban';
+    const purge = document.getElementById('chk-purge-msgs')?.checked ?? true;
+    const skipAdmins = document.getElementById('chk-skip-admins')?.checked ?? true;
+    const duration = parseInt(document.getElementById('duration-select')?.value || '0', 10) || 0;
+    const muteScope = document.getElementById('mute-scope-select')?.value || "full";
 
     try {
       const res = await fetch('/api/execute', {
@@ -10739,21 +10885,21 @@ body.theme-light .kage-btn.secondary {
       showToast(`⚡ Operation Dispatched on ${data.target_count} targets`);
       playSound('blip');
     } catch (e) {
-      alert("Execution error: " + e);
+      showToast("Execution error: " + (e.message || e), "error");
     }
   }
 
   // SENTINEL
   async function toggleSentinelShield() {
     const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first.");
+    if (!groupId) return showToast("Select a target entity first.", "warning");
     isShieldActive = !isShieldActive;
     const btn = document.getElementById('sentinel-power-btn');
 
     const opts = {
-      auto_ban_scammers: document.getElementById('sentinel-opt-autoban').checked,
-      anti_spam_messages: document.getElementById('sentinel-opt-antispam').checked,
-      auto_lockdown_on_raid: document.getElementById('sentinel-opt-autolock').checked
+      auto_ban_scammers: document.getElementById('sentinel-opt-autoban')?.checked ?? true,
+      anti_spam_messages: document.getElementById('sentinel-opt-antispam')?.checked ?? true,
+      auto_lockdown_on_raid: document.getElementById('sentinel-opt-autolock')?.checked ?? true
     };
 
     try {
@@ -10763,30 +10909,34 @@ body.theme-light .kage-btn.secondary {
         body: JSON.stringify({ group_id: parseInt(groupId), enabled: isShieldActive, options: opts })
       });
       if (isShieldActive) {
-        btn.innerText = "ENGAGED";
-        btn.style.background = 'var(--vermilion)';
-        btn.style.color = '#fff';
-        btn.style.borderColor = 'var(--vermilion)';
+        if (btn) {
+          btn.innerText = "ENGAGED";
+          btn.style.background = 'var(--vermilion)';
+          btn.style.color = '#fff';
+          btn.style.borderColor = 'var(--vermilion)';
+        }
         appendSentinelFeed(`[SHIELD] Sentinel Active for group ${groupId}. Standing guard.`);
         showToast("✓ Sentinel Shield ENGAGED");
       } else {
-        btn.innerText = "DISENGAGED";
-        btn.style.background = 'transparent';
-        btn.style.color = 'var(--bone)';
-        btn.style.borderColor = 'var(--line)';
+        if (btn) {
+          btn.innerText = "DISENGAGED";
+          btn.style.background = 'transparent';
+          btn.style.color = 'var(--bone)';
+          btn.style.borderColor = 'var(--line)';
+        }
         appendSentinelFeed(`[SHIELD] Sentinel Defense DISENGAGED.`);
         showToast("Sentinel Shield Disengaged");
       }
       playSound('blip');
     } catch (e) {
-      alert("Sentinel toggle failed: " + e);
+      showToast("Sentinel toggle failed: " + (e.message || e), "error");
     }
   }
 
   async function triggerLockdown() {
     const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first.");
-    if (!confirm("ENGAGE TOTAL CHAT LOCKDOWN? All standard participants will be silenced immediately.")) return;
+    if (!groupId) return showToast("Select a target entity first.", "warning");
+    if (!await showKageConfirm("ENGAGE TOTAL CHAT LOCKDOWN?\n\nAll standard participants will be silenced immediately.", { danger: true })) return;
 
     try {
       const res = await fetch('/api/sentinel/lockdown', {
@@ -10800,16 +10950,16 @@ body.theme-light .kage-btn.secondary {
         showToast("🚨 Chat Lockdown ENGAGED");
         playSound('alarm');
       } else {
-        alert("Lockdown failed. Verify account is group admin.");
+        showToast("Lockdown failed. Verify account is group admin.", "error");
       }
     } catch (e) {
-      alert("Lockdown failed: " + e);
+      showToast("Lockdown failed: " + (e.message || e), "error");
     }
   }
 
   async function triggerUnlock() {
     const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first.");
+    if (!groupId) return showToast("Select a target entity first.", "warning");
     try {
       const res = await fetch('/api/sentinel/unlock', {
         method: 'POST',
@@ -10823,12 +10973,13 @@ body.theme-light .kage-btn.secondary {
         playSound('blip');
       }
     } catch (e) {
-      alert("Unlock failed: " + e);
+      showToast("Unlock failed: " + (e.message || e), "error");
     }
   }
 
   function appendSentinelFeed(msg) {
     const feed = document.getElementById('sentinel-feed');
+    if (!feed) return;
     const div = document.createElement('div');
     div.innerText = `${formatLocalTime()} ${msg}`;
     feed.appendChild(div);
@@ -10838,10 +10989,12 @@ body.theme-light .kage-btn.secondary {
   // CHATTER SPY
   async function scanChatters() {
     const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first.");
+    if (!groupId) return showToast("Select a target entity first.", "warning");
     const btn = document.getElementById('btn-scan-chatters');
-    btn.disabled = true;
-    btn.innerText = "Analyzing messages...";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "Analyzing messages...";
+    }
     playSound('click');
 
     try {
@@ -10855,16 +11008,19 @@ body.theme-light .kage-btn.secondary {
       showToast(`Analyzed 1,500 messages (${data.leaderboard.length} active chatters)`);
       playSound('blip');
     } catch (e) {
-      alert("Error: " + e);
+      showToast("Error: " + (e.message || e), "error");
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<i data-lucide="scan" style="width: 12px; height: 12px;"></i> Scan Last 1,500 Messages';
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="scan" style="width: 12px; height: 12px;"></i> Scan Last 1,500 Messages';
+      }
       safeCreateIcons();
     }
   }
 
   function renderChattersTable(chatters) {
     const tbody = document.getElementById('chatters-table-body');
+    if (!tbody) return;
     tbody.innerHTML = '';
     if (!chatters || chatters.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--muted); font-family: 'Onest', sans-serif;">No chatter activity found.</td></tr>`;
@@ -10887,14 +11043,16 @@ body.theme-light .kage-btn.secondary {
   // LEAD SCRAPER
   async function scrapeLeads() {
     const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first.");
+    if (!groupId) return showToast("Select a target entity first.", "warning");
     const btn = document.getElementById('btn-scrape-leads');
-    btn.disabled = true;
-    btn.innerText = "Extracting leads...";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "Extracting leads...";
+    }
     playSound('click');
 
-    const activeOnly = document.getElementById('leads-opt-active').checked;
-    const limit = parseInt(document.getElementById('leads-opt-limit').value) || 3000;
+    const activeOnly = document.getElementById('leads-opt-active')?.checked ?? false;
+    const limit = parseInt(document.getElementById('leads-opt-limit')?.value || '3000', 10) || 3000;
 
     try {
       const res = await fetch('/api/leads/scrape', {
@@ -10904,21 +11062,24 @@ body.theme-light .kage-btn.secondary {
       });
       const data = await res.json();
       scrapedLeads = data.leads || [];
-      document.getElementById('leads-total-count').innerText = scrapedLeads.length;
+      safeSetText('leads-total-count', scrapedLeads.length);
       renderLeadsTable(scrapedLeads);
       showToast(`Extracted ${scrapedLeads.length} leads`);
       playSound('blip');
     } catch (e) {
-      alert("Scrape error: " + e.message);
+      showToast("Scrape error: " + (e.message || e), "error");
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<i data-lucide="download" style="width: 12px; height: 12px;"></i> Scrape Group Leads';
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="download" style="width: 12px; height: 12px;"></i> Scrape Group Leads';
+      }
       safeCreateIcons();
     }
   }
 
   function renderLeadsTable(leads) {
     const tbody = document.getElementById('leads-table-body');
+    if (!tbody) return;
     tbody.innerHTML = '';
     if (!leads || leads.length === 0) {
       tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--muted); font-family: 'Onest', sans-serif;">No leads scraped yet.</td></tr>`;
@@ -10942,7 +11103,7 @@ body.theme-light .kage-btn.secondary {
   }
 
   function exportLeadsCSV() {
-    if (!scrapedLeads || scrapedLeads.length === 0) return alert("Scrape leads first before exporting.");
+    if (!scrapedLeads || scrapedLeads.length === 0) return showToast("Scrape leads first before exporting.", "warning");
     let csv = "User ID,Username,Full Name,Is Premium,Last Seen,Quality Score\n";
     scrapedLeads.forEach(l => {
       const qScore = Math.max(100 - (l.ghost_score || 0), 10);
@@ -11031,7 +11192,7 @@ body.theme-light .kage-btn.secondary {
       return;
     }
 
-    const confirmed = confirm('Are you sure you want to purge the selected maintenance categories? Safe audit logs will be preserved.');
+    const confirmed = await showKageConfirm('Are you sure you want to purge the selected maintenance categories? Safe audit logs will be preserved.', { danger: true });
     if (!confirmed) return;
 
     try {
@@ -11095,7 +11256,7 @@ body.theme-light .kage-btn.secondary {
       return;
     }
     const limit = parseInt(document.getElementById('sweeper-limit')?.value || '2500', 10);
-    const confirmed = confirm(`Are you sure you want to sweep up to ${limit} service messages from Group ID ${gid}?`);
+    const confirmed = await showKageConfirm(`Are you sure you want to sweep up to ${limit} service messages from Group ID ${gid}?`, { danger: true });
     if (!confirmed) return;
 
     const btn = document.getElementById('btn-sweep');
@@ -11146,7 +11307,8 @@ body.theme-light .kage-btn.secondary {
   }
 
   async function executeReplCommand() {
-    const input = document.getElementById('repl-input');
+    const input = document.getElementById('repl-input') || document.getElementById('sanc-repl-input');
+    if (!input) return;
     const cmd = input.value.trim();
     if (!cmd) return;
     input.value = '';
@@ -11161,7 +11323,8 @@ body.theme-light .kage-btn.secondary {
     if (action === 'help') {
       appendReplOutput(`DIRECTIVES:\n  • scan                : Deep forensic scan\n  • sweep               : Purge service messages\n  • leads               : Scrape active leads\n  • shield on / off     : Autonomous sentinel toggle\n  • lockdown / unlock   : Emergency mute / unmute chat\n  • warn <uid> [reason] : Add strike to user\n  • clear               : Clear REPL display`);
     } else if (action === 'clear') {
-      document.getElementById('repl-screen').innerHTML = '';
+      const scr = document.getElementById('repl-screen') || document.getElementById('sanc-cli-output');
+      if (scr) scr.innerHTML = '';
     } else if (action === 'sweep') {
       cleanServiceMessages();
       appendReplOutput("Dispatched Service Sweeper.");
@@ -11193,7 +11356,11 @@ body.theme-light .kage-btn.secondary {
   }
 
   function appendReplOutput(txt, style = '') {
-    const scr = document.getElementById('repl-screen');
+    const scr = document.getElementById('repl-screen') || document.getElementById('sanc-cli-output');
+    if (!scr) {
+      console.log(`[REPL] ${txt}`);
+      return;
+    }
     const div = document.createElement('div');
     if (style) div.style = style;
     div.innerText = txt;
@@ -11203,7 +11370,7 @@ body.theme-light .kage-btn.secondary {
 
   // EXPORTS & WEBSOCKET
   function exportCSV() {
-    if (scannedMembers.length === 0) return alert("Scan participants first.");
+    if (scannedMembers.length === 0) return showToast("Scan participants first.", "warning");
     let csv = "User ID,Username,Full Name,Is Bot,Is Deleted,Is Premium,Last Seen,Ghost Score,Risk Score\n";
     scannedMembers.forEach(m => {
       csv += `"${m.id}","${(m.username || '').replace(/"/g, '""')}","${(m.full_name || '').replace(/"/g, '""')}",${m.is_bot},${m.is_deleted},${m.is_premium},"${m.last_seen}",${m.ghost_score},${m.scam_score}\n`;
@@ -11212,7 +11379,7 @@ body.theme-light .kage-btn.secondary {
   }
 
   function exportJSON() {
-    if (scannedMembers.length === 0) return alert("Scan participants first.");
+    if (scannedMembers.length === 0) return showToast("Scan participants first.", "warning");
     downloadFile(JSON.stringify(scannedMembers, null, 2), `kage_members_${Date.now()}.json`, "application/json");
   }
 
@@ -11232,7 +11399,7 @@ body.theme-light .kage-btn.secondary {
       }, 150);
       showToast(`Downloaded ${fileName}`);
     } catch (e) {
-      alert("Download failed: " + e.message);
+      showToast("Download failed: " + e.message, "error");
     }
   }
 
@@ -11657,7 +11824,7 @@ body.theme-light .kage-btn.secondary {
   // DEFCON DEFENSE STATE MACHINE
   async function setDefconLevel(level) {
     const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first in The Sanmon.");
+    if (!groupId) return showToast("Select a target entity first in The Sanmon.", "warning");
 
     playZenSound(level <= 2 ? 'gong' : 'clack');
     showToast(`Engaging DEFCON ${level} posture...`);
@@ -11808,16 +11975,16 @@ body.theme-light .kage-btn.secondary {
   async function dispatchBroadcastCampaign() {
     if (isDispatchingBroadcast) return;
     const groupId = getActiveGroupId();
-    if (!groupId) return alert("Select a target entity first.");
+    if (!groupId) return showToast("Select a target entity first.", "warning");
 
-    const template = document.getElementById('broadcast-template-input').value.trim();
-    if (!template) return alert("Please enter a message template.");
+    const template = document.getElementById('broadcast-template-input')?.value?.trim() || '';
+    if (!template) return showToast("Please enter a message template.", "warning");
 
     const targetList = selectedIds.size > 0 
       ? Array.from(selectedIds) 
       : scannedMembers.slice(0, 500).map(m => m.id);
 
-    if (targetList.length === 0) return alert("No target participants selected. Run scan first.");
+    if (targetList.length === 0) return showToast("No target participants selected. Run scan first.", "warning");
 
     playZenSound('clack');
     const startBtn = document.getElementById('btn-start-broadcast');
@@ -11886,7 +12053,7 @@ body.theme-light .kage-btn.secondary {
       }, 1000);
 
     } catch (e) {
-      alert("Broadcast error: " + e.message);
+      showToast("Broadcast error: " + e.message, "error");
       if (startBtn) setButtonBusy(startBtn, false);
     } finally {
       isDispatchingBroadcast = false;
@@ -12499,7 +12666,7 @@ body.theme-light .kage-btn.secondary {
 
   async function startVCLiveAudio() {
     const gid = getActiveGroupId();
-    if (!gid) return alert("Select an active Telegram group first.");
+    if (!gid) return showToast("Select an active Telegram group first.", "warning");
 
     playZenSound('clack');
     showToast("Linking live audio carrier to Telegram Voice Chat...");
@@ -12846,7 +13013,7 @@ body.theme-light .kage-btn.secondary {
 
   function exportVCMembers() {
     if (!vcCurrentCallInfo || !vcCurrentCallInfo.participants || vcCurrentCallInfo.participants.length === 0) {
-      return alert("No active voice chat participants to export.");
+      return showToast("No active voice chat participants to export.", "warning");
     }
     const gid = getActiveGroupId();
     const count = vcCurrentCallInfo.participants.length;
@@ -12870,7 +13037,7 @@ body.theme-light .kage-btn.secondary {
   function openVCDossier(userId) {
     if (!vcCurrentCallInfo || !vcCurrentCallInfo.participants) return;
     const p = vcCurrentCallInfo.participants.find(x => x.user_id === userId);
-    if (!p) return alert("Participant not found in current room buffer.");
+    if (!p) return showToast("Participant not found in current room buffer.", "warning");
 
     playZenSound('clack');
     const modal = document.getElementById('vc-dossier-modal');
@@ -14456,7 +14623,11 @@ body.theme-light .kage-btn.secondary {
 
   async function quickCounterWarn(groupId, messageId, threatType, reason) {
     playZenSound('alarm');
-    if (!confirm(`Deploy public counter-threat warning reply to message #${messageId}? This exposes the scammer to all group members.`)) return;
+    const confirmed = await showKageConfirm(
+      `Deploy public counter-threat warning reply to message #${messageId}?\n\nThis exposes the scammer publicly to all group members.`,
+      { danger: true, confirmText: 'DEPLOY COUNTER-WARN / 執行' }
+    );
+    if (!confirmed) return;
     try {
       const res = await fetch('/api/threat/warn', {
         method: 'POST',
@@ -14683,13 +14854,14 @@ body.theme-light .kage-btn.secondary {
     const batchSize = parseInt(document.getElementById('dispatch-batch-size')?.value || '2', 10);
     const intervalSec = parseFloat(document.getElementById('dispatch-interval-sec')?.value || '5.0');
 
-    const confirmed = confirm(
+    const confirmed = await showKageConfirm(
       `CONFIRM MULTI-GROUP DISPATCH:\n\n` +
       `• Destinations: ${selectedGids.length} authorized groups\n` +
       `• Batch size: ${batchSize} per cycle\n` +
       `• Pacing interval: ${intervalSec}s between deliveries\n` +
       `• Message preview: "${text.slice(0, 80)}${text.length > 80 ? '...' : ''}"\n\n` +
-      `Proceed with real controlled dispatch?`
+      `Proceed with real controlled dispatch?`,
+      { title: 'CONFIRM DISPATCH // 配信確認', confirmText: 'PROCEED DISPATCH / 配信', danger: false }
     );
 
     if (!confirmed) return;
@@ -15586,11 +15758,12 @@ body.theme-light .kage-btn.secondary {
       showToast("Select a target group first", "error");
       return;
     }
-    const confirmed = confirm(
+    const confirmed = await showKageConfirm(
       "⚠️ RESTORE CLOUD DATABASE // ME VAULT\n\n" +
       "This operation will restore and overwrite local group member intelligence and reputation scores " +
       "using your encrypted Telegram Saved Messages ('me') backup.\n\n" +
-      "Are you sure you want to proceed?"
+      "Are you sure you want to proceed?",
+      { title: "RESTORE CLOUD DATABASE // ME VAULT", confirmText: "RESTORE BACKUP / 復元", danger: true }
     );
     if (!confirmed) return;
 
@@ -19443,16 +19616,27 @@ body.theme-light .kage-btn.secondary {
   }
 
   function executeSancReplCommand(cmdStr) {
-    const out = document.getElementById('sanc-cli-output');
-    if (!out) return;
+    const input = document.getElementById('sanc-repl-input') || document.getElementById('sanc-cli-input');
+    if (!cmdStr && input) {
+      cmdStr = input.value.trim();
+      input.value = '';
+    }
+    if (!cmdStr) return;
+
+    const out = document.getElementById('sanc-cli-output') || document.getElementById('sanc-repl-output');
 
     const printLine = (txt, color = 'var(--bone)') => {
-      const div = document.createElement('div');
-      div.style.color = color;
-      div.style.marginBottom = '2px';
-      div.innerText = txt;
-      out.appendChild(div);
-      out.scrollTop = out.scrollHeight;
+      if (out) {
+        const div = document.createElement('div');
+        div.style.color = color;
+        div.style.marginBottom = '2px';
+        div.innerText = txt;
+        out.appendChild(div);
+        out.scrollTop = out.scrollHeight;
+      } else {
+        console.log(`[SOVEREIGN CLI] ${txt}`);
+        if (typeof showToast === 'function') showToast(txt, 'info');
+      }
     };
 
     printLine(`kage-sovereign:~$ ${cmdStr}`, '#38bdf8');
@@ -20029,7 +20213,8 @@ body.theme-light .kage-btn.secondary {
   }
 
   async function revokeOperatorClearance(username) {
-    if (!confirm(`Are you sure you want to revoke war room clearance for @${username}?`)) return;
+    const confirmed = await showKageConfirm(`Are you sure you want to revoke war room clearance for @${username}?`, { danger: true, confirmText: 'REVOKE CLEARANCE / 取消' });
+    if (!confirmed) return;
     try {
       const res = await fetch('/api/operators/revoke', {
         method: 'POST',
@@ -20049,7 +20234,8 @@ body.theme-light .kage-btn.secondary {
   }
 
   async function deleteOperatorClearance(username) {
-    if (!confirm(`Permanently delete operator record for @${username}?`)) return;
+    const confirmed = await showKageConfirm(`Permanently delete operator record for @${username}?`, { danger: true, confirmText: 'DELETE RECORD / 削除' });
+    if (!confirmed) return;
     try {
       const res = await fetch(`/api/operators?username=${encodeURIComponent(username)}`, { method: 'DELETE' });
       if (res.ok) {
