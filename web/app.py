@@ -129,7 +129,7 @@ def create_app(engine: SuperBanEngine):
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|superban-os\.onrender\.com)(:[0-9]+)?$",
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|.*\.trycloudflare\.com|.*\.onrender\.com|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:[0-9]+)?$",
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Owner-Token"],
@@ -518,8 +518,8 @@ def create_app(engine: SuperBanEngine):
         candidate_pin = (req.pin or "").strip()
         clean_user = (req.username or "").strip().lstrip('@').lower()
 
-        # If user entered their passcode into the username input box
-        if not candidate_pin and clean_user:
+        # If user entered their numeric passcode into the username input box
+        if not candidate_pin and clean_user and clean_user.isdigit():
             candidate_pin = clean_user
             clean_user = ""
 
@@ -2282,7 +2282,7 @@ def create_app(engine: SuperBanEngine):
         origin = websocket.headers.get("origin")
         if origin:
             import re
-            if not re.match(r"^https?://(localhost|127\.0\.0\.1|superban-os\.onrender\.com)(:[0-9]+)?$", origin):
+            if not re.match(r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|.*\.trycloudflare\.com|.*\.onrender\.com|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:[0-9]+)?$", origin):
                 logger.warning(f"🚨 CSWSH attempt blocked from untrusted origin: {origin} (IP: {client_ip})")
                 log_security_event_task(
                     "CSWSH_BLOCKED", "", client_ip, f"Untrusted origin: {origin}", "CRITICAL"

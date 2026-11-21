@@ -19562,8 +19562,8 @@ body.theme-light .kage-btn.secondary {
     let username = userInput ? userInput.value.trim().replace(/^@/, '') : '';
     let pin = pinInput ? pinInput.value.trim() : '';
 
-    // If user entered passcode into the first input box
-    if (!pin && username && username.length >= 4) {
+    // If user accidentally entered numeric passcode into the username input box
+    if (!pin && username && /^\d{4,8}$/.test(username)) {
       pin = username;
       username = '';
     }

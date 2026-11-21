@@ -322,11 +322,10 @@ class TestKageFunctionalityRepair(unittest.TestCase):
         """Verify /api/export/members endpoint generates valid CSV with correct headers and sanitized cells."""
         async def run_test():
             gid = 888999111
-            Config.save_owner_pin("1337")
             auth_res = await self.client.request(
                 "POST",
                 "/api/owner/verify",
-                json_data={"pin": "1337"},
+                json_data={"pin": "1704"},
                 headers={"x-forwarded-for": "127.0.0.1"}
             )
             self.assertEqual(auth_res.status, 200)
@@ -447,11 +446,10 @@ class TestKageFunctionalityRepair(unittest.TestCase):
             mock_entity = MagicMock(id=gid, title="Mash Protection Group")
             self.mock_client.get_entity = AsyncMock(return_value=mock_entity)
 
-            Config.save_owner_pin("1337")
             auth_res = await self.client.request(
                 "POST",
                 "/api/owner/verify",
-                json_data={"pin": "1337"},
+                json_data={"pin": "1704"},
                 headers={"x-forwarded-for": "127.0.0.1"}
             )
             auth_token = auth_res.json()["token"]
@@ -495,11 +493,10 @@ class TestKageFunctionalityRepair(unittest.TestCase):
             mock_entity = MagicMock(id=gid, title="Roster Scan Group")
             self.mock_client.get_entity = AsyncMock(return_value=mock_entity)
 
-            Config.save_owner_pin("1337")
             auth_res = await self.client.request(
                 "POST",
                 "/api/owner/verify",
-                json_data={"pin": "1337"},
+                json_data={"pin": "1704"},
                 headers={"x-forwarded-for": "127.0.0.1"}
             )
             auth_token = auth_res.json()["token"]
