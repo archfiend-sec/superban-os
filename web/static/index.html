@@ -216,27 +216,30 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   box-sizing: border-box;
 }
 
-/* Toast Notifications - Stacked, Non-Blocking, High-Z */
+/* Toast Notifications - High-Z, Unobtrusive, Compact Bottom-Right Dock */
 #toast-container {
   position: fixed;
-  top: calc(var(--nav-h, 50px) + 14px);
-  right: 20px;
-  bottom: auto;
+  bottom: 24px;
+  right: 24px;
+  top: auto;
+  left: auto;
   z-index: 999999;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: column-reverse;
+  gap: 6px;
   pointer-events: none;
-  max-width: 440px;
-  width: calc(100vw - 40px);
+  max-width: 320px;
+  width: auto;
 }
 @media (max-width: 768px) {
   #toast-container {
-    top: calc(var(--nav-h, 50px) + 8px);
+    bottom: calc(62px + env(safe-area-inset-bottom, 12px));
     right: 12px;
     left: 12px;
+    top: auto;
     width: auto;
-    max-width: none;
+    max-width: 100%;
+    align-items: center;
   }
 }
 .toast {
@@ -244,36 +247,57 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   bottom: auto !important;
   right: auto !important;
   pointer-events: auto;
-  max-width: 100%;
-  background: rgba(10, 14, 20, 0.96) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(224, 35, 28, 0.4) !important;
+  max-width: 320px;
+  background: rgba(8, 12, 18, 0.94) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-left: 3px solid var(--vermilion) !important;
-  border-radius: 4px !important;
+  border-radius: 6px !important;
   color: var(--bone) !important;
-  padding: 10px 14px !important;
-  font-size: 11px !important;
+  padding: 6px 10px !important;
+  font-size: 10px !important;
   font-family: 'JetBrains Mono', monospace !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85) !important;
+  letter-spacing: 0.01em !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  gap: 10px !important;
-  animation: toastIn .25s ease forwards !important;
-  transition: opacity .25s ease, transform .25s ease !important;
+  gap: 8px !important;
+  animation: toastIn .2s ease forwards !important;
+  transition: opacity .2s ease, transform .2s ease !important;
+}
+@media (max-width: 768px) {
+  .toast {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
 }
 .toast .toast-close {
   background: transparent;
   border: none;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
+  opacity: 0.6;
+  transition: opacity .15s ease;
 }
 .toast .toast-close:hover {
   color: var(--bone);
+  opacity: 1;
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* Hero */
@@ -9808,9 +9832,47 @@ body.theme-light .kage-btn.secondary {
     if (el) el.innerHTML = (html !== undefined && html !== null) ? html : '';
   }
 
+  let _recentToasts = new Map(); // message -> timestamp for throttling
   function showToast(msg, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;
+
+    const cleanMsg = (typeof msg === 'string') ? msg : String(msg);
+    const trimmed = cleanMsg.trim();
+    if (!trimmed) return;
+
+    // Deduplication & rapid throttle: don't show identical message within 3.5s
+    const now = Date.now();
+    const lastSeen = _recentToasts.get(trimmed) || 0;
+    if (now - lastSeen < 3500) {
+      // Find existing toast if still on screen and shake gently
+      const existing = Array.from(container.querySelectorAll('.toast-msg-text')).find(el => el.textContent.trim() === trimmed);
+      if (existing) {
+        const parentToast = existing.closest('.toast');
+        if (parentToast) {
+          parentToast.style.animation = 'none';
+          requestAnimationFrame(() => { parentToast.style.animation = 'kageMashShake 0.2s ease'; });
+        }
+      }
+      return;
+    }
+    _recentToasts.set(trimmed, now);
+
+    // Prune stale cache entries
+    if (_recentToasts.size > 50) {
+      for (const [k, v] of _recentToasts.entries()) {
+        if (now - v > 10000) _recentToasts.delete(k);
+      }
+    }
+
+    // Strict cap: Keep maximum 2 toasts visible so screen is never cluttered
+    const MAX_VISIBLE_TOASTS = 2;
+    while (container.children.length >= MAX_VISIBLE_TOASTS) {
+      const oldest = container.firstElementChild;
+      if (oldest) oldest.remove();
+      else break;
+    }
+
     const t = document.createElement('div');
     t.className = `toast toast-${type}`;
     let iconColor = 'var(--vermilion)';
@@ -9829,21 +9891,28 @@ body.theme-light .kage-btn.secondary {
       borderLeftColor = '#38bdf8';
     }
     t.style.borderLeft = `3px solid ${borderLeftColor}`;
-    const cleanMsg = (typeof msg === 'string') ? msg : String(msg);
+
     t.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
-        <span class="live-dot-pulse" style="width: 6px; height: 6px; flex-shrink: 0; background: ${iconColor}; box-shadow: 0 0 6px ${iconColor};"></span>
-        <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; word-break: break-word;">${cleanMsg}</span>
+      <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;">
+        <span class="live-dot-pulse" style="width: 5px; height: 5px; flex-shrink: 0; background: ${iconColor}; box-shadow: 0 0 5px ${iconColor};"></span>
+        <span class="toast-msg-text" style="overflow: hidden; text-overflow: ellipsis; white-space: normal; word-break: break-word; line-height: 1.35;">${cleanMsg}</span>
       </div>
-      <button type="button" class="toast-close" onclick="this.closest('.toast').remove()" style="margin-left: 8px; flex-shrink: 0; cursor: pointer; background: transparent; border: none; color: var(--muted); font-size: 16px;">&times;</button>
+      <button type="button" class="toast-close" onclick="this.closest('.toast').remove()" title="Dismiss">&times;</button>
     `;
     container.appendChild(t);
     requestAnimationFrame(() => t.classList.add('show'));
-    setTimeout(() => {
+
+    const duration = (type === 'error' || type === 'warning') ? 3200 : 2200;
+    let timer = setTimeout(dismiss, duration);
+
+    function dismiss() {
       t.style.opacity = '0';
-      t.style.transform = 'translateY(-6px)';
-      setTimeout(() => t.remove(), 250);
-    }, 4500);
+      t.style.transform = 'translateY(6px) scale(0.96)';
+      setTimeout(() => t.remove(), 200);
+    }
+
+    t.addEventListener('mouseenter', () => clearTimeout(timer));
+    t.addEventListener('mouseleave', () => { timer = setTimeout(dismiss, 1200); });
   }
 
   // Override browser native alert to non-blocking obsidian toast
@@ -17351,8 +17420,14 @@ body.theme-light .kage-btn.secondary {
     safeCreateIcons();
   }
 
+  let lastGhostDeleteToast = 0;
   function handleGhostMessagesDeleted(data) {
-    showToast(`🚨 Ghost Vault: Message deleted in group ${data.group_id || ''} (Captured & Preserved)`, "error");
+    const now = Date.now();
+    // Throttle deletion toasts to at most once per 15s to prevent bot cleanup spam
+    if (now - lastGhostDeleteToast > 15000) {
+      lastGhostDeleteToast = now;
+      showToast(`🚨 Ghost Vault: Message deleted (Captured & Preserved)`, "warning");
+    }
     playZenSound('alarm');
     refreshGhostVault();
 
@@ -17402,8 +17477,7 @@ body.theme-light .kage-btn.secondary {
   }
 
   function handleGhostMessageEdited(data) {
-    showToast(`✏️ Ghost Vault: Edit revision captured by ${escapeHtml(data.record?.full_name || 'User')}`, "info");
-    playZenSound('blip');
+    // Silent capture: Ghost Vault records revisions into SQLite & UI without popup banner spam
     refreshGhostVault();
 
     const r = data.record;
@@ -18406,10 +18480,15 @@ body.theme-light .kage-btn.secondary {
     window.open(url, '_blank');
   }
 
+  let lastEntityToast = 0;
   function handleEntityDiscovered(data) {
     if (data.entities && data.entities.length > 0) {
-      const topEnt = data.entities[0];
-      showToast(`🎯 Threat Indicator: [${topEnt.entity_type.toUpperCase()}] ${topEnt.entity_value.slice(0, 20)}...`, "info");
+      const now = Date.now();
+      if (now - lastEntityToast > 15000) {
+        lastEntityToast = now;
+        const topEnt = data.entities[0];
+        showToast(`🎯 Threat Indicator: [${topEnt.entity_type.toUpperCase()}] ${topEnt.entity_value.slice(0, 20)}...`, "info");
+      }
       playZenSound('bell');
       refreshEntitiesRadar();
     }
