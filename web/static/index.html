@@ -31,6 +31,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <!-- Three.js CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- QRCode.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <!-- Immediate Pre-Render Device Classification (Mobile vs Tablet vs Monitor) & Theme Restoration -->
 <script>
@@ -7335,6 +7337,10 @@ body.theme-light .kage-btn.secondary {
         <span class="desk-txt">📨 Telegram Verification Code</span>
         <span class="mob-txt" style="display: none;">📨 OTP Code</span>
       </button>
+      <button type="button" onclick="switchAuthTab('qr')" id="auth-tab-btn-qr" class="flt-btn" style="font-size: 11px; color: #34c759;">
+        <span class="desk-txt">📷 Scan QR Code (Instant)</span>
+        <span class="mob-txt" style="display: none;">📷 QR Code</span>
+      </button>
       <button type="button" onclick="switchAuthTab('string')" id="auth-tab-btn-string" class="flt-btn" style="font-size: 11px; color: #38bdf8;">
         <span class="desk-txt">⚡ String Session Direct Import</span>
         <span class="mob-txt" style="display: none;">⚡ String Session</span>
@@ -7456,6 +7462,38 @@ body.theme-light .kage-btn.secondary {
       </button>
 
       <div id="auth-string-error" style="color: #ff3b30; font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 59, 48, 0.3); padding: 10px; border-radius: 10px;"></div>
+    </div>
+
+    <!-- TAB 3: QR CODE SCAN FLOW (INSTANT, NO CODES/SMS) -->
+    <div id="auth-tab-content-qr" style="display: none; text-align: center; padding: 10px 0;">
+      <p style="font-size: 12px; color: rgba(255, 255, 255, 0.7); line-height: 1.5; margin-bottom: 16px;">
+        Open Telegram on your phone → Go to <b style="color: #34c759;">Settings → Devices → Link Desktop Device</b> and point camera at this QR code:
+      </p>
+
+      <div style="background: #ffffff; padding: 14px; border-radius: 16px; display: inline-block; box-shadow: 0 8px 30px rgba(0,0,0,0.6); margin-bottom: 14px;">
+        <div id="auth-qrcode" style="width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+          <span class="loading-spin" style="width: 28px; height: 28px; border-width: 3px; border-color: #0c101a; border-top-color: transparent;"></span>
+        </div>
+      </div>
+
+      <div id="auth-qr-status" style="font-size: 11px; color: #38bdf8; font-family: monospace; margin-bottom: 12px; letter-spacing: 0.04em;">
+        Generating secure Telegram login token...
+      </div>
+
+      <div>
+        <button type="button" onclick="loadAuthQrCode()" class="kage-btn-pill" style="font-size: 11px; margin: 0 auto; display: inline-flex; align-items: center; gap: 6px;">
+          <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> Refresh QR Code
+        </button>
+      </div>
+
+      <div id="auth-qr-2fa-box" style="display: none; margin-top: 16px; text-align: left; max-width: 320px; margin-left: auto; margin-right: auto; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); padding: 12px; border-radius: 12px;">
+        <label style="font-size: 10px; color: #38bdf8; font-weight: 700; display: block; margin-bottom: 6px; letter-spacing: 0.06em;">TWO-STEP VERIFICATION (2FA) PASSWORD</label>
+        <input type="password" id="auth-qr-password-input" placeholder="Enter your 2FA password" style="width: 100%; box-sizing: border-box; background: rgba(12, 16, 26, 0.9); border: 1px solid rgba(255, 255, 255, 0.16); color: #fff; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px;" />
+        <button type="button" id="auth-qr-2fa-btn" onclick="submitQr2FaPassword()" class="kage-btn" style="width: 100%; justify-content: center; padding: 10px; font-size: 11px;">
+          Submit 2FA Password
+        </button>
+      </div>
+      <div id="auth-qr-error" style="color: #ff3b30; font-size: 11px; margin-top: 10px; display: none; line-height: 1.5; background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 59, 48, 0.3); padding: 10px; border-radius: 10px;"></div>
     </div>
 
   </div>
@@ -9671,24 +9709,149 @@ body.theme-light .kage-btn.secondary {
     if (e.target.id === 'auth-modal') closeAuthModal();
   }
 
+  let qrPollTimer = null;
   function switchAuthTab(tab) {
     const otpContent = document.getElementById('auth-tab-content-otp');
     const stringContent = document.getElementById('auth-tab-content-string');
+    const qrContent = document.getElementById('auth-tab-content-qr');
     const otpBtn = document.getElementById('auth-tab-btn-otp');
     const stringBtn = document.getElementById('auth-tab-btn-string');
+    const qrBtn = document.getElementById('auth-tab-btn-qr');
+
+    if (qrPollTimer && tab !== 'qr') {
+      clearInterval(qrPollTimer);
+      qrPollTimer = null;
+    }
 
     if (tab === 'otp') {
       if (otpContent) otpContent.style.display = 'block';
       if (stringContent) stringContent.style.display = 'none';
+      if (qrContent) qrContent.style.display = 'none';
       if (otpBtn) otpBtn.classList.add('active');
       if (stringBtn) stringBtn.classList.remove('active');
+      if (qrBtn) qrBtn.classList.remove('active');
+    } else if (tab === 'qr') {
+      if (otpContent) otpContent.style.display = 'none';
+      if (stringContent) stringContent.style.display = 'none';
+      if (qrContent) qrContent.style.display = 'block';
+      if (otpBtn) otpBtn.classList.remove('active');
+      if (stringBtn) stringBtn.classList.remove('active');
+      if (qrBtn) qrBtn.classList.add('active');
+      loadAuthQrCode();
     } else {
       if (otpContent) otpContent.style.display = 'none';
       if (stringContent) stringContent.style.display = 'block';
+      if (qrContent) qrContent.style.display = 'none';
       if (otpBtn) otpBtn.classList.remove('active');
       if (stringBtn) stringBtn.classList.add('active');
+      if (qrBtn) qrBtn.classList.remove('active');
     }
     safeCreateIcons();
+  }
+
+  async function loadAuthQrCode() {
+    const qrEl = document.getElementById('auth-qrcode');
+    const statusEl = document.getElementById('auth-qr-status');
+    const errEl = document.getElementById('auth-qr-error');
+    const box2Fa = document.getElementById('auth-qr-2fa-box');
+    if (box2Fa) box2Fa.style.display = 'none';
+    if (errEl) errEl.style.display = 'none';
+    if (statusEl) statusEl.innerText = 'Requesting secure Telegram QR token...';
+    if (qrEl) qrEl.innerHTML = '<span class="loading-spin" style="width: 28px; height: 28px; border-width: 3px; border-color: #0c101a; border-top-color: transparent;"></span>';
+
+    if (qrPollTimer) clearInterval(qrPollTimer);
+
+    try {
+      const res = await fetch('/api/auth/qr');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Could not generate QR code');
+      }
+      const data = await res.json();
+      if (!data.token_url) throw new Error('No QR token received from Telegram');
+
+      if (qrEl) {
+        qrEl.innerHTML = '';
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(qrEl, {
+            text: data.token_url,
+            width: 200,
+            height: 200,
+            colorDark: "#0c101a",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } else {
+          const imgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(data.token_url);
+          qrEl.innerHTML = `<img src="${imgUrl}" alt="Telegram QR" style="width:200px;height:200px;border-radius:8px;display:block;" />`;
+        }
+      }
+
+      if (statusEl) statusEl.innerHTML = '📷 <b style="color:#34c759;">QR Code Active!</b> Scan with Telegram on your phone.';
+      qrPollTimer = setInterval(pollQrStatus, 2000);
+    } catch (e) {
+      if (statusEl) statusEl.innerText = 'Failed to generate QR';
+      if (errEl) {
+        errEl.innerText = 'Error: ' + e.message;
+        errEl.style.display = 'block';
+      }
+    }
+  }
+
+  async function pollQrStatus() {
+    try {
+      const res = await fetch('/api/auth/qr/status');
+      if (!res.ok) return;
+      const data = await res.json();
+      const statusEl = document.getElementById('auth-qr-status');
+      const box2Fa = document.getElementById('auth-qr-2fa-box');
+
+      if (data.status === 'authorized') {
+        if (qrPollTimer) clearInterval(qrPollTimer);
+        if (statusEl) statusEl.innerHTML = '<span style="color:#34c759;font-weight:700;">✅ Telegram Authorized! Loading War Room...</span>';
+        if (window.showToast) showToast('👑 Telegram account successfully linked via QR!', 'success');
+        setTimeout(() => {
+          closeAuthModal();
+          checkAuth();
+        }, 1200);
+      } else if (data.status === 'password_needed') {
+        if (statusEl) statusEl.innerText = '⚠️ 2-Step Verification password required.';
+        if (box2Fa) box2Fa.style.display = 'block';
+      } else if (data.status === 'expired') {
+        if (qrPollTimer) clearInterval(qrPollTimer);
+        if (statusEl) statusEl.innerText = 'QR Code expired. Tap Refresh to generate new QR.';
+      }
+    } catch (e) {}
+  }
+
+  async function submitQr2FaPassword() {
+    const pwInput = document.getElementById('auth-qr-password-input');
+    const pw = pwInput ? pwInput.value : '';
+    const errEl = document.getElementById('auth-qr-error');
+    const btn = document.getElementById('auth-qr-2fa-btn');
+    if (!pw) return;
+    if (errEl) errEl.style.display = 'none';
+    if (btn) setButtonBusy(btn, true, 'Verifying...');
+
+    try {
+      const res = await fetch('/api/auth/qr/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Password incorrect');
+      if (window.showToast) showToast('👑 Telegram account successfully linked!', 'success');
+      closeAuthModal();
+      checkAuth();
+    } catch (e) {
+      if (errEl) {
+        errEl.innerText = 'Error: ' + e.message;
+        errEl.style.display = 'block';
+      }
+    } finally {
+      if (btn) setButtonBusy(btn, false);
+    }
   }
 
   async function submitImportSessionString() {
@@ -9803,8 +9966,13 @@ body.theme-light .kage-btn.secondary {
   async function sendAuthCode(forceNew = false) {
     const btn = document.getElementById('auth-send-code-btn');
     const errBox = document.getElementById('auth-send-error');
+    const verifyErrBox = document.getElementById('auth-verify-error');
     const phoneInput = document.getElementById('auth-phone-input');
-    const phoneVal = phoneInput ? phoneInput.value.trim() : '';
+    const destPhone = document.getElementById('auth-dest-phone');
+    let phoneVal = phoneInput ? phoneInput.value.trim() : '';
+    if (!phoneVal && destPhone && destPhone.innerText.trim()) {
+      phoneVal = destPhone.innerText.trim();
+    }
 
     if (!phoneVal) {
       if (errBox) {
@@ -9823,6 +9991,7 @@ body.theme-light .kage-btn.secondary {
       btn.disabled = true;
     }
     if (errBox) errBox.style.display = 'none';
+    if (verifyErrBox) verifyErrBox.style.display = 'none';
 
     try {
       const payload = {
@@ -9841,7 +10010,11 @@ body.theme-light .kage-btn.secondary {
       if (!res.ok) {
         const errDetail = data.detail || data.error || '';
         if (errDetail.toLowerCase().includes('resendcoderequest') || errDetail.toLowerCase().includes('all available options') || errDetail.toLowerCase().includes('sendcodeunavailable')) {
-          goToAuthStep2('A verification code was already dispatched to your official Telegram app. Enter it below:');
+          goToAuthStep2('Telegram restricted automatic code resend. Check Archived Chats in Telegram or use 📷 Scan QR Code tab.');
+          if (verifyErrBox) {
+            verifyErrBox.innerHTML = '⚠️ Telegram restricted automatic code dispatch for this app. <br>👉 Please switch to the <b><span style="color:#34c759;cursor:pointer;" onclick="switchAuthTab(\'qr\')">📷 Scan QR Code (Instant)</span></b> tab or check <b>Archived Chats</b> in your Telegram app.';
+            verifyErrBox.style.display = 'block';
+          }
           return;
         }
         throw new Error(errDetail || 'Failed to send code');
@@ -9850,11 +10023,16 @@ body.theme-light .kage-btn.secondary {
     } catch (err) {
       const msg = err.message || '';
       if (msg.toLowerCase().includes('resendcoderequest') || msg.toLowerCase().includes('all available options') || msg.toLowerCase().includes('sendcodeunavailable')) {
-        goToAuthStep2('A verification code was already dispatched to your official Telegram app. Enter it below:');
+        goToAuthStep2('Telegram restricted automatic code resend. Check Archived Chats in Telegram or use 📷 Scan QR Code tab.');
+        if (verifyErrBox) {
+          verifyErrBox.innerHTML = '⚠️ Telegram restricted automatic code dispatch for this app. <br>👉 Please switch to the <b><span style="color:#34c759;cursor:pointer;" onclick="switchAuthTab(\'qr\')">📷 Scan QR Code (Instant)</span></b> tab or check <b>Archived Chats</b> in your Telegram app.';
+          verifyErrBox.style.display = 'block';
+        }
       } else {
-        if (errBox) {
-          errBox.innerText = `Error: ${msg}`;
-          errBox.style.display = 'block';
+        const targetErr = (document.getElementById('auth-step-2')?.style.display === 'block') ? verifyErrBox : errBox;
+        if (targetErr) {
+          targetErr.innerText = `Error: ${msg}`;
+          targetErr.style.display = 'block';
         }
       }
     } finally {

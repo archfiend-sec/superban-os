@@ -1163,6 +1163,110 @@ def create_app(engine: SuperBanEngine):
             raise HTTPException(status_code=400, detail=str(e))
 
     # ═══════════════════════════════════════════════════════
+    #   TELEGRAM QR CODE INSTANT AUTHORIZATION (NO SMS/OTP)
+    # ═══════════════════════════════════════════════════════
+    qr_auth_state = {
+        "status": "idle",
+        "url": "",
+        "expires": "",
+        "user": None,
+        "error": None
+    }
+    qr_poll_task = None
+
+    @app.get("/api/auth/qr")
+    async def get_qr_auth():
+        nonlocal qr_poll_task
+        if qr_poll_task and not qr_poll_task.done():
+            qr_poll_task.cancel()
+
+        try:
+            if not engine.client.is_connected():
+                await engine.client.connect()
+
+            qr = await engine.client.qr_login()
+            qr_auth_state["status"] = "pending"
+            qr_auth_state["url"] = qr.url
+            qr_auth_state["expires"] = qr.expires.isoformat() if hasattr(qr, "expires") and qr.expires else ""
+            qr_auth_state["user"] = None
+            qr_auth_state["error"] = None
+
+            async def _wait_for_qr_scan():
+                try:
+                    user = await qr.wait(timeout=120)
+                    if user:
+                        temp_s = StringSession()
+                        temp_s.set_dc(engine.client.session.dc_id, engine.client.session.server_address, engine.client.session.port)
+                        temp_s.auth_key = engine.client.session.auth_key
+                        saved_str = temp_s.save()
+                        if saved_str:
+                            Config.save_string_session(saved_str)
+                        if getattr(user, "phone", None):
+                            Config.save_phone("+" + str(user.phone).lstrip("+"))
+                        me = await engine.client.get_me()
+                        if me:
+                            engine._me_id = me.id
+                        if hasattr(engine, "sentinel") and engine.sentinel:
+                            engine.sentinel.attach_client(engine.client)
+                        await engine.get_dialogs(force=True)
+                        qr_auth_state["status"] = "authorized"
+                        qr_auth_state["user"] = {
+                            "id": user.id,
+                            "first_name": user.first_name,
+                            "username": user.username
+                        }
+                except SessionPasswordNeededError:
+                    qr_auth_state["status"] = "password_needed"
+                except Exception as e:
+                    qr_auth_state["status"] = "expired"
+                    qr_auth_state["error"] = str(e)
+
+            qr_poll_task = asyncio.create_task(_wait_for_qr_scan())
+            return {
+                "status": "ok",
+                "token_url": qr.url,
+                "expires": qr_auth_state["expires"]
+            }
+        except Exception as e:
+            logger.error(f"QR Login generation failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Could not generate Telegram QR code: {e}")
+
+    @app.get("/api/auth/qr/status")
+    async def get_qr_auth_status():
+        return qr_auth_state
+
+    class QrPasswordReq(BaseModel):
+        password: str
+
+    @app.post("/api/auth/qr/password")
+    async def submit_qr_password(req: QrPasswordReq):
+        try:
+            user = await engine.client.sign_in(password=req.password)
+            temp_s = StringSession()
+            temp_s.set_dc(engine.client.session.dc_id, engine.client.session.server_address, engine.client.session.port)
+            temp_s.auth_key = engine.client.session.auth_key
+            saved_str = temp_s.save()
+            if saved_str:
+                Config.save_string_session(saved_str)
+            if getattr(user, "phone", None):
+                Config.save_phone("+" + str(user.phone).lstrip("+"))
+            me = await engine.client.get_me()
+            if me:
+                engine._me_id = me.id
+            if hasattr(engine, "sentinel") and engine.sentinel:
+                engine.sentinel.attach_client(engine.client)
+            await engine.get_dialogs(force=True)
+            qr_auth_state["status"] = "authorized"
+            qr_auth_state["user"] = {
+                "id": user.id,
+                "first_name": user.first_name,
+                "username": user.username
+            }
+            return {"status": "authorized", "user": qr_auth_state["user"]}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    # ═══════════════════════════════════════════════════════
     #   OPERATIONAL ENDPOINTS
     # ═══════════════════════════════════════════════════════
     @app.get("/api/status")
