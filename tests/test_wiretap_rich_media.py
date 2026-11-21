@@ -332,6 +332,53 @@ class TestWiretapRichMedia(unittest.TestCase):
         asyncio.run(run_test())
         print("  ✅ PASS: /api/media/preview endpoint verified with HTTP 200, WebP MIME, and security headers.")
 
+    def test_05b_engine_get_media_preview_download(self):
+        """Verify engine.get_media_preview_file downloads media using secrets & atomic rename."""
+        async def run_test():
+            mock_client = AsyncMock()
+            mock_client.is_connected = MagicMock(return_value=True)
+            mock_msg = MagicMock()
+            mock_msg.media = MagicMock()
+            mock_msg.file = MagicMock()
+            mock_msg.file.size = 1024
+            mock_msg.file.ext = ".jpg"
+            mock_msg.file.mime_type = "image/jpeg"
+            mock_msg.sticker = None
+
+            async def _fake_download(msg, file=None, thumb=None):
+                p = Path(file)
+                p.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 32)
+                return str(p)
+
+            mock_client.get_messages = AsyncMock(return_value=mock_msg)
+            mock_client.download_media = AsyncMock(side_effect=_fake_download)
+
+            orig_client = self.engine.client
+            self.engine.client = mock_client
+            orig_get_entity = self.engine.get_group_entity
+            self.engine.get_group_entity = AsyncMock(return_value=MagicMock())
+
+            vault_dir = Path(__file__).resolve().parent.parent / "media_vault"
+            target = vault_dir / "preview_999888_888777.jpg"
+            if target.exists():
+                target.unlink()
+
+            try:
+                res = await self.engine.get_media_preview_file(999888, 888777)
+                self.assertIsNotNone(res)
+                self.assertTrue(Path(res).exists())
+                self.assertTrue(Path(res).name.startswith("preview_999888_888777"))
+            finally:
+                if target.exists():
+                    target.unlink()
+                ghost = vault_dir / "ghost_999888_888777.jpg"
+                if ghost.exists():
+                    ghost.unlink()
+                self.engine.client = orig_client
+                self.engine.get_group_entity = orig_get_entity
+        asyncio.run(run_test())
+        print("  ✅ PASS: engine.get_media_preview_file live MTProto download verified with atomic secrets token.")
+
     def test_06_tagged_reply_extraction(self):
         """Verify tagged / replied message context extraction."""
         async def run_test():

@@ -25,6 +25,7 @@ from telethon.errors import (
 
 import os
 import shutil
+import secrets
 from pathlib import Path
 
 # Ensure virtual environment bin (with ffmpeg), imageio_ffmpeg, and system paths are prioritized in PATH

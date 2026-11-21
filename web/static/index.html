@@ -1523,7 +1523,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 }
 .wiretap-sticker-box {
   align-items: flex-start;
-  min-height: auto;
+  min-height: 120px;
   width: fit-content;
   max-width: 100%;
 }
@@ -1531,34 +1531,50 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: auto;
-  min-width: auto;
-  contain: layout;
+  width: 120px;
+  height: 120px;
+  min-width: 120px;
+  min-height: 120px;
+  max-width: 120px;
+  max-height: 120px;
+  contain: layout size;
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
 }
 .wiretap-sticker-img {
-  max-width: 130px;
-  max-height: 130px;
-  min-height: auto;
-  width: auto;
-  height: auto;
+  width: 120px;
+  height: 120px;
+  max-width: 120px;
+  max-height: 120px;
   object-fit: contain;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 .wiretap-sticker-img:hover {
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 video.wiretap-sticker-img {
   display: block;
+  width: 120px;
+  height: 120px;
+  max-width: 120px;
+  max-height: 120px;
   border-radius: 6px;
   background: transparent;
   outline: none;
+  object-fit: contain;
 }
 .wiretap-sticker-fallback {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 52px;
   line-height: 1;
-  padding: 6px;
+  padding: 0;
   text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   animation: popInSticker 0.25s ease-out;
 }
@@ -1568,12 +1584,11 @@ video.wiretap-sticker-img {
 }
 .wiretap-media-img {
   width: 100%;
-  max-width: 380px;
-  height: auto;
-  max-height: 280px;
-  min-height: 120px;
+  max-width: 320px;
+  height: 180px;
+  max-height: 240px;
   aspect-ratio: 16/9;
-  border-radius: 4px;
+  border-radius: 6px;
   border: 1px solid var(--line-soft);
   object-fit: cover;
   background: rgba(0, 0, 0, 0.4);
@@ -1586,14 +1601,15 @@ video.wiretap-sticker-img {
 }
 .wiretap-media-video {
   width: 100%;
-  max-width: 380px;
-  max-height: 280px;
-  min-height: 120px;
+  max-width: 320px;
+  height: 180px;
+  max-height: 240px;
   aspect-ratio: 16/9;
-  border-radius: 4px;
+  border-radius: 6px;
   border: 1px solid var(--line-soft);
   background: #000;
   outline: none;
+  object-fit: contain;
 }
 .wiretap-gif-player {
   cursor: pointer;
@@ -1905,7 +1921,7 @@ video.wiretap-sticker-img {
 .density-compact .wiretap-card {
   padding: 6px 11px !important;
   margin-bottom: 3px !important;
-  transition: all 0.2s ease !important;
+  transition: background 0.12s ease, border-color 0.12s ease !important;
 }
 .density-compact .wiretap-header {
   margin-bottom: 3px !important;
@@ -1946,7 +1962,7 @@ video.wiretap-sticker-img {
   font-size: 9.5px !important;
 }
 
-/* Collapsible Action & Reaction Rail in Compact Mode (Reveals on Hover or Tap) */
+/* Collapsible Action & Reaction Rail in Compact Mode (Reveals on Tap or Focus) */
 .density-compact .wiretap-card .wiretap-card-toolbar {
   max-height: 0;
   opacity: 0;
@@ -1957,7 +1973,6 @@ video.wiretap-sticker-img {
   transition: max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease, margin-top 0.18s ease, transform 0.18s ease;
   pointer-events: none;
 }
-.density-compact .wiretap-card:hover .wiretap-card-toolbar,
 .density-compact .wiretap-card.toolbar-active .wiretap-card-toolbar,
 .density-compact .wiretap-card:focus-within .wiretap-card-toolbar {
   max-height: 110px;
@@ -5562,12 +5577,20 @@ html.warroom-active #vignette {
     width: 100% !important;
     box-sizing: border-box !important;
   }
-  .wiretap-card img, .wiretap-card video {
+  .wiretap-card img:not(.wiretap-sticker-img), .wiretap-card video:not(.wiretap-sticker-img) {
     max-width: 100% !important;
     max-height: 240px !important;
-    height: auto !important;
+    aspect-ratio: 16/9 !important;
     border-radius: var(--apple-radius-sm) !important;
     object-fit: contain !important;
+  }
+  .wiretap-card .wiretap-sticker-img, .wiretap-card video.wiretap-sticker-img {
+    width: 120px !important;
+    height: 120px !important;
+    max-width: 120px !important;
+    max-height: 120px !important;
+    object-fit: contain !important;
+  }
   }
 
   /* Member Recon, Ghost Vault, Alpha Radar & Neural Intel */
@@ -13919,11 +13942,12 @@ body.theme-light .kage-btn.secondary {
           msgs.forEach(m => {
             m.group_id = gid;
             m.group_title = targetName;
-            if (m.message_id && wiretapSeenIds.has(m.message_id)) return;
+            const seenKey = (m.message_id !== undefined && m.message_id !== null) ? String(m.message_id) : null;
+            if (seenKey && wiretapSeenIds.has(seenKey)) return;
             const card = createWiretapMessageCard(m);
             if (card) {
               fragment.appendChild(card);
-              wiretapSeenIds.add(m.message_id);
+              if (seenKey) wiretapSeenIds.add(seenKey);
               addedCount++;
             }
           });
@@ -13967,72 +13991,19 @@ body.theme-light .kage-btn.secondary {
     if (!el) return;
     const retryCount = parseInt(el.getAttribute('data-retries') || '0', 10);
 
-    // If an <img> fails on a sticker, first try requesting the static JPEG thumbnail with thumb=true
-    if (currentTag === 'img' && retryCount === 0 && !url.includes('thumb=')) {
+    // 1. If <img> or <video> fails and we haven't tried the static thumbnail, try thumb=true once
+    if (retryCount === 0 && !url.includes('thumb=')) {
       el.setAttribute('data-retries', '1');
       const sep = url.includes('?') ? '&' : '?';
       el.src = url + sep + 'thumb=true';
       return;
     }
 
-    // If thumbnail fails or if original was not thumb, cross-fallback to <video> for Telegram .webm video stickers
-    if (retryCount <= 1 && currentTag !== 'video') {
-      el.setAttribute('data-retries', '2');
-      const video = document.createElement('video');
-      const cleanUrl = url.replace(/([?&])thumb=[^&]*/, '');
-      video.src = cleanUrl;
-      video.className = 'wiretap-sticker-img wiretap-sticker-video';
-      video.autoplay = true;
-      video.loop = true;
-      video.muted = true;
-      video.playsInline = true;
-      video.setAttribute('playsinline', '');
-      video.preload = 'auto';
-      video.onerror = () => handleMediaElementError(video, url, 'video', emoji);
-      video.onloadeddata = () => {
-        if (window.onWiretapMediaLoaded) onWiretapMediaLoaded();
-      };
-      if (el.parentNode) {
-        el.parentNode.replaceChild(video, el);
-        return;
-      }
-    }
-
-    // If <video> fails, fallback to static thumbnail image
-    if (currentTag === 'video' && retryCount <= 2) {
-      el.setAttribute('data-retries', '3');
-      const sep = url.includes('?') ? '&' : '?';
-      const thumbUrl = url.includes('thumb=') ? url : (url + sep + 'thumb=true');
-      const img = document.createElement('img');
-      img.src = thumbUrl;
-      img.className = 'wiretap-sticker-img';
-      img.loading = 'lazy';
-      img.alt = `Sticker ${emoji || ''}`;
-      img.onerror = () => handleMediaElementError(img, url, 'thumb_failed', emoji);
-      img.onload = () => {
-        if (window.onWiretapMediaLoaded) onWiretapMediaLoaded();
-      };
-      if (el.parentNode) {
-        el.parentNode.replaceChild(img, el);
-        return;
-      }
-    }
-
-    // Transient 404 retry while background MTProto worker finishes caching
-    if (retryCount < 3) {
-      el.setAttribute('data-retries', String(retryCount + 1));
-      setTimeout(() => {
-        const sep = url.includes('?') ? '&' : '?';
-        const cleanUrl = url.replace(/([?&])_t=\d+/, '');
-        el.src = cleanUrl + sep + `_t=${Date.now()}`;
-      }, 1000 * (retryCount + 1));
-      return;
-    }
-
-    // Retries exhausted: show fallback emoji
+    // 2. Retries exhausted: immediately display the 120x120px fallback container without DOM thrashing
     el.style.display = 'none';
-    if (el.nextElementSibling && el.nextElementSibling.classList.contains('wiretap-sticker-fallback')) {
-      el.nextElementSibling.style.display = 'flex';
+    const fallback = el.parentNode ? el.parentNode.querySelector('.wiretap-sticker-fallback') : null;
+    if (fallback) {
+      fallback.style.display = 'flex';
     }
   }
 
@@ -14040,58 +14011,20 @@ body.theme-light .kage-btn.secondary {
     if (!el) return;
     const retryCount = parseInt(el.getAttribute('data-retries') || '0', 10);
 
-    // If <video> fails, it might be an image/gif! Cross-fallback to <img>
-    if (currentTag === 'video' && retryCount === 0) {
+    // If <video> fails, try thumbnail preview once
+    if (retryCount === 0 && !url.includes('thumb=')) {
       el.setAttribute('data-retries', '1');
-      const img = document.createElement('img');
-      img.src = url;
-      img.className = 'wiretap-media-img wiretap-gif-player';
-      img.loading = 'lazy';
-      img.alt = 'GIF Animation';
-      img.onerror = () => handleGifError(img, url, 'img');
-      img.onload = () => {
-        if (window.onWiretapMediaLoaded) onWiretapMediaLoaded();
-      };
-      if (el.parentNode) {
-        el.parentNode.replaceChild(img, el);
-        return;
-      }
-    }
-
-    // If video and image both fail, try thumbnail preview before showing fallback
-    if (retryCount === 1) {
-      el.setAttribute('data-retries', '2');
       const sep = url.includes('?') ? '&' : '?';
-      const thumbUrl = url.includes('thumb=') ? url : (url + sep + 'thumb=true');
-      const img = document.createElement('img');
-      img.src = thumbUrl;
-      img.className = 'wiretap-media-img wiretap-gif-player';
-      img.loading = 'lazy';
-      img.alt = 'GIF Animation';
-      img.onerror = () => handleGifError(img, url, 'thumb_failed');
-      img.onload = () => {
-        if (window.onWiretapMediaLoaded) onWiretapMediaLoaded();
-      };
-      if (el.parentNode) {
-        el.parentNode.replaceChild(img, el);
-        return;
-      }
-    }
-
-    // Transient 404 retry
-    if (retryCount < 2) {
-      el.setAttribute('data-retries', String(retryCount + 1));
-      setTimeout(() => {
-        const sep = url.includes('?') ? '&' : '?';
-        const cleanUrl = url.replace(/([?&])_t=\d+/, '');
-        el.src = cleanUrl + sep + `_t=${Date.now()}`;
-      }, 1000 * (retryCount + 1));
+      el.src = url + sep + 'thumb=true';
       return;
     }
 
+    // Retries exhausted: hide element and show clean fallback
     el.style.display = 'none';
     const fallback = el.parentNode ? el.parentNode.querySelector('.wiretap-gif-fallback') : null;
-    if (fallback) fallback.style.display = 'block';
+    if (fallback) {
+      fallback.style.display = 'block';
+    }
   }
 
   function renderWiretapMediaHtml(data) {
@@ -14104,7 +14037,7 @@ body.theme-light .kage-btn.secondary {
       mediaUrl = `/api/media/preview/${bareGid}/${data.message_id}`;
     }
     if (mediaUrl) {
-      const tok = (sessionStorage.getItem('owner_token') || '').trim();
+      const tok = (typeof getStoredOwnerToken === 'function' ? getStoredOwnerToken() : (sessionStorage.getItem('owner_token') || '')).trim();
       if (tok && !mediaUrl.includes('token=')) {
         mediaUrl += (mediaUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(tok)}`;
       }
