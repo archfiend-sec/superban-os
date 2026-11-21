@@ -6192,11 +6192,15 @@ html.warroom-active #vignette {
     height: 100% !important;
     max-height: 100% !important;
     min-height: 0 !important;
-    overflow: hidden !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
     display: flex !important;
     flex-direction: column !important;
-    padding: 14px 18px 14px 18px !important;
+    padding: 14px 18px 48px 18px !important;
     box-sizing: border-box !important;
+    scroll-behavior: smooth !important;
   }
 
   #tab-content-recon .sec-head {
@@ -6205,10 +6209,10 @@ html.warroom-active #vignette {
   }
 
   #recon-table-wrap {
-    flex: 1 1 0% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    min-height: 0 !important;
+    flex: none !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 480px !important;
     display: flex !important;
     flex-direction: column !important;
     background: rgba(10, 14, 22, 0.72) !important;
@@ -6217,10 +6221,34 @@ html.warroom-active #vignette {
     border: 1px solid rgba(255, 255, 255, 0.12) !important;
     border-radius: 14px !important;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     position: relative !important;
-    margin-bottom: 0 !important;
+    margin-bottom: 32px !important;
   }
+}
+
+#tab-content-recon {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) rgba(10, 14, 22, 0.6);
+}
+
+#tab-content-recon::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+#tab-content-recon::-webkit-scrollbar-track {
+  background: rgba(10, 14, 22, 0.6);
+  border-radius: 4px;
+}
+
+#tab-content-recon::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+}
+
+#tab-content-recon::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 59, 48, 0.7);
 }
 
 @media (max-width: 900px) {
@@ -6254,13 +6282,11 @@ html.warroom-active #vignette {
 }
 
 .recon-table-scroll-wrap {
-  flex: 1 1 0% !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  overflow-x: auto !important;
+  flex: none !important;
   width: 100% !important;
+  height: auto !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
   -webkit-overflow-scrolling: touch !important;
 }
 
@@ -7062,7 +7088,7 @@ body.theme-light .kage-btn.secondary {
       </div>
 
       <!-- TAB 4: MEMBER RECON MATRIX CONTAINER -->
-      <div id="tab-content-recon" class="kage-tab-hidden" style="display: none; flex-direction: column; overflow: hidden; padding: 14px 18px; font-family: 'JetBrains Mono', monospace;">
+      <div id="tab-content-recon" class="kage-tab-hidden" style="display: none; flex-direction: column; overflow-y: auto; overflow-x: hidden; padding: 14px 18px 48px 18px; font-family: 'JetBrains Mono', monospace; scroll-behavior: smooth;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>04</b> — MEMBER RECONNAISSANCE GRID</span>
           <span class="rule"></span>
@@ -15266,6 +15292,9 @@ body.theme-light .kage-btn.secondary {
 
     if (tab === 'wiretap') {
       scrollWiretapToBottom(true);
+      if (typeof updateWiretapScrollButtons === 'function') {
+        updateWiretapScrollButtons(wiretapAutoScroll, !userScrolledUpWiretap && wiretapAutoScroll ? 'SCROLL: AUTO' : 'SCROLL: PAUSED (RESUME ↓)');
+      }
     }
     if (tab === 'alpha') refreshAlphaRadar();
     if (tab === 'ghost') refreshCenterGhostVault();
@@ -15276,6 +15305,8 @@ body.theme-light .kage-btn.secondary {
         syncDeepScanJobStatus(gid);
         if (typeof loadReconSchedule === 'function') loadReconSchedule(gid);
       }
+      if (typeof initReconScrollListener === 'function') initReconScrollListener();
+      if (typeof updateReconScrollButton === 'function') updateReconScrollButton();
     }
     if (tab === 'intel') {
       const results = document.getElementById('intel-briefing-results');
@@ -16545,7 +16576,7 @@ body.theme-light .kage-btn.secondary {
     }
 
     wrap.innerHTML = `
-      <div class="recon-table-scroll-wrap" style="flex: 1 1 auto; overflow-y: auto; overflow-x: auto; width: 100%; min-height: 0;">
+      <div class="recon-table-scroll-wrap" style="width: 100%; overflow-x: auto; overflow-y: visible;">
         <table class="recon-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; text-align: left;">
           <thead>
             <tr style="color: rgba(255, 255, 255, 0.7); background: rgba(14, 18, 27, 0.98); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
@@ -16797,7 +16828,48 @@ body.theme-light .kage-btn.secondary {
     playZenSound('click');
   }
 
+  function updateReconScrollButton() {
+    const btn = document.getElementById('btn-wiretap-scroll');
+    if (!btn || activeCenterTab !== 'recon') return;
+    const reconTab = document.getElementById('tab-content-recon');
+    if (reconTab && reconTab.scrollTop > 120) {
+      btn.innerText = 'SCROLL: TO TOP ↑';
+      btn.classList.add('active');
+    } else {
+      btn.innerText = 'SCROLL: TO TABLE ↓';
+      btn.classList.add('active');
+    }
+  }
+
+  function initReconScrollListener() {
+    const reconTab = document.getElementById('tab-content-recon');
+    if (!reconTab || reconTab._hasScrollListener) return;
+    reconTab._hasScrollListener = true;
+    reconTab.addEventListener('scroll', () => {
+      if (typeof activeCenterTab !== 'undefined' && activeCenterTab === 'recon') {
+        updateReconScrollButton();
+      }
+    }, { passive: true });
+  }
+
   function toggleWiretapScroll() {
+    if (typeof activeCenterTab !== 'undefined' && activeCenterTab === 'recon') {
+      const reconTab = document.getElementById('tab-content-recon');
+      const reconWrap = document.getElementById('recon-table-wrap');
+      if (reconTab) {
+        if (reconTab.scrollTop < 120 && reconWrap) {
+          reconWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          showToast('Scrolled to Member Surveillance Table', 'info');
+        } else {
+          reconTab.scrollTo({ top: 0, behavior: 'smooth' });
+          showToast('Scrolled to Recon Controls', 'info');
+        }
+        playZenSound('click');
+        setTimeout(updateReconScrollButton, 350);
+        return;
+      }
+    }
+
     if (userScrolledUpWiretap && wiretapAutoScroll) {
       userScrolledUpWiretap = false;
       isUserInteractingWithWiretap = false;
