@@ -176,6 +176,74 @@ def create_app(engine: SuperBanEngine):
         client = getattr(req_or_ws, "client", None)
         return client.host if client else "127.0.0.1"
 
+    def extract_token_from_request(req_or_ws) -> Optional[str]:
+        """Uniformly extract authentication token from Query, Header (X-Owner-Token or Bearer), or Cookie."""
+        if not req_or_ws:
+            return None
+        headers = getattr(req_or_ws, "headers", {})
+        cookies = getattr(req_or_ws, "cookies", {})
+        query_params = getattr(req_or_ws, "query_params", {})
+
+        # 1. Query parameter (?token=...)
+        t = query_params.get("token")
+        if t:
+            return str(t).strip()
+
+        # 2. X-Owner-Token header (case-insensitive)
+        t = headers.get("x-owner-token") or headers.get("X-Owner-Token")
+        if t:
+            return str(t).strip()
+
+        # 3. Authorization: Bearer <token>
+        auth = headers.get("authorization") or headers.get("Authorization") or ""
+        if auth.lower().startswith("bearer "):
+            return auth[7:].strip()
+
+        # 4. Cookie: owner_token
+        t = cookies.get("owner_token")
+        if t:
+            return str(t).strip()
+
+        return None
+
+    async def resolve_session(token: Optional[str], client_ip: str = "") -> Optional[Dict[str, Any]]:
+        """Dual-layer session resolver: fast memory cache backed by persistent SQLite web_sessions."""
+        if not token:
+            return None
+        now = time.time()
+
+        # Layer 1: In-memory cache
+        session = OPERATOR_SESSIONS.get(token)
+        if session and session.get("expires", 0) >= now:
+            return session
+        if token in OWNER_TOKENS and OWNER_TOKENS[token] >= now:
+            owner_sess = {
+                "username": Config.get_owner_username(),
+                "role": "owner",
+                "expires": OWNER_TOKENS[token]
+            }
+            OPERATOR_SESSIONS[token] = owner_sess
+            return owner_sess
+
+        # Layer 2: SQLite database persistence (re-hydrate across container restarts/sleeps)
+        if engine.db:
+            try:
+                db_sess = await engine.db.get_web_session(token)
+                if db_sess and db_sess.get("expires", 0) >= now:
+                    sess_data = {
+                        "username": db_sess["username"],
+                        "role": db_sess["role"],
+                        "expires": db_sess["expires"]
+                    }
+                    OPERATOR_SESSIONS[token] = sess_data
+                    if sess_data["role"] == "owner":
+                        OWNER_TOKENS[token] = sess_data["expires"]
+                    return sess_data
+            except Exception as e:
+                logger.debug(f"Session resolution DB query error: {e}")
+
+        return None
+
     async def evict_websockets_by_token(token: str, reason: str = "Session invalidated"):
         """Zero-Trust Eviction: Terminate active real-time WebSocket streams for invalidated sessions."""
         dead = []
@@ -293,19 +361,12 @@ def create_app(engine: SuperBanEngine):
         if request.method == "HEAD" and path == "/api/vc/audio_stream":
             return await call_next(request)
 
-        auth_header = request.headers.get("authorization", "")
-        bearer_token = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
-        token = (
-            request.query_params.get("token")
-            or request.headers.get("X-Owner-Token")
-            or request.headers.get("x-owner-token")
-            or bearer_token
-            or request.cookies.get("owner_token")
-        )
+        token = extract_token_from_request(request)
+        client_ip = get_client_ip(request)
         now = time.time()
 
         # Periodic active pruning of expired tokens to prevent stale sessions in memory
-        if len(OWNER_TOKENS) > 50 or len(OPERATOR_SESSIONS) > 50:
+        if len(OWNER_TOKENS) > 100 or len(OPERATOR_SESSIONS) > 100:
             for t, exp in list(OWNER_TOKENS.items()):
                 if exp < now:
                     OWNER_TOKENS.pop(t, None)
@@ -313,25 +374,16 @@ def create_app(engine: SuperBanEngine):
                 if s.get("expires", 0) < now:
                     OPERATOR_SESSIONS.pop(t, None)
 
-        session = OPERATOR_SESSIONS.get(token)
-        is_authenticated = False
-        user_role = "operator"
-
-        if session and session.get("expires", 0) >= now:
-            is_authenticated = True
-            user_role = session.get("role", "operator")
-            request.state.operator = session
-        elif token and token in OWNER_TOKENS and OWNER_TOKENS[token] >= now:
-            is_authenticated = True
-            user_role = "owner"
-            request.state.operator = {"username": Config.get_owner_username(), "role": "owner"}
-
-        if not is_authenticated:
+        session = await resolve_session(token, client_ip)
+        if not session:
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Owner clearance required. Access denied."},
                 headers={"X-Owner-Required": "true"}
             )
+
+        user_role = session.get("role", "operator")
+        request.state.operator = session
 
         # Strict Role-Based Access Control: Routes requiring Master Owner clearance
         owner_exclusive_prefixes = (
@@ -384,34 +436,16 @@ def create_app(engine: SuperBanEngine):
 
     @app.get("/api/owner/status")
     async def get_owner_status(request: Request):
-        token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
-        now = time.time()
-
-        # Periodic active pruning of expired tokens to prevent stale sessions in memory
-        if len(OWNER_TOKENS) > 50 or len(OPERATOR_SESSIONS) > 50:
-            for t, exp in list(OWNER_TOKENS.items()):
-                if exp < now:
-                    OWNER_TOKENS.pop(t, None)
-            for t, s in list(OPERATOR_SESSIONS.items()):
-                if s.get("expires", 0) < now:
-                    OPERATOR_SESSIONS.pop(t, None)
-
-        session = OPERATOR_SESSIONS.get(token)
-        is_authenticated = False
-        username = None
-        role = "guest"
-
-        if session and session.get("expires", 0) >= now:
-            is_authenticated = True
-            username = session.get("username")
-            role = session.get("role", "operator")
-        elif token and token in OWNER_TOKENS and OWNER_TOKENS[token] >= now:
-            is_authenticated = True
-            username = "owner"
-            role = "owner"
+        token = extract_token_from_request(request)
+        client_ip = get_client_ip(request)
+        session = await resolve_session(token, client_ip)
+        is_authenticated = bool(session)
+        username = session.get("username") if session else None
+        role = session.get("role", "guest") if session else "guest"
 
         return {
             "authenticated": is_authenticated,
+            "token": token if is_authenticated else None,
             "username": username,
             "role": role,
             "is_owner": (role == "owner"),
@@ -436,13 +470,9 @@ def create_app(engine: SuperBanEngine):
         target_new_pin = (req.new_pin or req.pin or "").strip()
 
         # Check if caller already has active authenticated owner session
-        token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
-        is_already_owner = bool(
-            token and (
-                (token in OPERATOR_SESSIONS and OPERATOR_SESSIONS[token].get("role") == "owner" and OPERATOR_SESSIONS[token].get("expires", 0) >= now) or
-                (token in OWNER_TOKENS and OWNER_TOKENS[token] >= now)
-            )
-        )
+        token = extract_token_from_request(request)
+        session = await resolve_session(token, client_ip)
+        is_already_owner = bool(session and session.get("role") == "owner")
 
         # If not already an authenticated owner, caller MUST provide and verify current_pin
         if not is_already_owner:
@@ -491,11 +521,23 @@ def create_app(engine: SuperBanEngine):
             "role": "owner",
             "expires": expiry
         }
-        is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+        if engine.db:
+            user_agent = request.headers.get("user-agent", "")
+            await engine.db.create_web_session(
+                token=new_token,
+                username=clean_user,
+                role="owner",
+                expires=expiry,
+                client_ip=client_ip,
+                user_agent=user_agent
+            )
+        forwarded_proto = (request.headers.get("x-forwarded-proto") or "").lower()
+        is_secure = request.url.scheme == "https" or "https" in forwarded_proto
         response.set_cookie(
             key="owner_token",
             value=new_token,
             max_age=7 * 86400,
+            path="/",
             httponly=True,
             secure=is_secure,
             samesite="lax"
@@ -578,9 +620,10 @@ def create_app(engine: SuperBanEngine):
 
         # POSITIVE AUTHENTICATION: Owner possesses valid master passcode
         if auth_success:
-            # Successful verification: immediately reset failed attempt counters (both IP and Account)
+            # Successful verification: immediately reset failed attempt counters (both IP, Account, and WebSocket)
             FAILED_VERIFY_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
             FAILED_ACCOUNT_ATTEMPTS[target_account] = {"count": 0, "lockout_until": 0.0, "last_attempt": now}
+            FAILED_WS_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0}
             log_security_event_task(
                 "AUTH_SUCCESS", clean_user, client_ip,
                 f"Cleared with role '{role}'", "INFO"
@@ -598,13 +641,28 @@ def create_app(engine: SuperBanEngine):
                 "role": role,
                 "expires": expiry
             }
-            OWNER_TOKENS[token] = expiry
-            
-            is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+            if role == "owner":
+                OWNER_TOKENS[token] = expiry
+
+            # Persist session to SQLite web_sessions table
+            if engine.db:
+                user_agent = request.headers.get("user-agent", "")
+                await engine.db.create_web_session(
+                    token=token,
+                    username=clean_user,
+                    role=role,
+                    expires=expiry,
+                    client_ip=client_ip,
+                    user_agent=user_agent
+                )
+
+            forwarded_proto = (request.headers.get("x-forwarded-proto") or "").lower()
+            is_secure = request.url.scheme == "https" or "https" in forwarded_proto
             response.set_cookie(
                 key="owner_token",
                 value=token,
                 max_age=7 * 86400,
+                path="/",
                 httponly=True,
                 secure=is_secure,
                 samesite="lax"
@@ -669,7 +727,7 @@ def create_app(engine: SuperBanEngine):
 
     @app.post("/api/owner/logout")
     async def logout_owner(request: Request, response: Response):
-        token = request.headers.get("X-Owner-Token") or request.cookies.get("owner_token")
+        token = extract_token_from_request(request)
         client_ip = get_client_ip(request)
         username = "owner"
         if token:
@@ -678,12 +736,15 @@ def create_app(engine: SuperBanEngine):
                 del OPERATOR_SESSIONS[token]
             if token in OWNER_TOKENS:
                 del OWNER_TOKENS[token]
+            if engine.db:
+                await engine.db.delete_web_session(token)
             await evict_websockets_by_token(token, reason="User logged out")
             log_security_event_task(
                 "LOGOUT", username, client_ip, "Session terminated by user", "INFO"
             )
-        is_secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
-        response.delete_cookie(key="owner_token", httponly=True, secure=is_secure, samesite="lax")
+        forwarded_proto = (request.headers.get("x-forwarded-proto") or "").lower()
+        is_secure = request.url.scheme == "https" or "https" in forwarded_proto
+        response.delete_cookie(key="owner_token", path="/", httponly=True, secure=is_secure, samesite="lax")
         return {"status": "logged_out"}
 
     # ═══════════════════════════════════════════════════════
@@ -763,6 +824,7 @@ def create_app(engine: SuperBanEngine):
             del OPERATOR_SESSIONS[t]
             if t in OWNER_TOKENS:
                 del OWNER_TOKENS[t]
+        await engine.db.delete_web_sessions_for_user(clean_user)
 
         # Zero-Trust Eviction: Immediately sever all active WebSocket connections for this operator
         await evict_websockets_by_username(clean_user, reason="Operator clearance revoked")
@@ -797,6 +859,7 @@ def create_app(engine: SuperBanEngine):
             del OPERATOR_SESSIONS[t]
             if t in OWNER_TOKENS:
                 del OWNER_TOKENS[t]
+        await engine.db.delete_web_sessions_for_user(clean_user)
 
         # Zero-Trust Eviction: Immediately sever all active WebSocket connections for this operator
         await evict_websockets_by_username(clean_user, reason="Operator deleted")
@@ -2395,29 +2458,13 @@ def create_app(engine: SuperBanEngine):
                 return
 
         # 3. Multi-credential authentication (Cookie, Header, or Query Parameter)
-        token = (
-            websocket.query_params.get("token")
-            or websocket.cookies.get("owner_token")
-            or websocket.headers.get("X-Owner-Token")
-        )
-        session = OPERATOR_SESSIONS.get(token)
-        is_auth = False
-        session_user = ""
-        session_role = "operator"
+        token = extract_token_from_request(websocket)
+        session = await resolve_session(token, client_ip)
 
-        if session and session.get("expires", 0) >= now:
-            is_auth = True
-            session_user = session.get("username", "operator")
-            session_role = session.get("role", "operator")
-        elif token and token in OWNER_TOKENS and OWNER_TOKENS[token] >= now:
-            is_auth = True
-            session_user = Config.get_owner_username()
-            session_role = "owner"
-
-        if not is_auth:
+        if not session:
             ws_lock_record["count"] = ws_lock_record.get("count", 0) + 1
-            if ws_lock_record["count"] >= 10:
-                ws_lock_record["lockout_until"] = now + 900
+            if ws_lock_record["count"] >= 30:
+                ws_lock_record["lockout_until"] = now + 300
             FAILED_WS_ATTEMPTS[client_ip] = ws_lock_record
             log_security_event_task(
                 "WS_AUTH_FAILED", "", client_ip, "Invalid or missing token on WebSocket handshake", "WARNING"
@@ -2428,10 +2475,8 @@ def create_app(engine: SuperBanEngine):
         # Successful WebSocket authentication: reset WS failure counter
         FAILED_WS_ATTEMPTS[client_ip] = {"count": 0, "lockout_until": 0.0}
 
-        # Tag WebSocket connection for Zero-Trust real-time session eviction
-        websocket.scope["owner_token"] = token
-        websocket.scope["operator_username"] = session_user
-        websocket.scope["operator_role"] = session_role
+        session_user = session.get("username", "operator")
+        session_role = session.get("role", "operator")
 
         await websocket.accept()
         connected_clients.add(websocket)

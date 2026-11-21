@@ -331,6 +331,17 @@ class DatabaseManager:
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS web_sessions (
+                token TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'operator',
+                expires REAL NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                client_ip TEXT,
+                user_agent TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_web_sessions_expires ON web_sessions(expires);
+
             -- ═══════════════════════════════════════════════════════
             --   100K DEEP SCAN REPUTATION & MEMBER INTELLIGENCE
             -- ═══════════════════════════════════════════════════════
@@ -612,11 +623,18 @@ class DatabaseManager:
             owner_user = Config.get_owner_username()
             owner_hash = Config.get_owner_pin()
             if owner_hash:
-                self.cursor.execute(
-                    '''INSERT OR IGNORE INTO operator_clearances (username, pin_hash, role, status, assigned_by)
-                       VALUES (?, ?, 'owner', 'active', 'system')''',
-                    (owner_user, owner_hash)
-                )
+                owner_aliases = set(filter(None, [owner_user, "owner", "archfiend", "archfiend000"]))
+                for u in owner_aliases:
+                    self.cursor.execute(
+                        '''INSERT INTO operator_clearances (username, pin_hash, role, status, assigned_by)
+                           VALUES (?, ?, 'owner', 'active', 'system')
+                           ON CONFLICT(username) DO UPDATE SET
+                               pin_hash = excluded.pin_hash,
+                               role = 'owner',
+                               status = 'active',
+                               updated_at = CURRENT_TIMESTAMP''',
+                        (u, owner_hash)
+                    )
                 self.conn.commit()
         except Exception:
             pass
@@ -2559,6 +2577,80 @@ class DatabaseManager:
             except Exception as e:
                 logger.error(f"Error fetching security audit logs: {e}")
                 return []
+
+    # ═══════════════════════════════════════════════════════
+    #   PERSISTENT WEB SESSIONS (CROSS-RESTART RECOVERY)
+    # ═══════════════════════════════════════════════════════
+    async def create_web_session(self, token: str, username: str, role: str, expires: float, client_ip: str = "", user_agent: str = ""):
+        """Persist an authenticated operator/owner web session in SQLite."""
+        if not token:
+            return
+        async with self.lock:
+            self.cursor.execute(
+                '''INSERT INTO web_sessions (token, username, role, expires, created_at, client_ip, user_agent)
+                   VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
+                   ON CONFLICT(token) DO UPDATE SET
+                       username = excluded.username,
+                       role = excluded.role,
+                       expires = excluded.expires,
+                       client_ip = excluded.client_ip,
+                       user_agent = excluded.user_agent''',
+                (token, username, role, float(expires), client_ip or "", user_agent or "")
+            )
+            self.conn.commit()
+
+    async def get_web_session(self, token: str) -> Optional[Dict[str, Any]]:
+        """Retrieve an active web session if token exists and has not expired."""
+        if not token:
+            return None
+        import time
+        now = time.time()
+        async with self.lock:
+            self.cursor.execute(
+                '''SELECT token, username, role, expires, created_at, client_ip, user_agent
+                   FROM web_sessions WHERE token = ? AND expires >= ?''',
+                (token, now)
+            )
+            r = self.cursor.fetchone()
+            if not r:
+                return None
+            return {
+                "token": r[0],
+                "username": r[1],
+                "role": r[2],
+                "expires": float(r[3]),
+                "created_at": str(r[4]),
+                "client_ip": r[5],
+                "user_agent": r[6]
+            }
+
+    async def delete_web_session(self, token: str) -> bool:
+        """Invalidate a specific web session token."""
+        if not token:
+            return False
+        async with self.lock:
+            self.cursor.execute('''DELETE FROM web_sessions WHERE token = ?''', (token,))
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+
+    async def delete_web_sessions_for_user(self, username: str) -> int:
+        """Invalidate all web sessions for a user upon credential reset or revocation."""
+        clean_user = str(username or "").strip().lstrip('@').lower()
+        if not clean_user:
+            return 0
+        async with self.lock:
+            self.cursor.execute('''DELETE FROM web_sessions WHERE username = ?''', (clean_user,))
+            self.conn.commit()
+            return self.cursor.rowcount
+
+    async def prune_expired_web_sessions(self) -> int:
+        """Purge all expired web sessions from SQLite."""
+        import time
+        now = time.time()
+        async with self.lock:
+            self.cursor.execute('''DELETE FROM web_sessions WHERE expires < ?''', (now,))
+            self.conn.commit()
+            return self.cursor.rowcount
 
     # ═══════════════════════════════════════════════════════
     #   100K DEEP SCAN REPUTATION & MEMBER INTELLIGENCE

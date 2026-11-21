@@ -11410,7 +11410,7 @@ body.theme-light .kage-btn.secondary {
 
   function initWebSocket() {
     if (!isOwnerVerified) return;
-    const token = sessionStorage.getItem('owner_token') || '';
+    const token = (typeof getStoredOwnerToken === 'function' ? getStoredOwnerToken() : (sessionStorage.getItem('owner_token') || ''));
     const loc = window.location;
     const proto = loc.protocol === "https:" ? "wss://" : "ws://";
     const wsUri = proto + loc.host + "/ws" + (token ? ("?token=" + encodeURIComponent(token)) : "");
@@ -19885,16 +19885,56 @@ body.theme-light .kage-btn.secondary {
   let isOwnerVerified = false;
   let isOwnerSetupMode = false;
 
-  // Global fetch interceptor to append X-Owner-Token & catch 401/403
+  // ═══════════════════════════════════════════════════════
+  //   PERSISTENT ZERO-TRUST AUTHENTICATION TOKEN STORE
+  // ═══════════════════════════════════════════════════════
+  function getStoredOwnerToken() {
+    try {
+      const sTok = sessionStorage.getItem('owner_token');
+      if (sTok && sTok.trim()) return sTok.trim();
+      const lTok = localStorage.getItem('kage_session_token') || localStorage.getItem('owner_token');
+      if (lTok && lTok.trim()) {
+        sessionStorage.setItem('owner_token', lTok.trim());
+        return lTok.trim();
+      }
+    } catch (e) {
+      console.warn('Storage access warning:', e);
+    }
+    return '';
+  }
+
+  function setStoredOwnerToken(tok) {
+    if (!tok) return;
+    const clean = tok.trim();
+    try {
+      sessionStorage.setItem('owner_token', clean);
+      localStorage.setItem('kage_session_token', clean);
+      localStorage.setItem('owner_token', clean);
+    } catch (e) {}
+  }
+
+  function clearStoredOwnerToken() {
+    try {
+      sessionStorage.removeItem('owner_token');
+      localStorage.removeItem('kage_session_token');
+      localStorage.removeItem('owner_token');
+      localStorage.removeItem('operator_username');
+      localStorage.removeItem('operator_role');
+    } catch (e) {}
+  }
+
+  // Global fetch interceptor to append X-Owner-Token & Bearer and handle 401/403
   const _rawFetch = window.fetch;
   window.fetch = async function(url, options = {}) {
-    const token = sessionStorage.getItem('owner_token');
+    const token = getStoredOwnerToken();
     if (token) {
       options.headers = options.headers || {};
       if (options.headers instanceof Headers) {
         if (!options.headers.has('X-Owner-Token')) options.headers.append('X-Owner-Token', token);
+        if (!options.headers.has('Authorization')) options.headers.append('Authorization', 'Bearer ' + token);
       } else {
         if (!options.headers['X-Owner-Token']) options.headers['X-Owner-Token'] = token;
+        if (!options.headers['Authorization']) options.headers['Authorization'] = 'Bearer ' + token;
       }
     }
     const response = await _rawFetch(url, options);
@@ -19902,7 +19942,19 @@ body.theme-light .kage-btn.secondary {
       // ONLY trigger the Master PIN lockscreen if the 401 is specifically from the Owner Guard Gatekeeper
       const isOwnerDenial = response.headers && response.headers.get('X-Owner-Required') === 'true';
       if (isOwnerDenial && isOwnerVerified) {
+        // Quick zero-trust check to ensure server didn't just reboot
+        try {
+          const statusRes = await _rawFetch('/api/owner/status', {
+            headers: token ? { 'X-Owner-Token': token, 'Authorization': 'Bearer ' + token } : {}
+          });
+          const statusData = await statusRes.json();
+          if (statusData && statusData.authenticated) {
+            if (statusData.token) setStoredOwnerToken(statusData.token);
+            return response;
+          }
+        } catch (e) {}
         isOwnerVerified = false;
+        clearStoredOwnerToken();
         showOwnerLockscreen(true);
       }
     }
@@ -19914,10 +19966,19 @@ body.theme-light .kage-btn.secondary {
 
   async function checkOwnerStatus() {
     try {
-      const res = await fetch('/api/owner/status');
+      const token = getStoredOwnerToken();
+      const headers = {};
+      if (token) {
+        headers['X-Owner-Token'] = token;
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      const res = await _rawFetch('/api/owner/status', { headers });
       const data = await res.json();
       if (data.authenticated) {
         isOwnerVerified = true;
+        if (data.token) {
+          setStoredOwnerToken(data.token);
+        }
         currentOperatorRole = data.role || 'operator';
         currentOperatorUser = data.username || '';
         hideOwnerLockscreen();
@@ -19928,11 +19989,15 @@ body.theme-light .kage-btn.secondary {
         loadQuickWatchdogs();
       } else {
         isOwnerVerified = false;
+        clearStoredOwnerToken();
         showOwnerLockscreen();
       }
     } catch (e) {
       console.error('Owner status check error:', e);
-      showOwnerLockscreen();
+      const token = getStoredOwnerToken();
+      if (!token) {
+        showOwnerLockscreen();
+      }
     }
   }
 
@@ -20047,7 +20112,7 @@ body.theme-light .kage-btn.secondary {
       }
 
       if (data.token) {
-        sessionStorage.setItem('owner_token', data.token);
+        setStoredOwnerToken(data.token);
       }
 
       isOwnerVerified = true;
@@ -20251,10 +20316,8 @@ body.theme-light .kage-btn.secondary {
     try {
       await fetch('/api/owner/logout', { method: 'POST' });
     } catch (e) {}
+    clearStoredOwnerToken();
     sessionStorage.clear();
-    localStorage.removeItem('owner_token');
-    localStorage.removeItem('operator_username');
-    localStorage.removeItem('operator_role');
     isOwnerVerified = false;
     operatorRole = 'guest';
     if (ws) {
@@ -20265,7 +20328,7 @@ body.theme-light .kage-btn.secondary {
   }
 
   window.addEventListener('pageshow', function(event) {
-    if (event.persisted && !sessionStorage.getItem('owner_token')) {
+    if (event.persisted && !getStoredOwnerToken()) {
       window.location.replace('/');
     }
   });
