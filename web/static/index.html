@@ -3153,7 +3153,8 @@ video.wiretap-sticker-img {
   #tab-content-alpha {
     flex: 1 1 0% !important;
     min-height: 0 !important;
-    height: 100% !important;
+    height: auto !important;
+    max-height: 100% !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
@@ -3164,6 +3165,29 @@ video.wiretap-sticker-img {
   }
 
   /* ── 7. MODERN MEMBER RECON MOBILE CARDS ── */
+  #recon-table-wrap {
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
+    touch-action: pan-y !important;
+    height: auto !important;
+    min-height: 240px !important;
+    flex: none !important;
+  }
+  .recon-table-scroll-wrap {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    overscroll-behavior: auto !important;
+    contain: none !important;
+    touch-action: pan-y !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+  .recon-row {
+    contain: none !important;
+    content-visibility: visible !important;
+    touch-action: pan-y !important;
+  }
   .recon-table, 
   .recon-table tbody, 
   .recon-table tr, 
@@ -4762,13 +4786,14 @@ html.warroom-active #vignette {
 #tab-content-alpha {
   flex: 1 1 0% !important;
   min-height: 0 !important;
-  height: 100% !important;
+  height: auto !important;
   max-height: 100% !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   box-sizing: border-box !important;
   padding: 14px 18px 28px 18px !important;
   overscroll-behavior-y: contain !important;
+  touch-action: pan-y !important;
   -webkit-overflow-scrolling: touch !important;
 }
 
@@ -5038,14 +5063,15 @@ html.warroom-active #vignette {
   background: rgba(255, 255, 255, 0.06) !important;
 }
 .recon-row {
-  content-visibility: auto !important;
-  contain-intrinsic-size: 0 46px !important;
-  contain: layout paint !important;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 46px;
+  contain: layout paint;
 }
 .recon-table-scroll-wrap {
-  overscroll-behavior: contain !important;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
-  contain: layout paint !important;
+  contain: layout style;
 }
 
 /* ── 09. PRIMARY & SECONDARY BUTTONS ── */
@@ -5602,9 +5628,13 @@ html.warroom-active #vignette {
   #tab-content-intel {
     flex: 1 1 0% !important;
     min-height: 0 !important;
-    height: 100% !important;
+    height: auto !important;
+    max-height: 100% !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    scroll-behavior: auto !important;
     padding: 10px 10px calc(88px + env(safe-area-inset-bottom, 20px)) 10px !important;
     box-sizing: border-box !important;
     width: 100% !important;
@@ -6280,13 +6310,18 @@ html.warroom-active #vignette {
 }
 
 @media (max-width: 900px) {
-  #tab-content-recon:not(.kage-tab-hidden):not([style*="display: none"]) {
+  #tab-content-recon:not(.kage-tab-hidden):not([style*="display: none"]),
+  #tab-content-recon {
     flex: 1 1 0% !important;
-    height: 100% !important;
+    height: auto !important;
+    max-height: 100% !important;
     min-height: 0 !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    scroll-behavior: auto !important;
     display: flex !important;
     flex-direction: column !important;
     padding: 12px 12px calc(110px + env(safe-area-inset-bottom, 24px)) 12px !important;
@@ -6295,12 +6330,33 @@ html.warroom-active #vignette {
   #recon-table-wrap {
     overflow: visible !important;
     height: auto !important;
-    min-height: 360px !important;
+    min-height: 240px !important;
     flex: none !important;
     background: rgba(10, 14, 22, 0.72) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 14px !important;
     margin-bottom: 24px !important;
+    touch-action: pan-y !important;
+    overscroll-behavior: auto !important;
+  }
+  #recon-auto-schedule-panel,
+  #deep-scan-progress-panel {
+    touch-action: pan-y !important;
+  }
+  .recon-table-scroll-wrap {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    overscroll-behavior: auto !important;
+    contain: none !important;
+    touch-action: pan-y !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+  .recon-row {
+    contain: none !important;
+    content-visibility: visible !important;
+    touch-action: pan-y !important;
   }
   body.theme-light #recon-table-wrap {
     background: #ffffff !important;
@@ -6309,13 +6365,53 @@ html.warroom-active #vignette {
   }
 }
 
-.recon-table-scroll-wrap {
-  flex: none !important;
+body.device-mobile #tab-content-recon:not(.kage-tab-hidden):not([style*="display: none"]),
+body.device-mobile #tab-content-recon {
+  flex: 1 1 0% !important;
+  height: auto !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-y: contain !important;
+  touch-action: pan-y !important;
+  scroll-behavior: auto !important;
+}
+body.device-mobile #recon-auto-schedule-panel,
+body.device-mobile #deep-scan-progress-panel {
+  touch-action: pan-y !important;
+}
+body.device-mobile .recon-table-scroll-wrap {
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  overscroll-behavior: auto !important;
+  contain: none !important;
+  touch-action: pan-y !important;
   width: 100% !important;
   height: auto !important;
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-  -webkit-overflow-scrolling: touch !important;
+}
+body.device-mobile .recon-row {
+  contain: none !important;
+  content-visibility: visible !important;
+  touch-action: pan-y !important;
+}
+body.device-mobile #recon-table-wrap {
+  overflow: visible !important;
+  overscroll-behavior: auto !important;
+  touch-action: pan-y !important;
+}
+
+@media (min-width: 901px) {
+  .recon-table-scroll-wrap {
+    flex: none !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
 }
 
 .recon-table th, .recon-table thead th {
@@ -7116,7 +7212,7 @@ body.theme-light .kage-btn.secondary {
       </div>
 
       <!-- TAB 4: MEMBER RECON MATRIX CONTAINER -->
-      <div id="tab-content-recon" class="kage-tab-hidden" style="display: none; flex-direction: column; overflow-y: auto; overflow-x: hidden; padding: 14px 18px 48px 18px; font-family: 'JetBrains Mono', monospace; scroll-behavior: smooth;">
+      <div id="tab-content-recon" class="kage-tab-hidden" style="display: none; flex-direction: column; overflow-y: auto; overflow-x: hidden; padding: 14px 18px 48px 18px; font-family: 'JetBrains Mono', monospace; scroll-behavior: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch;">
         <div class="sec-head" style="margin-bottom: 18px;">
           <span class="k"><b>04</b> — MEMBER RECONNAISSANCE GRID</span>
           <span class="rule"></span>
@@ -16514,7 +16610,7 @@ body.theme-light .kage-btn.secondary {
     }
 
     wrap.innerHTML = `
-      <div class="recon-table-scroll-wrap" style="width: 100%; overflow-x: auto; overflow-y: visible;">
+      <div class="recon-table-scroll-wrap">
         <table class="recon-table" style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; text-align: left;">
           <thead>
             <tr style="color: rgba(255, 255, 255, 0.7); background: rgba(14, 18, 27, 0.98); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
