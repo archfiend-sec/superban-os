@@ -6,6 +6,7 @@
 .env
 *.session
 *.session-journal
+*.session.revoked
 sessions/
 ultimate_config.json
 

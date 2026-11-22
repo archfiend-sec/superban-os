@@ -1066,7 +1066,7 @@ class SentinelShield:
                     is_premium, is_verified
                 ))
                 asyncio.create_task(self._check_surveillance(
-                    group_id, group_title, sender_id or 0, full_name, username, text
+                    group_id, group_title, sender_id or 0, full_name, username, text, msg_id=msg_id
                 ))
                 if extracted_entities:
                     asyncio.create_task(self.db.save_extracted_entities(extracted_entities))
@@ -1217,54 +1217,69 @@ class SentinelShield:
             logger.debug(f"Sentinel process incoming message error: {ex}")
 
     async def _check_surveillance(self, group_id: int, group_title: str, user_id: int, 
-                                  full_name: str, username: str, text: str):
+                                  full_name: str, username: str, text: str, msg_id: int = 0):
         """Cross-examine incoming events against active surveillance watchlists."""
         try:
-            watchlist = await self.db.get_watchlist()
+            watchlist = await self.db.get_watchlist(include_inactive=False)
             if not watchlist:
                 return
 
             text_lower = (text or "").lower()
-            u_lower = (username or "").lower()
-            uid_str = str(user_id)
+            u_lower = (username or "").lower().lstrip("@")
+            uid_str = str(user_id) if user_id else ""
 
             for rule in watchlist:
+                if not rule.get("is_active", True):
+                    continue
+
                 target_type = rule.get("target_type")
-                val = str(rule.get("value", "")).lower()
+                val = str(rule.get("value", "")).strip().lower()
                 if not val:
                     continue
 
                 matched = False
-                if target_type == "keyword" and val in text_lower:
-                    matched = True
-                elif target_type == "user" and (val == uid_str or val == u_lower or val.lstrip('@') == u_lower.lstrip('@')):
-                    matched = True
+                if target_type == "keyword":
+                    if val in text_lower:
+                        matched = True
+                elif target_type == "user":
+                    val_clean = val.lstrip("@")
+                    if (val_clean == uid_str and uid_str != "") or (u_lower and val_clean == u_lower):
+                        matched = True
 
                 if matched:
-                    logger.warning(f"🚨 SURVEILLANCE HIT [{target_type}:{val}] triggered by {full_name} in {group_title}!")
-                    await self.db.log_surveillance_alert(
+                    logger.warning(f"🚨 SURVEILLANCE HIT [{target_type}:{val}] triggered by {full_name or user_id} in {group_title}!")
+                    safe_full_name = str(full_name).strip() if (full_name and str(full_name).strip()) else "Unknown User"
+                    safe_msg_text = str(text).strip() if (text and str(text).strip()) else "[Media or attachment without text content]"
+                    alert_id = await self.db.log_surveillance_alert(
                         watchlist_id=rule.get("id"),
                         target_type=target_type,
                         trigger_val=val,
                         group_id=group_id,
-                        group_title=group_title,
-                        user_id=user_id,
-                        full_name=full_name,
-                        username=username,
-                        message_text=text,
+                        group_title=group_title or f"Entity #{group_id}",
+                        user_id=user_id or 0,
+                        full_name=safe_full_name,
+                        username=u_lower,
+                        message_text=safe_msg_text,
+                        message_id=msg_id,
                         action_context="message"
                     )
-                    await self.emit_sentinel_event("surveillance_target_hit", {
-                        "target_type": target_type,
-                        "trigger_val": val,
-                        "group_id": group_id,
-                        "group_title": group_title,
-                        "user_id": user_id,
-                        "full_name": full_name,
-                        "username": username,
-                        "message_text": text,
-                        "timestamp": time.strftime("%H:%M:%S", time.localtime())
-                    })
+                    if alert_id:
+                        await self.emit_sentinel_event("surveillance_target_hit", {
+                            "id": alert_id,
+                            "watchlist_id": rule.get("id"),
+                            "target_type": target_type,
+                            "trigger_val": val,
+                            "group_id": group_id,
+                            "group_title": group_title or f"Entity #{group_id}",
+                            "message_id": msg_id,
+                            "user_id": user_id or 0,
+                            "full_name": safe_full_name,
+                            "username": u_lower,
+                            "message_text": safe_msg_text,
+                            "action_context": "message",
+                            "is_acknowledged": False,
+                            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                        })
         except Exception as e:
             logger.debug(f"Surveillance check note: {e}")
 

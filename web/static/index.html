@@ -186,6 +186,14 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
     display: none !important;
   }
 }
+html[data-device="mobile"] .kage-sys-health-bar,
+html[data-device="mobile"] #kage-sys-health-compact,
+html[data-device="mobile"] .desk-only,
+body.device-mobile .kage-sys-health-bar,
+body.device-mobile #kage-sys-health-compact,
+body.device-mobile .desk-only {
+  display: none !important;
+}
 .sys-health-pill {
   display: inline-flex;
   align-items: center;
@@ -2512,6 +2520,13 @@ video.wiretap-sticker-img {
   align-items: center;
   justify-content: space-around;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.55);
+}
+/* Strict prevention: NEVER display mobile dock on monitor or tablet */
+html:not([data-device="mobile"]) #kage-mobile-dock,
+body:not(.device-mobile) #kage-mobile-dock,
+body.device-monitor #kage-mobile-dock,
+body.device-tablet #kage-mobile-dock {
+  display: none !important;
 }
 .kage-dock-item {
   display: flex;
@@ -8784,62 +8799,114 @@ body.theme-light .kage-btn.secondary {
 
 <!-- MODAL: TACTICAL SURVEILLANCE RADAR -->
 <div id="surveillance-modal" class="kage-modal-overlay" style="display: none; z-index: 9999;" onclick="closeSurveillanceModal(event)">
-  <div class="kage-modal font-mono" style="padding: 24px; max-width: 950px; width: 94vw; max-height: 88vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line);">
+  <div class="kage-modal font-mono" style="padding: 20px 24px; max-width: 1040px; width: 95vw; max-height: 90vh; display: flex; flex-direction: column; background: #080c10; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.85);">
     <div class="mob-sheet-handle" onclick="closeSurveillanceModalDirect()" title="Tap to close sheet"></div>
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 14px; margin-bottom: 16px; gap: 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); padding-bottom: 12px; margin-bottom: 14px; gap: 8px;">
       <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
         <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(234,179,8,0.15); border: 1px solid #eab308; display: grid; place-items: center; flex-shrink: 0;">
           <i data-lucide="radar" style="width: 18px; height: 18px; color: #eab308;"></i>
         </div>
         <div style="min-width: 0;">
-          <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">SURVEILLANCE RADAR</h4>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h4 class="display" style="font-size: 16px; color: var(--bone); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.04em;">SURVEILLANCE RADAR</h4>
+            <div id="surv-sync-status-pill" class="badge" style="background: rgba(234,179,8,0.12); color: #eab308; border: 1px solid rgba(234,179,8,0.3); font-size: 9px; padding: 2px 7px; display: inline-flex; align-items: center; gap: 5px;">
+              <span id="surv-sync-dot" class="health-dot active" style="width: 6px; height: 6px; background: #eab308; border-radius: 50%;"></span>
+              <span id="surv-sync-status-text">STATUS: IDLE</span>
+            </div>
+          </div>
           <span class="eyebrow desk-only" style="color: var(--muted); font-size: 9px;">24/7 BACKGROUND KEYWORD, SCAM, &amp; TARGET INTERCEPTOR</span>
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-        <button onclick="refreshSurveillanceData()" class="kage-btn-pill" title="Refresh radar"><i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> <span class="desk-txt">Sync</span><span class="mob-txt">Sync</span></button>
+        <button id="btn-surv-sync" onclick="triggerSurveillanceSync()" class="kage-btn-pill" style="border-color: rgba(234,179,8,0.4); color: #eab308;" title="Execute manual synchronization against authorized groups">
+          <i data-lucide="refresh-cw" id="icon-surv-sync" style="width: 11px; height: 11px;"></i>
+          <span class="desk-txt" id="txt-surv-sync">SYNC</span>
+          <span class="mob-txt">Sync</span>
+        </button>
         <button onclick="closeSurveillanceModalDirect()" class="kage-btn-pill">✕ Close</button>
       </div>
     </div>
 
     <!-- Add Watchlist Target Bar -->
-    <div class="surveillance-arm-bar" style="background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 4px; padding: 12px; margin-bottom: 14px;">
-      <div class="eyebrow" style="margin-bottom: 8px; color: var(--bone); font-size: 10px;">+ ENGAGE NEW SURVEILLANCE TARGET</div>
+    <div class="surveillance-arm-bar" style="background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+      <div class="eyebrow" style="margin-bottom: 8px; color: var(--bone); font-size: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <span>+ ENGAGE NEW SURVEILLANCE TARGET</span>
+        <span class="text-muted" style="font-size: 9px; text-transform: none;">Monitors only authorized groups and permitted Telegram data</span>
+      </div>
       <div class="surv-inputs" style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <select id="surv-type-select" class="kage-select font-mono" style="width: 130px; font-size: 11px; padding: 6px 10px;">
+        <select id="surv-type-select" class="kage-select font-mono" style="width: 140px; font-size: 11px; padding: 6px 10px;" onchange="onSurvTypeChange()">
           <option value="keyword">KEYWORD</option>
-          <option value="user">USER ID / HANDLE</option>
+          <option value="user">USER ID / @HANDLE</option>
         </select>
-        <input type="text" id="surv-val-input" placeholder="Value (e.g. 'scam', 'airdrop', 'admin', '12345678')" class="kage-input font-mono" style="flex: 2; min-width: 180px; font-size: 11px; padding: 6px 10px;">
-        <input type="text" id="surv-note-input" placeholder="Tag / Intelligence note" class="kage-input font-mono" style="flex: 1; min-width: 140px; font-size: 11px; padding: 6px 10px;">
-        <button type="button" onclick="addSurveillanceRule()" class="kage-btn" style="padding: 6px 16px; font-size: 11px; background: #eab308; border-color: #ca8a04; color: #000; font-weight: bold;">
+        <input type="text" id="surv-val-input" placeholder="Keyword (e.g. 'scam', 'airdrop', 'admin', 'hacked')" class="kage-input font-mono" style="flex: 2; min-width: 180px; font-size: 11px; padding: 6px 10px;" onkeydown="if(event.key==='Enter') addSurveillanceRule()">
+        <input type="text" id="surv-note-input" placeholder="Tag / Intelligence note" class="kage-input font-mono" style="flex: 1; min-width: 140px; font-size: 11px; padding: 6px 10px;" onkeydown="if(event.key==='Enter') addSurveillanceRule()">
+        <button type="button" id="btn-arm-target" onclick="addSurveillanceRule()" class="kage-btn" style="padding: 6px 16px; font-size: 11px; background: #eab308; border-color: #ca8a04; color: #000; font-weight: bold; flex-shrink: 0;">
           + ARM TARGET
         </button>
       </div>
     </div>
 
     <!-- 2-Column Cockpit: Active Rules vs Live Alert Log -->
-    <div class="surveillance-modal-cockpit" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; gap: 14px; min-height: 0; overflow: hidden;">
+    <div class="surveillance-modal-cockpit" style="flex: 1; display: grid; grid-template-columns: 340px 1fr; gap: 14px; min-height: 0; overflow: hidden;">
       <!-- Column 1: Active Rules -->
-      <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 12px; overflow: hidden;">
+      <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 8px; background: rgba(5,7,10,0.5); padding: 12px; overflow: hidden;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <span class="eyebrow" style="color: var(--bone); font-size: 10px;">ACTIVE WATCHLIST RULES</span>
+          <span class="eyebrow" style="color: var(--bone); font-size: 10px;">WATCHLIST RULES</span>
           <span id="surv-rules-count" class="badge badge-muted" style="font-size: 9px;">0 Active</span>
         </div>
-        <div id="surv-rules-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+        <div id="surv-rules-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px;">
           <div style="text-align: center; color: var(--muted); padding: 24px;">No active surveillance targets.</div>
         </div>
       </div>
 
       <!-- Column 2: Live Alert Feed -->
-      <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 4px; background: rgba(5,7,10,0.5); padding: 12px; overflow: hidden;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <span class="eyebrow" style="color: var(--ember); font-size: 10px;">🚨 REAL-TIME SURVEILLANCE INTERCEPT HITS</span>
-          <span id="surv-alerts-count" class="badge badge-vermilion" style="font-size: 9px;">0 Alerts</span>
+      <div style="display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: 8px; background: rgba(5,7,10,0.5); padding: 12px; overflow: hidden;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="eyebrow" style="color: #f59e0b; font-size: 10px;">🚨 REAL-TIME SURVEILLANCE INTERCEPT HITS</span>
+            <span id="surv-alerts-count" class="badge badge-vermilion" style="font-size: 9px;">0 Alerts</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button type="button" onclick="acknowledgeAllAlerts()" class="kage-btn-pill" style="font-size: 9px; padding: 2px 7px;" title="Mark all alerts as acknowledged">
+              <i data-lucide="check-check" style="width: 10px; height: 10px;"></i> Mark All Read
+            </button>
+            <button type="button" onclick="clearSurveillanceAlerts()" class="kage-btn-pill" style="font-size: 9px; padding: 2px 7px; color: #ef4444; border-color: rgba(239,68,68,0.3);" title="Clear alert history (keeps original Telegram messages)">
+              <i data-lucide="trash-2" style="width: 10px; height: 10px;"></i> Clear
+            </button>
+          </div>
         </div>
-        <div id="surv-alerts-feed" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+
+        <!-- Filter bar for Alerts -->
+        <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;">
+          <input type="text" id="surv-alert-search" placeholder="Filter alerts by text, sender, keyword..." oninput="onSurvAlertSearchChange()" class="kage-input font-mono" style="flex: 2; min-width: 160px; font-size: 10px; padding: 4px 8px;">
+          <select id="surv-alert-rule-filter" onchange="onSurvAlertSearchChange()" class="kage-select font-mono" style="flex: 1; min-width: 120px; font-size: 10px; padding: 4px 8px;">
+            <option value="">All Rules</option>
+          </select>
+          <select id="surv-alert-status-filter" onchange="onSurvAlertSearchChange()" class="kage-select font-mono" style="width: 90px; font-size: 10px; padding: 4px 8px;">
+            <option value="all">All</option>
+            <option value="unack">Unread</option>
+          </select>
+        </div>
+
+        <div id="surv-alerts-feed" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
           <div style="text-align: center; color: var(--muted); padding: 24px;">Awaiting surveillance triggers...</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Bottom Sync Telemetry Bar -->
+    <div id="surv-sync-telemetry" style="border-top: 1px solid var(--line-soft); padding-top: 8px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; color: var(--muted); flex-wrap: wrap; gap: 6px;">
+      <div>
+        <span>LAST SYNC: </span><b id="surv-stat-last-sync" style="color: var(--bone);">Never</b>
+        <span style="margin: 0 6px; opacity: 0.4;">|</span>
+        <span>RULES EVALUATED: </span><b id="surv-stat-rules" style="color: var(--bone);">0</b>
+        <span style="margin: 0 6px; opacity: 0.4;">|</span>
+        <span>MESSAGES SCANNED: </span><b id="surv-stat-scanned" style="color: var(--bone);">0</b>
+        <span style="margin: 0 6px; opacity: 0.4;">|</span>
+        <span>ALERTS GENERATED: </span><b id="surv-stat-hits" style="color: #eab308;">0</b>
+      </div>
+      <div id="surv-stat-scope" style="color: var(--muted); font-size: 9px;">
+        SCOPE: ALL AUTHORIZED GROUPS
       </div>
     </div>
   </div>
@@ -18141,12 +18208,28 @@ body.theme-light .kage-btn.secondary {
   // ==========================================
   let surveillanceWatchlist = [];
   let surveillanceAlerts = [];
+  let surveillanceAlertsTotal = 0;
+  let surveillanceAlertsOffset = 0;
+  let surveillanceSyncPollTimer = null;
+  let survAlertDebounceTimer = null;
+
+  function onSurvTypeChange() {
+    const sel = document.getElementById('surv-type-select');
+    const input = document.getElementById('surv-val-input');
+    if (!sel || !input) return;
+    if (sel.value === 'user') {
+      input.placeholder = "Telegram User ID or @username (e.g. 123456789 or @target)";
+    } else {
+      input.placeholder = "Keyword (e.g. 'scam', 'airdrop', 'admin', 'hacked')";
+    }
+  }
 
   function openSurveillanceModal() {
     const m = document.getElementById('surveillance-modal');
     if (m) {
       m.style.display = 'flex';
       refreshSurveillanceData();
+      checkSurveillanceSyncStatus();
     }
   }
 
@@ -18157,10 +18240,18 @@ body.theme-light .kage-btn.secondary {
   function closeSurveillanceModalDirect() {
     const m = document.getElementById('surveillance-modal');
     if (m) m.style.display = 'none';
+    if (surveillanceSyncPollTimer) {
+      clearInterval(surveillanceSyncPollTimer);
+      surveillanceSyncPollTimer = null;
+    }
   }
 
   async function refreshSurveillanceData() {
-    await Promise.all([refreshSurveillanceWatchlist(), refreshSurveillanceAlerts()]);
+    await Promise.all([
+      refreshSurveillanceWatchlist(),
+      refreshSurveillanceAlerts(),
+      checkSurveillanceSyncStatus()
+    ]);
   }
 
   async function refreshSurveillanceWatchlist() {
@@ -18169,18 +18260,25 @@ body.theme-light .kage-btn.secondary {
       if (res.ok) {
         surveillanceWatchlist = await res.json();
         renderSurveillanceWatchlist();
+        updateSurveillanceRuleFilterOptions();
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Error fetching watchlist:", e);
+    }
   }
 
-  async function refreshSurveillanceAlerts() {
-    try {
-      const res = await fetch('/api/surveillance/alerts?limit=50');
-      if (res.ok) {
-        surveillanceAlerts = await res.json();
-        renderSurveillanceAlerts();
-      }
-    } catch (e) {}
+  function updateSurveillanceRuleFilterOptions() {
+    const filterSelect = document.getElementById('surv-alert-rule-filter');
+    if (!filterSelect) return;
+    const currentVal = filterSelect.value;
+    let opts = '<option value="">All Rules</option>';
+    if (Array.isArray(surveillanceWatchlist)) {
+      surveillanceWatchlist.forEach(r => {
+        opts += `<option value="${r.id}">[${escapeHtml((r.target_type || '').toUpperCase())}] ${escapeHtml(r.value)}</option>`;
+      });
+    }
+    filterSelect.innerHTML = opts;
+    if (currentVal) filterSelect.value = currentVal;
   }
 
   function renderSurveillanceWatchlist() {
@@ -18188,30 +18286,91 @@ body.theme-light .kage-btn.secondary {
     const countTag = document.getElementById('surv-rules-count');
     if (!list) return;
 
-    if (countTag) countTag.innerText = `${surveillanceWatchlist.length} Active`;
+    const activeRules = (surveillanceWatchlist || []).filter(w => w.is_active === 1 || w.is_active === true || w.is_active === undefined);
+    if (countTag) countTag.innerText = `${activeRules.length} Active / ${(surveillanceWatchlist || []).length} Total`;
 
     if (!surveillanceWatchlist || surveillanceWatchlist.length === 0) {
-      list.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">No active surveillance targets.</div>`;
+      list.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">No surveillance targets configured.</div>`;
       return;
     }
 
-    list.innerHTML = surveillanceWatchlist.map(w => `
-      <div style="background: rgba(8,12,16,0.7); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-        <div style="overflow: hidden;">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="badge ${w.target_type === 'keyword' ? 'badge-amber' : 'badge-emerald'}" style="font-size: 8px;">
-              ${escapeHtml(w.target_type.toUpperCase())}
-            </span>
-            <span style="font-weight: bold; color: var(--bone); font-size: 11px;">"${escapeHtml(w.value)}"</span>
+    list.innerHTML = surveillanceWatchlist.map(w => {
+      const isActive = w.is_active === 1 || w.is_active === true || w.is_active === undefined;
+      const isKeyword = w.target_type === 'keyword';
+      const badgeStyle = isKeyword 
+        ? 'background: rgba(234,179,8,0.15); color: #fde047; border: 1px solid rgba(234,179,8,0.4);'
+        : 'background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.4);';
+      const hits = w.alert_count || 0;
+
+      return `
+        <div style="background: ${isActive ? 'rgba(8,12,16,0.85)' : 'rgba(8,12,16,0.45)'}; border: 1px solid ${isActive ? 'var(--line-soft)' : 'rgba(255,255,255,0.04)'}; border-left: 3px solid ${isActive ? '#eab308' : '#475569'}; border-radius: 6px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; opacity: ${isActive ? '1' : '0.65'};">
+          <div style="overflow: hidden; flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span class="badge" style="font-size: 8px; padding: 1px 5px; ${badgeStyle}">
+                ${escapeHtml((w.target_type || 'RULE').toUpperCase())}
+              </span>
+              <span style="font-weight: bold; color: ${isActive ? 'var(--bone)' : 'var(--muted)'}; font-size: 11.5px; word-break: break-all;">
+                "${escapeHtml(w.value || '')}"
+              </span>
+              <span class="badge" style="font-size: 8px; padding: 1px 5px; background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--line-soft);" title="Logged hits">
+                ${hits} hits
+              </span>
+              <span class="badge" style="font-size: 8px; padding: 1px 5px; background: ${isActive ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.15)'}; color: ${isActive ? '#4ade80' : '#94a3b8'}; border: 1px solid ${isActive ? 'rgba(34,197,94,0.3)' : 'rgba(100,116,139,0.3)'};">
+                ${isActive ? '● ACTIVE' : '○ PAUSED'}
+              </span>
+            </div>
+            ${w.note ? `<div style="font-size: 9.5px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(w.note)}</div>` : ''}
           </div>
-          ${w.note ? `<div style="font-size: 9px; color: var(--muted); margin-top: 2px;">${escapeHtml(w.note)}</div>` : ''}
+          <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+            <button onclick="toggleSurveillanceRule(${w.id})" class="btn-icon-xs" title="${isActive ? 'Pause surveillance rule' : 'Activate surveillance rule'}" style="color: ${isActive ? '#eab308' : '#94a3b8'}; border-color: ${isActive ? 'rgba(234,179,8,0.3)' : 'rgba(148,163,184,0.3)'};">
+              <i data-lucide="${isActive ? 'pause' : 'play'}" style="width: 10px; height: 10px;"></i>
+            </button>
+            <button onclick="deleteSurveillanceRule(${w.id}, '${escapeHtml(w.value).replace(/'/g, "\\'")}')" class="btn-icon-xs" title="Retire rule" style="color: var(--ember); border-color: rgba(224,35,28,0.3);">
+              ✕
+            </button>
+          </div>
         </div>
-        <button onclick="deleteSurveillanceRule(${w.id})" class="btn-icon-xs" title="Remove target" style="color: var(--ember); border-color: rgba(224,35,28,0.3);">
-          ✕
-        </button>
-      </div>
-    `).join('');
+      `;
+    }).join('');
     safeCreateIcons();
+  }
+
+  function onSurvAlertSearchChange() {
+    if (survAlertDebounceTimer) clearTimeout(survAlertDebounceTimer);
+    survAlertDebounceTimer = setTimeout(() => {
+      refreshSurveillanceAlerts();
+    }, 250);
+  }
+
+  async function refreshSurveillanceAlerts() {
+    try {
+      const q = (document.getElementById('surv-alert-search')?.value || '').trim();
+      const ruleId = document.getElementById('surv-alert-rule-filter')?.value || '';
+      const statusFilter = document.getElementById('surv-alert-status-filter')?.value || 'all';
+
+      let url = `/api/surveillance/alerts?limit=100&offset=0`;
+      if (q) url += `&keyword=${encodeURIComponent(q)}`;
+      if (ruleId) url += `&rule_id=${encodeURIComponent(ruleId)}`;
+      if (statusFilter === 'unack') url += `&unack_only=true`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.alerts)) {
+          surveillanceAlerts = data.alerts;
+          surveillanceAlertsTotal = data.total || data.alerts.length;
+        } else if (Array.isArray(data)) {
+          surveillanceAlerts = data;
+          surveillanceAlertsTotal = data.length;
+        } else {
+          surveillanceAlerts = [];
+          surveillanceAlertsTotal = 0;
+        }
+        renderSurveillanceAlerts();
+      }
+    } catch (e) {
+      console.error("Error refreshing surveillance alerts:", e);
+    }
   }
 
   function renderSurveillanceAlerts() {
@@ -18219,31 +18378,105 @@ body.theme-light .kage-btn.secondary {
     const countTag = document.getElementById('surv-alerts-count');
     if (!feed) return;
 
-    if (countTag) countTag.innerText = `${surveillanceAlerts.length} Alerts`;
+    if (countTag) countTag.innerText = `${surveillanceAlertsTotal || surveillanceAlerts.length} Alerts`;
 
     if (!surveillanceAlerts || surveillanceAlerts.length === 0) {
-      feed.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">Awaiting surveillance triggers...</div>`;
+      feed.innerHTML = `
+        <div style="text-align: center; color: var(--muted); padding: 36px 16px;">
+          <i data-lucide="shield-check" style="width: 28px; height: 28px; color: #4ade80; opacity: 0.7; margin-bottom: 8px; display: inline-block;"></i>
+          <div style="font-size: 12px; color: var(--bone);">Awaiting Surveillance Triggers</div>
+          <div style="font-size: 9.5px; color: var(--muted); margin-top: 4px;">Active rules are monitoring authorized incoming group messages in real-time.</div>
+        </div>
+      `;
+      safeCreateIcons();
       return;
     }
 
-    feed.innerHTML = surveillanceAlerts.map(a => `
-      <div style="background: rgba(234,179,8,0.04); border: 1px solid rgba(234,179,8,0.35); border-left: 3px solid #eab308; border-radius: 3px; padding: 10px 12px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 4px;">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="badge" style="background: rgba(234,179,8,0.2); color: #fde047; border: 1px solid #eab308; font-size: 9px; font-weight: bold;">
-              🎯 MATCH: ${escapeHtml(a.match_rule || '')}
-            </span>
-            <span style="font-weight: bold; color: var(--bone); cursor: pointer; font-size: 11px;" onclick="openOSINTModal(${a.sender_id})">
-              ${escapeHtml(a.sender_name || 'User ' + a.sender_id)}
-            </span>
+    feed.innerHTML = surveillanceAlerts.map(a => {
+      const isAck = !!a.is_acknowledged;
+      const safeFullName = escapeHtml(a.full_name || 'Unknown User');
+      const safeUsername = a.username ? `@${escapeHtml(a.username)}` : '';
+      const safeGroupTitle = escapeHtml(a.group_title || `Entity #${a.group_id}`);
+      const safeTriggerVal = escapeHtml(a.trigger_val || '');
+      const rawText = (a.message_text || '').trim();
+
+      // Highlight keyword in message text
+      let highlightedText = '';
+      if (rawText) {
+        let escapedContent = escapeHtml(rawText);
+        if (a.target_type === 'keyword' && a.trigger_val) {
+          try {
+            const escapedKw = a.trigger_val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escapedKw})`, 'gi');
+            escapedContent = escapedContent.replace(regex, '<mark style="background: rgba(234,179,8,0.35); color: #fef08a; padding: 1px 3px; border-radius: 2px;">$1</mark>');
+          } catch (e) {}
+        }
+        highlightedText = escapedContent;
+      } else {
+        highlightedText = `<i style="color: var(--muted); font-size: 10px;">[No textual message content available or non-text media]</i>`;
+      }
+
+      const hasUserId = a.user_id && a.user_id !== 0 && a.user_id !== '0';
+      const userClickAttr = hasUserId ? `onclick="openOSINTModal(${a.user_id})" style="cursor: pointer;" title="Open OSINT dossier for ID: ${a.user_id}"` : '';
+      const hasMessageId = a.message_id && a.message_id > 0;
+
+      return `
+        <div style="background: ${isAck ? 'rgba(15,23,42,0.4)' : 'rgba(234,179,8,0.05)'}; border: 1px solid ${isAck ? 'var(--line-soft)' : 'rgba(234,179,8,0.35)'}; border-left: 3px solid ${isAck ? '#64748b' : '#eab308'}; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;">
+          <!-- Top Row: Match Rule & Sender Identity -->
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0;">
+              <span class="badge" style="background: rgba(234,179,8,0.18); color: #fde047; border: 1px solid rgba(234,179,8,0.5); font-size: 8.5px; font-weight: bold; padding: 2px 6px;">
+                🎯 [${escapeHtml((a.target_type || 'MATCH').toUpperCase())}] "${safeTriggerVal}"
+              </span>
+              <span style="font-weight: bold; color: var(--bone); font-size: 11px;" ${userClickAttr}>
+                ${safeFullName}
+              </span>
+              ${safeUsername ? `<span style="color: #38bdf8; font-size: 9.5px; font-family: monospace;">${safeUsername}</span>` : ''}
+              ${hasUserId ? `<span style="color: var(--muted); font-size: 9px; font-family: monospace;">(ID: ${a.user_id})</span>` : ''}
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+              <span style="font-size: 9px; color: var(--muted); font-family: monospace;">${escapeHtml(a.timestamp || '')}</span>
+              ${!isAck ? `
+                <button onclick="acknowledgeAlert(${a.id})" class="kage-btn-pill" style="font-size: 8px; padding: 1px 6px; color: #eab308; border-color: rgba(234,179,8,0.4);" title="Mark acknowledged">
+                  ✓ Ack
+                </button>
+              ` : `
+                <span class="badge" style="font-size: 8px; padding: 1px 5px; background: rgba(100,116,139,0.12); color: #94a3b8; border: 1px solid rgba(100,116,139,0.25);">
+                  ACK
+                </span>
+              `}
+            </div>
           </div>
-          <span style="font-size: 9px; color: var(--muted); font-family: monospace;">${escapeHtml(a.timestamp || '')}</span>
+
+          <!-- Group Context & Message Text Content Area (NEVER EMPTY RECTANGLE) -->
+          <div style="font-size: 9.5px; color: var(--muted);">
+            Source: <b style="color: var(--bone);">${safeGroupTitle}</b>
+          </div>
+          <div style="font-size: 11.5px; color: #f8fafc; line-height: 1.45; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.06); padding: 7px 10px; border-radius: 4px; word-break: break-word;">
+            ${highlightedText}
+          </div>
+
+          <!-- Bottom Action Controls: Wiretap Navigation & Message Reference -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; font-size: 9px; color: var(--muted); flex-wrap: wrap; gap: 4px;">
+            <div>
+              ${hasMessageId ? `<span>Message #${a.message_id}</span>` : '<span>Source: Incoming Stream</span>'}
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              ${hasMessageId ? `
+                <button type="button" onclick="jumpToWiretapMessage(${a.group_id}, ${a.message_id})" class="kage-btn-pill" style="font-size: 9px; padding: 2px 7px; color: #38bdf8; border-color: rgba(56,189,248,0.35);" title="Jump to this message in Wiretap feed">
+                  <i data-lucide="crosshair" style="width: 10px; height: 10px;"></i> Jump to Wiretap
+                </button>
+              ` : ''}
+              ${hasUserId ? `
+                <button type="button" onclick="openOSINTModal(${a.user_id})" class="kage-btn-pill" style="font-size: 9px; padding: 2px 7px; color: #a855f7; border-color: rgba(168,85,247,0.35);" title="View user intelligence dossier">
+                  <i data-lucide="user-check" style="width: 10px; height: 10px;"></i> Intel Dossier
+                </button>
+              ` : ''}
+            </div>
+          </div>
         </div>
-        <div style="font-size: 11px; color: #fef08a; line-height: 1.4; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 2px; word-break: break-word;">
-          ${escapeHtml(a.text || '')}
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
     safeCreateIcons();
   }
 
@@ -18253,8 +18486,17 @@ body.theme-light .kage-btn.secondary {
     const note = (document.getElementById('surv-note-input')?.value || '').trim();
 
     if (!val) {
-      showToast("Please enter a target keyword or user ID", "error");
+      showToast(type === 'user' ? "Please enter a valid user ID or @username" : "Please enter a target keyword", "error");
       return;
+    }
+
+    if (type === 'user') {
+      const isDigits = /^\d+$/.test(val);
+      const isHandle = /^@[a-zA-Z0-9_]{3,}$/.test(val);
+      if (!isDigits && !isHandle) {
+        showToast("Invalid user target: must be a numeric user ID or @username (e.g. 123456789 or @target)", "error");
+        return;
+      }
     }
 
     try {
@@ -18265,11 +18507,12 @@ body.theme-light .kage-btn.secondary {
       });
       if (res.ok) {
         showToast(`🎯 Surveillance armed: [${type.toUpperCase()}] "${val}"`, "success");
+        playZenSound('bell');
         const vi = document.getElementById('surv-val-input');
         if (vi) vi.value = '';
         const ni = document.getElementById('surv-note-input');
         if (ni) ni.value = '';
-        refreshSurveillanceWatchlist();
+        await refreshSurveillanceWatchlist();
       } else {
         const err = await res.json().catch(() => ({}));
         showToast(err.detail || "Failed to arm target", "error");
@@ -18279,23 +18522,243 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
-  async function deleteSurveillanceRule(id) {
+  async function toggleSurveillanceRule(id) {
     try {
-      const res = await fetch(`/api/surveillance/watchlist?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/surveillance/watchlist/${id}/toggle`, { method: 'POST' });
       if (res.ok) {
-        showToast("Surveillance rule retired", "info");
+        const data = await res.json();
+        const stateLabel = data.is_active ? "ACTIVATED" : "PAUSED";
+        showToast(`Surveillance rule #${id} ${stateLabel}`, "info");
+        playZenSound('click');
         refreshSurveillanceWatchlist();
+      } else {
+        showToast("Failed to toggle surveillance rule", "error");
       }
     } catch (e) {
-      showToast("Failed to delete rule", "error");
+      showToast("Error: " + e.message, "error");
+    }
+  }
+
+  async function deleteSurveillanceRule(id, val) {
+    const confirmed = await showKageConfirm(`Retire surveillance target "${val || id}"?`, { danger: true });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/surveillance/watchlist/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast(`Surveillance rule "${val || id}" retired`, "info");
+        playZenSound('clack');
+        refreshSurveillanceWatchlist();
+      } else {
+        showToast("Failed to delete rule", "error");
+      }
+    } catch (e) {
+      showToast("Failed to delete rule: " + e.message, "error");
+    }
+  }
+
+  async function acknowledgeAlert(id) {
+    try {
+      const res = await fetch(`/api/surveillance/alerts/${id}/acknowledge`, { method: 'POST' });
+      if (res.ok) {
+        const idx = surveillanceAlerts.findIndex(a => a.id === id);
+        if (idx !== -1) surveillanceAlerts[idx].is_acknowledged = true;
+        renderSurveillanceAlerts();
+      }
+    } catch (e) {
+      console.error("Ack error:", e);
+    }
+  }
+
+  async function acknowledgeAllAlerts() {
+    const ruleId = document.getElementById('surv-alert-rule-filter')?.value || null;
+    try {
+      let url = '/api/surveillance/alerts/acknowledge-all';
+      if (ruleId) url += `?rule_id=${ruleId}`;
+      const res = await fetch(url, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(`Marked ${data.acknowledged_count || 0} alert(s) as read`, "info");
+        playZenSound('click');
+        refreshSurveillanceAlerts();
+      }
+    } catch (e) {
+      showToast("Failed to acknowledge alerts", "error");
+    }
+  }
+
+  async function clearSurveillanceAlerts() {
+    const confirmed = await showKageConfirm("Clear all surveillance intercept history? (This will not delete original Telegram messages)", { danger: true });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch('/api/surveillance/alerts/clear', { method: 'DELETE' });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(`Cleared ${data.cleared_count || 0} alert records`, "info");
+        playZenSound('clack');
+        refreshSurveillanceAlerts();
+        checkSurveillanceSyncStatus();
+      } else {
+        showToast("Failed to clear alerts", "error");
+      }
+    } catch (e) {
+      showToast("Error clearing alerts: " + e.message, "error");
+    }
+  }
+
+  async function triggerSurveillanceSync() {
+    const btn = document.getElementById('btn-surv-sync');
+    const txt = document.getElementById('txt-surv-sync');
+    const icon = document.getElementById('icon-surv-sync');
+
+    if (btn) btn.classList.add('btn-locked-busy');
+    if (txt) txt.innerText = "SYNCING...";
+    if (icon) icon.classList.add('animate-spin');
+
+    try {
+      const res = await fetch('/api/surveillance/sync', { method: 'POST' });
+      if (res.ok) {
+        showToast("🚀 Surveillance Radar sync initiated across authorized groups...", "info");
+        playZenSound('click');
+        startSurveillanceSyncPolling();
+      } else {
+        showToast("Sync request failed to start", "error");
+        if (btn) btn.classList.remove('btn-locked-busy');
+        if (txt) txt.innerText = "SYNC";
+        if (icon) icon.classList.remove('animate-spin');
+      }
+    } catch (e) {
+      showToast("Sync error: " + e.message, "error");
+      if (btn) btn.classList.remove('btn-locked-busy');
+      if (txt) txt.innerText = "SYNC";
+      if (icon) icon.classList.remove('animate-spin');
+    }
+  }
+
+  function startSurveillanceSyncPolling() {
+    if (surveillanceSyncPollTimer) clearInterval(surveillanceSyncPollTimer);
+    surveillanceSyncPollTimer = setInterval(checkSurveillanceSyncStatus, 1500);
+    checkSurveillanceSyncStatus();
+  }
+
+  async function checkSurveillanceSyncStatus() {
+    try {
+      const res = await fetch('/api/surveillance/sync/status');
+      if (!res.ok) return;
+      const status = await res.json();
+
+      const pill = document.getElementById('surv-sync-status-pill');
+      const dot = document.getElementById('surv-sync-dot');
+      const text = document.getElementById('surv-sync-status-text');
+
+      const btn = document.getElementById('btn-surv-sync');
+      const txt = document.getElementById('txt-surv-sync');
+      const icon = document.getElementById('icon-surv-sync');
+
+      if (text) text.innerText = `STATUS: ${status.status || 'IDLE'}`;
+
+      if (status.status === 'SYNCING') {
+        if (dot) {
+          dot.className = "health-dot active animate-pulse";
+          dot.style.background = "#eab308";
+        }
+        if (btn) btn.classList.add('btn-locked-busy');
+        if (txt) txt.innerText = "SYNCING...";
+        if (icon) icon.classList.add('animate-spin');
+      } else {
+        if (btn) btn.classList.remove('btn-locked-busy');
+        if (txt) txt.innerText = "SYNC";
+        if (icon) icon.classList.remove('animate-spin');
+
+        if (status.status === 'COMPLETED') {
+          if (dot) {
+            dot.className = "health-dot active";
+            dot.style.background = "#22c55e";
+          }
+        } else if (status.status === 'FAILED') {
+          if (dot) {
+            dot.className = "health-dot error";
+            dot.style.background = "#ef4444";
+          }
+        } else {
+          if (dot) {
+            dot.className = "health-dot active";
+            dot.style.background = "#eab308";
+          }
+        }
+
+        // If polling was active and completed, stop polling and notify
+        if (surveillanceSyncPollTimer && status.status !== 'SYNCING') {
+          clearInterval(surveillanceSyncPollTimer);
+          surveillanceSyncPollTimer = null;
+          showToast(`✓ Surveillance Sync Complete: ${status.alerts_generated || 0} hit(s) from ${status.messages_scanned || 0} messages`, "success");
+          playZenSound('bell');
+          refreshSurveillanceAlerts();
+        }
+      }
+
+      // Update telemetry footer
+      const lastSyncEl = document.getElementById('surv-stat-last-sync');
+      if (lastSyncEl && status.last_sync_time) {
+        lastSyncEl.innerText = status.last_sync_time;
+      }
+      const rulesEl = document.getElementById('surv-stat-rules');
+      if (rulesEl && status.rules_checked !== undefined) {
+        rulesEl.innerText = status.rules_checked;
+      }
+      const scannedEl = document.getElementById('surv-stat-scanned');
+      if (scannedEl && status.messages_scanned !== undefined) {
+        scannedEl.innerText = status.messages_scanned;
+      }
+      const hitsEl = document.getElementById('surv-stat-hits');
+      if (hitsEl && status.alerts_generated !== undefined) {
+        hitsEl.innerText = status.alerts_generated;
+      }
+    } catch (e) {
+      console.error("Error checking sync status:", e);
     }
   }
 
   function handleSurveillanceHit(alert) {
-    showToast(`🎯 RADAR HIT: "${alert.match_rule}" triggered by ${escapeHtml(alert.sender_name || 'Target')}`, "error");
+    showToast(`🎯 RADAR HIT: [${(alert.target_type || 'MATCH').toUpperCase()}] "${alert.trigger_val || ''}" by ${escapeHtml(alert.full_name || alert.username || 'Target')}`, "error");
     playZenSound('bell');
     surveillanceAlerts.unshift(alert);
+    surveillanceAlertsTotal += 1;
     renderSurveillanceAlerts();
+  }
+
+  function jumpToWiretapMessage(groupId, messageId) {
+    closeSurveillanceModalDirect();
+    if (currentViewMode !== 'warroom') switchViewMode('warroom');
+    switchCenterTab('wiretap');
+
+    const normGid = (typeof normalizeGid === 'function') ? normalizeGid(groupId) : groupId;
+    const curGid = (typeof getActiveGroupId === 'function') ? getActiveGroupId() : null;
+
+    if (groupId && String(normGid) !== String(curGid)) {
+      const sel = document.getElementById('hud-target-selector');
+      if (sel) {
+        sel.value = String(groupId);
+        if (typeof onTargetGroupChange === 'function') onTargetGroupChange();
+      }
+    }
+
+    setTimeout(() => {
+      const msgEl = document.querySelector(`[data-message-id="${messageId}"]`) || document.getElementById(`msg-${messageId}`);
+      if (msgEl) {
+        msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        msgEl.style.transition = 'outline 0.3s ease, background 0.3s ease';
+        msgEl.style.outline = '2px solid #eab308';
+        msgEl.style.background = 'rgba(234,179,8,0.18)';
+        setTimeout(() => {
+          msgEl.style.outline = '';
+          msgEl.style.background = '';
+        }, 3500);
+      } else {
+        showToast(`Target message #${messageId} recorded in group history`, "info");
+      }
+    }, 400);
   }
 
   // ==========================================

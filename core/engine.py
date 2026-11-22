@@ -3533,6 +3533,182 @@ class SuperBanEngine:
         return {"success": True, "warning_message_id": msg.id, "target_message_id": message_id}
 
     # =========================================================================
+    #  TACTICAL SURVEILLANCE RADAR ENGINE
+    # =========================================================================
+    async def get_surveillance_sync_status(self) -> Dict[str, Any]:
+        """Fetch real-time synchronization state from memory and database."""
+        if not self.db:
+            return {"status": "IDLE", "rules_checked": 0, "messages_scanned": 0, "alerts_generated": 0}
+        return await self.db.get_surveillance_sync_state()
+
+    async def sync_surveillance_radar(self, target_group_id: Optional[int] = None) -> Dict[str, Any]:
+        """Perform genuine synchronization of active watchlist rules against recent messages in authorized groups."""
+        if getattr(self, '_surveillance_sync_running', False):
+            return await self.get_surveillance_sync_status()
+
+        self._surveillance_sync_running = True
+        scope_desc = f"Group #{target_group_id}" if target_group_id else "ALL_AUTHORIZED"
+        if self.db:
+            await self.db.update_surveillance_sync_state(status="SYNCING", target_scope=scope_desc)
+
+        try:
+            if not self.db:
+                raise RuntimeError("Database engine offline")
+
+            active_rules = await self.db.get_watchlist(include_inactive=False)
+            if not active_rules:
+                now_dt = datetime.now()
+                await self.db.update_surveillance_sync_state(
+                    status="COMPLETED",
+                    last_sync_time=now_dt,
+                    rules_checked=0,
+                    messages_scanned=0,
+                    alerts_generated=0,
+                    error_detail="No active surveillance rules configured."
+                )
+                self._surveillance_sync_running = False
+                return await self.db.get_surveillance_sync_state()
+
+            # Ensure client connection
+            await self.ensure_connected()
+
+            target_entities = []
+            if target_group_id:
+                ent = await self.get_group_entity(target_group_id)
+                if ent:
+                    target_entities.append(ent)
+                else:
+                    raise ValueError(f"Target group {target_group_id} not accessible or not found")
+            else:
+                dialogs = await self.get_dialogs()
+                for d in dialogs:
+                    if (d.get("is_group") or d.get("is_channel")) and d.get("entity"):
+                        target_entities.append(d["entity"])
+                if not target_entities:
+                    # Fallback to cached dialogs if available
+                    for gid, ent in self._dialogs_cache.items():
+                        target_entities.append(ent)
+
+            # Limit to top 10 authorized entities to respect rate limits and complete within bounds
+            target_entities = target_entities[:10]
+
+            total_messages_scanned = 0
+            total_alerts_generated = 0
+            errors_encountered = 0
+
+            for entity in target_entities:
+                try:
+                    gid = getattr(entity, 'id', 0)
+                    gtitle = getattr(entity, 'title', f"Entity #{gid}")
+
+                    # Fetch recent messages (up to 60 per group for snappy sync)
+                    if not self.client:
+                        break
+                    msgs = await self.client.get_messages(entity, limit=60)
+                    for m in msgs:
+                        if not m or getattr(m, 'action', None): # Skip service messages
+                            continue
+
+                        total_messages_scanned += 1
+                        sender_id = getattr(m, 'sender_id', 0) or 0
+                        raw_text = getattr(m, 'message', '') or getattr(m, 'text', '') or ''
+                        text_lower = raw_text.lower()
+                        uid_str = str(sender_id) if sender_id else ""
+
+                        # Resolve sender info safely
+                        sender = getattr(m, 'sender', None)
+                        first_n = getattr(sender, 'first_name', '') or ''
+                        last_n = getattr(sender, 'last_name', '') or ''
+                        full_name = f"{first_n} {last_n}".strip() or getattr(sender, 'title', '') or "Unknown User"
+                        username = (getattr(sender, 'username', '') or '').lower().lstrip("@")
+
+                        # Cross-examine against all active rules
+                        for rule in active_rules:
+                            t_type = rule.get("target_type")
+                            val = str(rule.get("value", "")).strip().lower()
+                            if not val:
+                                continue
+
+                            matched = False
+                            if t_type == "keyword" and val in text_lower:
+                                matched = True
+                            elif t_type == "user":
+                                val_clean = val.lstrip("@")
+                                if (val_clean == uid_str and uid_str != "") or (username and val_clean == username):
+                                    matched = True
+
+                            if matched:
+                                alert_id = await self.db.log_surveillance_alert(
+                                    watchlist_id=rule.get("id"),
+                                    target_type=t_type,
+                                    trigger_val=val,
+                                    group_id=gid,
+                                    group_title=gtitle,
+                                    user_id=sender_id,
+                                    full_name=full_name,
+                                    username=username,
+                                    message_text=raw_text or "[Media/attachment without text preview]",
+                                    message_id=m.id,
+                                    action_context="message"
+                                )
+                                if alert_id:
+                                    total_alerts_generated += 1
+                                    if self.sentinel:
+                                        await self.sentinel.emit_sentinel_event("surveillance_target_hit", {
+                                            "id": alert_id,
+                                            "watchlist_id": rule.get("id"),
+                                            "target_type": t_type,
+                                            "trigger_val": val,
+                                            "group_id": gid,
+                                            "group_title": gtitle,
+                                            "message_id": m.id,
+                                            "user_id": sender_id,
+                                            "full_name": full_name,
+                                            "username": username,
+                                            "message_text": raw_text or "[Media/attachment without text preview]",
+                                            "action_context": "message",
+                                            "is_acknowledged": False,
+                                            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                                        })
+                except Exception as ent_err:
+                    logger.debug(f"Surveillance sync group scan error: {ent_err}")
+                    errors_encountered += 1
+
+            now_dt = datetime.now()
+            final_status = "COMPLETED"
+            err_msg = ""
+            if errors_encountered > 0 and total_messages_scanned > 0:
+                final_status = "PARTIALLY_COMPLETED"
+                err_msg = f"{errors_encountered} groups temporarily unreachable or rate-limited"
+            elif errors_encountered > 0 and total_messages_scanned == 0:
+                final_status = "FAILED"
+                err_msg = "Telegram connection or groups unreachable"
+
+            await self.db.update_surveillance_sync_state(
+                status=final_status,
+                last_sync_time=now_dt,
+                rules_checked=len(active_rules),
+                messages_scanned=total_messages_scanned,
+                alerts_generated=total_alerts_generated,
+                target_scope=scope_desc,
+                error_detail=err_msg
+            )
+            return await self.db.get_surveillance_sync_state()
+        except Exception as e:
+            logger.error(f"Surveillance sync fatal error: {e}")
+            if self.db:
+                await self.db.update_surveillance_sync_state(
+                    status="FAILED",
+                    rules_checked=0,
+                    messages_scanned=0,
+                    alerts_generated=0,
+                    error_detail=str(e)[:200]
+                )
+            return await self.db.get_surveillance_sync_state() if self.db else {"status": "FAILED", "error_detail": str(e)}
+        finally:
+            self._surveillance_sync_running = False
+
+    # =========================================================================
     #  AUTONOMOUS SIPHON MATRIX (AUTHORIZED INTELLIGENCE INGESTION ENGINE)
     # =========================================================================
     async def get_authorized_sources(self) -> List[Dict[str, Any]]:

@@ -2942,35 +2942,158 @@ def create_app(engine: SuperBanEngine):
             return {"error": "Database offline"}
         return await engine.db.get_user_sleep_cycle_profile(user_id)
 
+    # =========================================================================
+    #  TACTICAL SURVEILLANCE RADAR ROUTES
+    # =========================================================================
     @app.get("/api/surveillance/watchlist")
-    async def get_surveillance_watchlist():
+    async def get_surveillance_watchlist(include_inactive: bool = True):
         if not engine.db:
             return []
-        return await engine.db.get_watchlist()
+        return await engine.db.get_watchlist(include_inactive=include_inactive)
 
     class WatchlistAddReq(BaseModel):
         target_type: str # 'keyword' or 'user'
         value: str
         note: str = ""
 
+    class WatchlistUpdateReq(BaseModel):
+        value: Optional[str] = None
+        note: Optional[str] = None
+        is_active: Optional[bool] = None
+
     @app.post("/api/surveillance/watchlist")
     async def add_surveillance_watchlist(req: WatchlistAddReq):
         if not engine.db:
             raise HTTPException(status_code=500, detail="Database offline")
-        return await engine.db.add_watchlist_item(target_type=req.target_type, value=req.value, note=req.note)
+        try:
+            res = await engine.db.add_watchlist_item(target_type=req.target_type, value=req.value, note=req.note)
+            try:
+                await engine.db.log_ingestion_audit("surveillance_target_armed", 0, "system", 0, "completed", f"Armed [{req.target_type.upper()}] '{req.value}'")
+            except Exception:
+                pass
+            return res
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to arm surveillance target: {str(e)[:150]}")
 
-    @app.delete("/api/surveillance/watchlist")
-    async def delete_surveillance_watchlist(id: int):
+    @app.put("/api/surveillance/watchlist/{item_id}")
+    async def update_surveillance_watchlist(item_id: int, req: WatchlistUpdateReq):
         if not engine.db:
             raise HTTPException(status_code=500, detail="Database offline")
+        try:
+            res = await engine.db.update_watchlist_item(item_id, value=req.value, note=req.note, is_active=req.is_active)
+            if not res:
+                raise HTTPException(status_code=404, detail="Surveillance target rule not found")
+            try:
+                await engine.db.log_ingestion_audit("surveillance_target_updated", 0, "system", item_id, "completed", f"Updated rule #{item_id}")
+            except Exception:
+                pass
+            return res
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update rule: {str(e)[:150]}")
+
+    @app.post("/api/surveillance/watchlist/{item_id}/toggle")
+    async def toggle_surveillance_watchlist(item_id: int):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        res = await engine.db.toggle_watchlist_item(item_id)
+        if not res:
+            raise HTTPException(status_code=404, detail="Surveillance target rule not found")
+        status_str = "ACTIVE" if res.get("is_active") else "PAUSED"
+        try:
+            await engine.db.log_ingestion_audit("surveillance_target_toggled", 0, "system", item_id, "completed", f"Rule #{item_id} toggled to {status_str}")
+        except Exception:
+            pass
+        return res
+
+    @app.delete("/api/surveillance/watchlist/{item_id}")
+    async def delete_surveillance_watchlist_path(item_id: int):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        success = await engine.db.delete_watchlist_item(item_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Surveillance target rule not found")
+        try:
+            await engine.db.log_ingestion_audit("surveillance_target_retired", 0, "system", item_id, "completed", f"Retired rule #{item_id}")
+        except Exception:
+            pass
+        return {"success": success, "id": item_id}
+
+    @app.delete("/api/surveillance/watchlist")
+    async def delete_surveillance_watchlist_query(id: Optional[int] = None):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        if id is None:
+            raise HTTPException(status_code=400, detail="Missing required 'id' query parameter")
         success = await engine.db.delete_watchlist_item(id)
-        return {"success": success}
+        return {"success": success, "id": id}
 
     @app.get("/api/surveillance/alerts")
-    async def get_surveillance_alerts(limit: int = 50):
+    async def get_surveillance_alerts(
+        limit: int = 50,
+        offset: int = 0,
+        rule_id: Optional[int] = None,
+        keyword: Optional[str] = None,
+        group_id: Optional[int] = None,
+        unack_only: bool = False
+    ):
         if not engine.db:
-            return []
-        return await engine.db.get_surveillance_alerts(limit=limit)
+            return {"total": 0, "alerts": [], "limit": limit, "offset": offset}
+        return await engine.db.get_surveillance_alerts(
+            limit=limit,
+            offset=offset,
+            rule_id=rule_id,
+            keyword=keyword,
+            group_id=group_id,
+            unack_only=unack_only
+        )
+
+    @app.post("/api/surveillance/alerts/{alert_id}/acknowledge")
+    async def acknowledge_surveillance_alert(alert_id: int):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        success = await engine.db.acknowledge_surveillance_alert(alert_id)
+        return {"success": success, "id": alert_id}
+
+    @app.post("/api/surveillance/alerts/acknowledge-all")
+    async def acknowledge_all_surveillance_alerts(rule_id: Optional[int] = None):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        count = await engine.db.acknowledge_all_surveillance_alerts(rule_id=rule_id)
+        return {"acknowledged_count": count}
+
+    @app.delete("/api/surveillance/alerts/clear")
+    async def clear_surveillance_alerts(rule_id: Optional[int] = None):
+        if not engine.db:
+            raise HTTPException(status_code=500, detail="Database offline")
+        count = await engine.db.clear_surveillance_alerts(rule_id=rule_id)
+        try:
+            await engine.db.log_ingestion_audit("surveillance_alerts_cleared", 0, "system", 0, "completed", f"Cleared {count} surveillance alert records")
+        except Exception:
+            pass
+        return {"cleared_count": count}
+
+    class SurveillanceSyncReq(BaseModel):
+        group_id: Optional[int] = None
+
+    @app.post("/api/surveillance/sync")
+    async def trigger_surveillance_sync(req: Optional[SurveillanceSyncReq] = None):
+        """Trigger on-demand background synchronization scanning recent messages against active watchlist rules."""
+        gid = req.group_id if req else None
+        # Start background sync task if not running
+        asyncio.create_task(engine.sync_surveillance_radar(target_group_id=gid))
+        # Return current state immediately
+        return await engine.get_surveillance_sync_status()
+
+    @app.get("/api/surveillance/sync/status")
+    async def get_surveillance_sync_status():
+        """Retrieve real-time and persisted sync engine state."""
+        return await engine.get_surveillance_sync_status()
 
     @app.get("/api/analytics/sentiment")
     async def get_group_sentiment(group_id: int):

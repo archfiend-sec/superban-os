@@ -617,6 +617,49 @@ class DatabaseManager:
             except Exception:
                 pass
 
+        # Idempotent migration for Surveillance Radar Watchlist & Alert tables
+        for tbl, col_name, col_type in [
+            ("surveillance_watchlists", "is_active", "INTEGER DEFAULT 1"),
+            ("surveillance_watchlists", "updated_at", "TIMESTAMP DEFAULT NULL"),
+            ("surveillance_alerts", "message_id", "INTEGER DEFAULT 0"),
+            ("surveillance_alerts", "is_acknowledged", "INTEGER DEFAULT 0"),
+            ("surveillance_alerts", "detected_at", "TIMESTAMP DEFAULT NULL")
+        ]:
+            try:
+                self.cursor.execute(f"ALTER TABLE {tbl} ADD COLUMN {col_name} {col_type};")
+                self.conn.commit()
+            except Exception:
+                pass
+
+        # Dedicated persistent sync state and idempotency index for Surveillance Radar
+        try:
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS surveillance_sync_state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    status TEXT DEFAULT 'IDLE',
+                    last_sync_time TIMESTAMP,
+                    rules_checked INTEGER DEFAULT 0,
+                    messages_scanned INTEGER DEFAULT 0,
+                    alerts_generated INTEGER DEFAULT 0,
+                    target_scope TEXT DEFAULT 'ALL_AUTHORIZED',
+                    error_detail TEXT DEFAULT '',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            ''')
+            self.cursor.execute('''
+                INSERT OR IGNORE INTO surveillance_sync_state (id, status, rules_checked, messages_scanned, alerts_generated)
+                VALUES (1, 'IDLE', 0, 0, 0);
+            ''')
+            self.cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_surv_alerts_idempotency ON surveillance_alerts (watchlist_id, group_id, message_id);
+            ''')
+            self.cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_surv_alerts_ts ON surveillance_alerts (timestamp DESC);
+            ''')
+            self.conn.commit()
+        except Exception:
+            pass
+
         # Seed or sync master owner clearance
         try:
             from core.config import Config
@@ -1870,30 +1913,160 @@ class DatabaseManager:
     # ═══════════════════════════════════════════════════════
     #   SURVEILLANCE WATCHLIST & REAL-TIME ALERTS
     # ═══════════════════════════════════════════════════════
-    async def add_watchlist_item(self, target_type: str, value: str, note: str = "") -> Dict[str, Any]:
-        """Add a keyword or target user ID / username to active surveillance."""
+    async def add_watchlist_item(self, target_type: str, value: str, note: str = "", is_active: int = 1) -> Dict[str, Any]:
+        """Add a validated keyword or target user ID / username to active surveillance."""
+        t_type = str(target_type).strip().lower()
+        if t_type not in ("keyword", "user"):
+            raise ValueError("Unsupported target_type: must be 'keyword' or 'user'")
+
+        val_raw = str(value).strip()
+        if not val_raw:
+            raise ValueError("Target value cannot be empty.")
+
+        if t_type == "keyword":
+            val_clean = val_raw.lower()
+            if len(val_clean) < 2 or len(val_clean) > 100:
+                raise ValueError("Keyword must be between 2 and 100 characters.")
+        else: # user
+            val_clean = val_raw.lstrip("@").strip()
+            if not val_clean:
+                raise ValueError("User target cannot be empty.")
+            # If numeric, must be positive user ID; otherwise validate username format
+            if val_clean.isdigit():
+                val_clean = str(int(val_clean))
+            else:
+                import re
+                if not re.match(r"^[A-Za-z0-9_]{3,32}$", val_clean):
+                    raise ValueError("Username target must be 3-32 characters (letters, numbers, underscores) or numeric User ID.")
+                val_clean = val_clean.lower()
+
         async with self.lock:
-            val_clean = str(value).strip().lower()
+            # Check for existing rule with same type and value
             self.cursor.execute(
-                '''INSERT OR REPLACE INTO surveillance_watchlists (target_type, value, note, created_at)
-                VALUES (?, ?, ?, ?)''',
-                (target_type, val_clean, note, datetime.now())
+                'SELECT id, target_type, value, note, alert_count, is_active, created_at FROM surveillance_watchlists WHERE target_type = ? AND value = ?',
+                (t_type, val_clean)
+            )
+            existing = self.cursor.fetchone()
+            if existing:
+                raise ValueError(f"Surveillance rule already exists for [{t_type.upper()}] '{val_clean}' (Rule #{existing[0]}).")
+
+            now_dt = datetime.now()
+            self.cursor.execute(
+                '''INSERT INTO surveillance_watchlists (target_type, value, note, alert_count, is_active, created_at, updated_at)
+                VALUES (?, ?, ?, 0, ?, ?, ?)''',
+                (t_type, val_clean, str(note).strip()[:250], 1 if is_active else 0, now_dt, now_dt)
             )
             self.conn.commit()
-            return {"target_type": target_type, "value": val_clean, "note": note}
+            new_id = self.cursor.lastrowid
+            return {
+                "id": new_id,
+                "target_type": t_type,
+                "value": val_clean,
+                "note": str(note).strip()[:250],
+                "alert_count": 0,
+                "is_active": 1 if is_active else 0,
+                "created_at": str(now_dt),
+                "updated_at": str(now_dt)
+            }
 
-    async def get_watchlist(self) -> List[Dict[str, Any]]:
-        """Fetch all active surveillance watchlist rules."""
+    async def update_watchlist_item(self, item_id: int, value: Optional[str] = None, note: Optional[str] = None, is_active: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Update an existing surveillance rule's properties."""
         async with self.lock:
-            self.cursor.execute('SELECT id, target_type, value, note, alert_count, created_at FROM surveillance_watchlists ORDER BY id DESC')
+            self.cursor.execute('SELECT id, target_type, value, note, alert_count, is_active, created_at FROM surveillance_watchlists WHERE id = ?', (item_id,))
+            row = self.cursor.fetchone()
+            if not row:
+                return None
+
+            cur_type = row[1]
+            new_val = row[2]
+            new_note = row[3]
+            new_active = row[5]
+
+            if value is not None:
+                val_raw = str(value).strip()
+                if not val_raw:
+                    raise ValueError("Target value cannot be empty.")
+                if cur_type == "keyword":
+                    new_val = val_raw.lower()
+                    if len(new_val) < 2 or len(new_val) > 100:
+                        raise ValueError("Keyword must be between 2 and 100 characters.")
+                else:
+                    new_val = val_raw.lstrip("@").strip()
+                    if not new_val.isdigit():
+                        import re
+                        if not re.match(r"^[A-Za-z0-9_]{3,32}$", new_val):
+                            raise ValueError("Username target must be 3-32 characters or numeric User ID.")
+                        new_val = new_val.lower()
+
+            if note is not None:
+                new_note = str(note).strip()[:250]
+            if is_active is not None:
+                new_active = 1 if is_active else 0
+
+            now_dt = datetime.now()
+            self.cursor.execute(
+                '''UPDATE surveillance_watchlists
+                SET value = ?, note = ?, is_active = ?, updated_at = ?
+                WHERE id = ?''',
+                (new_val, new_note, new_active, now_dt, item_id)
+            )
+            self.conn.commit()
+            return {
+                "id": item_id,
+                "target_type": cur_type,
+                "value": new_val,
+                "note": new_note,
+                "alert_count": row[4],
+                "is_active": new_active,
+                "created_at": str(row[6]),
+                "updated_at": str(now_dt)
+            }
+
+    async def toggle_watchlist_item(self, item_id: int) -> Optional[Dict[str, Any]]:
+        """Toggle active/paused status of a surveillance rule."""
+        async with self.lock:
+            self.cursor.execute('SELECT id, target_type, value, note, alert_count, is_active, created_at FROM surveillance_watchlists WHERE id = ?', (item_id,))
+            row = self.cursor.fetchone()
+            if not row:
+                return None
+            cur_active = row[5] if row[5] is not None else 1
+            new_active = 0 if cur_active else 1
+            now_dt = datetime.now()
+            self.cursor.execute('UPDATE surveillance_watchlists SET is_active = ?, updated_at = ? WHERE id = ?', (new_active, now_dt, item_id))
+            self.conn.commit()
+            return {
+                "id": item_id,
+                "target_type": row[1],
+                "value": row[2],
+                "note": row[3],
+                "alert_count": row[4],
+                "is_active": new_active,
+                "created_at": str(row[6]),
+                "updated_at": str(now_dt)
+            }
+
+    async def get_watchlist(self, include_inactive: bool = True) -> List[Dict[str, Any]]:
+        """Fetch surveillance watchlist rules with active state."""
+        async with self.lock:
+            sql = 'SELECT id, target_type, value, note, alert_count, COALESCE(is_active, 1), created_at, updated_at FROM surveillance_watchlists'
+            if not include_inactive:
+                sql += ' WHERE COALESCE(is_active, 1) = 1'
+            sql += ' ORDER BY id DESC'
+            self.cursor.execute(sql)
             rows = self.cursor.fetchall()
             return [{
-                "id": r[0], "target_type": r[1], "value": r[2], "note": r[3],
-                "alert_count": r[4], "created_at": str(r[5])
+                "id": r[0],
+                "target_type": r[1],
+                "value": r[2],
+                "note": r[3] or "",
+                "alert_count": r[4] or 0,
+                "is_active": bool(r[5]),
+                "created_at": str(r[6]),
+                "updated_at": str(r[7] if len(r) > 7 and r[7] else r[6])
             } for r in rows]
 
     async def delete_watchlist_item(self, item_id: int) -> bool:
-        """Remove a watchlist rule."""
+        """Remove a watchlist rule and keep associated alert history intact."""
         async with self.lock:
             self.cursor.execute('DELETE FROM surveillance_watchlists WHERE id = ?', (item_id,))
             self.conn.commit()
@@ -1901,40 +2074,197 @@ class DatabaseManager:
 
     async def log_surveillance_alert(self, watchlist_id: Optional[int], target_type: str, trigger_val: str,
                                      group_id: int, group_title: str, user_id: int, 
-                                     full_name: str, username: str, message_text: str, action_context: str = "message"):
-        """Record an alert when surveillance target is detected."""
+                                     full_name: str, username: str, message_text: str,
+                                     message_id: int = 0, action_context: str = "message") -> Optional[int]:
+        """Record a surveillance hit with strict idempotency and accurate source attributes."""
         async with self.lock:
             try:
+                # Idempotency check: if message_id and watchlist_id already recorded for this chat, skip duplicate
+                if message_id and watchlist_id:
+                    self.cursor.execute(
+                        'SELECT id FROM surveillance_alerts WHERE watchlist_id = ? AND group_id = ? AND message_id = ? LIMIT 1',
+                        (watchlist_id, group_id, message_id)
+                    )
+                    existing = self.cursor.fetchone()
+                    if existing:
+                        return existing[0]
+
+                # Safe fallbacks for missing Telegram user identities & text content
+                safe_name = str(full_name).strip() if (full_name and str(full_name).strip()) else "Unknown User"
+                safe_user = str(username).strip().lstrip("@") if (username and str(username).strip()) else ""
+                safe_grp = str(group_title).strip() if (group_title and str(group_title).strip()) else f"Entity #{group_id}"
+                safe_msg = str(message_text).strip() if (message_text and str(message_text).strip()) else "[Media or attachment without text content]"
+                now_dt = datetime.now()
+
                 self.cursor.execute(
                     '''INSERT INTO surveillance_alerts
-                    (watchlist_id, target_type, trigger_val, group_id, group_title, user_id, full_name, username, message_text, action_context, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                    (watchlist_id or 0, target_type, trigger_val, group_id, group_title or "", user_id,
-                     full_name or "Anonymous", username or "", message_text or "", action_context, datetime.now())
+                    (watchlist_id, target_type, trigger_val, group_id, group_title, message_id, user_id, full_name, username, message_text, action_context, is_acknowledged, timestamp, detected_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)''',
+                    (watchlist_id or 0, target_type, str(trigger_val).strip(), group_id, safe_grp,
+                     message_id or 0, user_id or 0, safe_name, safe_user, safe_msg, action_context, now_dt, now_dt)
                 )
+                alert_id = self.cursor.lastrowid
                 if watchlist_id:
                     self.cursor.execute(
                         'UPDATE surveillance_watchlists SET alert_count = alert_count + 1 WHERE id = ?',
                         (watchlist_id,)
                     )
                 self.conn.commit()
-            except Exception:
-                pass
+                return alert_id
+            except Exception as e:
+                logger.debug(f"Error logging surveillance alert: {e}")
+                return None
 
-    async def get_surveillance_alerts(self, limit: int = 50) -> List[Dict[str, Any]]:
-        """Fetch logged surveillance hits."""
+    async def get_surveillance_alerts(self, limit: int = 50, offset: int = 0,
+                                     rule_id: Optional[int] = None, keyword: Optional[str] = None,
+                                     group_id: Optional[int] = None, unack_only: bool = False) -> Dict[str, Any]:
+        """Fetch logged surveillance hits with multi-criteria filtering and total counts."""
         async with self.lock:
-            self.cursor.execute(
-                '''SELECT id, target_type, trigger_val, group_id, group_title, user_id, full_name, username, message_text, action_context, timestamp
-                FROM surveillance_alerts ORDER BY timestamp DESC LIMIT ?''',
-                (limit,)
-            )
+            conditions = []
+            params = []
+
+            if rule_id is not None and rule_id > 0:
+                conditions.append("watchlist_id = ?")
+                params.append(rule_id)
+            if group_id is not None and group_id != 0:
+                norm_gid = self.normalize_gid(group_id)
+                conditions.append("(group_id = ? OR group_id = ? OR group_id = ?)")
+                params.extend([group_id, -abs(group_id), -1000000000000 - norm_gid if norm_gid < 10000000000 else group_id])
+            if unack_only:
+                conditions.append("COALESCE(is_acknowledged, 0) = 0")
+            if keyword and keyword.strip():
+                kw = f"%{keyword.strip().lower()}%"
+                conditions.append("(LOWER(trigger_val) LIKE ? OR LOWER(message_text) LIKE ? OR LOWER(full_name) LIKE ? OR LOWER(username) LIKE ?)")
+                params.extend([kw, kw, kw, kw])
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+            # 1. Total matching count
+            count_sql = f"SELECT COUNT(*) FROM surveillance_alerts {where_clause}"
+            self.cursor.execute(count_sql, params)
+            total_count = self.cursor.fetchone()[0]
+
+            # 2. Paginated rows
+            data_sql = f'''
+                SELECT id, watchlist_id, target_type, trigger_val, group_id, group_title,
+                       COALESCE(message_id, 0), user_id, full_name, username, message_text,
+                       action_context, COALESCE(is_acknowledged, 0), timestamp
+                FROM surveillance_alerts
+                {where_clause}
+                ORDER BY timestamp DESC
+                LIMIT ? OFFSET ?
+            '''
+            self.cursor.execute(data_sql, params + [max(1, min(limit, 200)), max(0, offset)])
             rows = self.cursor.fetchall()
-            return [{
-                "id": r[0], "target_type": r[1], "trigger_val": r[2], "group_id": r[3],
-                "group_title": r[4], "user_id": r[5], "full_name": r[6], "username": r[7],
-                "message_text": r[8], "action_context": r[9], "timestamp": str(r[10])
+
+            alerts = [{
+                "id": r[0],
+                "watchlist_id": r[1],
+                "target_type": r[2],
+                "trigger_val": r[3],
+                "group_id": r[4],
+                "group_title": r[5] or f"Entity #{r[4]}",
+                "message_id": r[6],
+                "user_id": r[7],
+                "full_name": r[8] or "Unknown User",
+                "username": r[9] or "",
+                "message_text": r[10] or "",
+                "action_context": r[11] or "message",
+                "is_acknowledged": bool(r[12]),
+                "timestamp": str(r[13])
             } for r in rows]
+
+            return {
+                "total": total_count,
+                "alerts": alerts,
+                "limit": limit,
+                "offset": offset
+            }
+
+    async def acknowledge_surveillance_alert(self, alert_id: int) -> bool:
+        """Mark a single surveillance alert as acknowledged."""
+        async with self.lock:
+            self.cursor.execute('UPDATE surveillance_alerts SET is_acknowledged = 1 WHERE id = ?', (alert_id,))
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+
+    async def acknowledge_all_surveillance_alerts(self, rule_id: Optional[int] = None) -> int:
+        """Mark all surveillance alerts (or alerts for a specific rule) as acknowledged."""
+        async with self.lock:
+            if rule_id:
+                self.cursor.execute('UPDATE surveillance_alerts SET is_acknowledged = 1 WHERE watchlist_id = ?', (rule_id,))
+            else:
+                self.cursor.execute('UPDATE surveillance_alerts SET is_acknowledged = 1 WHERE COALESCE(is_acknowledged, 0) = 0')
+            self.conn.commit()
+            return self.cursor.rowcount
+
+    async def clear_surveillance_alerts(self, rule_id: Optional[int] = None) -> int:
+        """Clear surveillance alert logs without modifying source Telegram messages."""
+        async with self.lock:
+            if rule_id:
+                self.cursor.execute('DELETE FROM surveillance_alerts WHERE watchlist_id = ?', (rule_id,))
+            else:
+                self.cursor.execute('DELETE FROM surveillance_alerts')
+            self.conn.commit()
+            return self.cursor.rowcount
+
+    async def get_surveillance_sync_state(self) -> Dict[str, Any]:
+        """Fetch persistent status of the surveillance radar synchronization engine."""
+        async with self.lock:
+            self.cursor.execute('''
+                SELECT status, last_sync_time, rules_checked, messages_scanned, alerts_generated,
+                       target_scope, error_detail, updated_at
+                FROM surveillance_sync_state WHERE id = 1
+            ''')
+            row = self.cursor.fetchone()
+            if not row:
+                return {
+                    "status": "IDLE",
+                    "last_sync_time": None,
+                    "rules_checked": 0,
+                    "messages_scanned": 0,
+                    "alerts_generated": 0,
+                    "target_scope": "ALL_AUTHORIZED",
+                    "error_detail": "",
+                    "updated_at": None
+                }
+            return {
+                "status": row[0] or "IDLE",
+                "last_sync_time": str(row[1]) if row[1] else None,
+                "rules_checked": row[2] or 0,
+                "messages_scanned": row[3] or 0,
+                "alerts_generated": row[4] or 0,
+                "target_scope": row[5] or "ALL_AUTHORIZED",
+                "error_detail": row[6] or "",
+                "updated_at": str(row[7]) if row[7] else None
+            }
+
+    async def update_surveillance_sync_state(self, status: str, last_sync_time: Optional[datetime] = None,
+                                           rules_checked: int = 0, messages_scanned: int = 0,
+                                           alerts_generated: int = 0, target_scope: str = "ALL_AUTHORIZED",
+                                           error_detail: str = ""):
+        """Persist surveillance sync job state and metrics across application restarts."""
+        async with self.lock:
+            now_dt = datetime.now()
+            sync_dt = last_sync_time
+            if sync_dt is None and status in ("COMPLETED", "PARTIALLY_COMPLETED"):
+                sync_dt = now_dt
+
+            if sync_dt is not None:
+                self.cursor.execute('''
+                    UPDATE surveillance_sync_state
+                    SET status = ?, last_sync_time = ?, rules_checked = ?, messages_scanned = ?,
+                        alerts_generated = ?, target_scope = ?, error_detail = ?, updated_at = ?
+                    WHERE id = 1
+                ''', (status, sync_dt, rules_checked, messages_scanned, alerts_generated, target_scope, error_detail, now_dt))
+            else:
+                self.cursor.execute('''
+                    UPDATE surveillance_sync_state
+                    SET status = ?, rules_checked = ?, messages_scanned = ?,
+                        alerts_generated = ?, target_scope = ?, error_detail = ?, updated_at = ?
+                    WHERE id = 1
+                ''', (status, rules_checked, messages_scanned, alerts_generated, target_scope, error_detail, now_dt))
+            self.conn.commit()
 
     # ═══════════════════════════════════════════════════════
     #   CROSS-GROUP OSINT & PERSONA TRACKING
