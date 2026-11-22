@@ -81,7 +81,7 @@
 html {
   -webkit-text-size-adjust: 100%;
 }
-@media (min-width: 769px) {
+@media (min-width: 768px) {
   html {
     scroll-behavior: smooth;
   }
@@ -158,7 +158,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 /* Global Responsive Text Controls (Prevents Double Labels like GROUPSGROUPS) */
 .mob-txt { display: none !important; }
 .desk-txt { display: inline !important; }
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .desk-txt { display: none !important; }
   .mob-txt { display: inline !important; }
 }
@@ -179,7 +179,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
 .desk-only {
   display: inline-flex;
 }
-@media (max-width: 820px), (max-aspect-ratio: 9/10) and (max-width: 920px), (pointer: coarse) and (max-width: 900px) {
+@media (max-width: 767px), (max-height: 500px) and (pointer: coarse) and (max-width: 920px) {
   .kage-sys-health-bar,
   #kage-sys-health-compact,
   .desk-only {
@@ -231,7 +231,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   max-width: 320px;
   width: auto;
 }
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   #toast-container {
     bottom: calc(62px + env(safe-area-inset-bottom, 12px));
     right: 12px;
@@ -267,7 +267,7 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   animation: toastIn .2s ease forwards !important;
   transition: opacity .2s ease, transform .2s ease !important;
 }
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .toast {
     max-width: 100% !important;
     width: 100% !important;
@@ -2456,10 +2456,7 @@ video.wiretap-sticker-img {
 /* ═══════════════════════════════════════════════════════
    MEDIA QUERIES: MOBILE & TALL RATIO (SMARTPHONES)
    ═══════════════════════════════════════════════════════ */
-/* ═══════════════════════════════════════════════════════
-   MEDIA QUERIES: MOBILE & TALL RATIO (SMARTPHONES)
-   ═══════════════════════════════════════════════════════ */
-@media (max-width: 768px), (max-aspect-ratio: 9/10) and (max-width: 920px) {
+@media (max-width: 767px), (max-height: 500px) and (pointer: coarse) and (max-width: 920px) {
   :root {
     --nav-h: 50px;
     --pad: 12px;
@@ -2755,9 +2752,9 @@ video.wiretap-sticker-img {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 100% !important;
-    height: 24px !important;
-    min-height: 24px !important;
-    padding: 0 4px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 6px !important;
     background: rgba(8, 12, 16, 0.96) !important;
     border-bottom: none !important;
     display: flex;
@@ -2785,13 +2782,13 @@ video.wiretap-sticker-img {
     flex: 0 0 auto !important;
   }
   .flt-btn {
-    font-size: 8.5px !important;
+    font-size: 9.5px !important;
     font-family: 'Onest', sans-serif !important;
     font-weight: 500 !important;
-    padding: 0 6px !important;
-    height: 20px !important;
-    line-height: 20px !important;
-    border-radius: 10px !important;
+    padding: 0 8px !important;
+    height: 24px !important;
+    line-height: 24px !important;
+    border-radius: 12px !important;
     background: rgba(223, 231, 224, 0.05) !important;
     border: 1px solid rgba(223, 231, 224, 0.1) !important;
     color: var(--bone-dim) !important;
@@ -2969,17 +2966,23 @@ video.wiretap-sticker-img {
     flex: 0 0 auto !important;
   }
   .wiretap-more-btn {
+    position: relative !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 28px !important;
-    height: 28px !important;
+    width: 32px !important;
+    height: 32px !important;
     border-radius: 6px !important;
     color: var(--muted) !important;
     background: rgba(255, 255, 255, 0.04) !important;
     border: 1px solid rgba(255, 255, 255, 0.06) !important;
     touch-action: manipulation !important;
     cursor: pointer !important;
+  }
+  .wiretap-more-btn::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
   }
   .wiretap-more-btn:active {
     background: rgba(255, 255, 255, 0.12) !important;
@@ -3397,20 +3400,43 @@ video.wiretap-sticker-img {
 }
 
 /* ═══════════════════════════════════════════════════════
-   MEDIA QUERIES: TABLET COCKPIT (769px - 1180px)
+   MEDIA QUERIES: TABLET COCKPIT (768px - 1180px)
    ═══════════════════════════════════════════════════════ */
-@media (min-width: 769px) and (max-width: 1180px) {
+@media (min-width: 768px) and (max-width: 1180px) {
   :root {
-    --nav-h: 68px;
-    --pad: 20px;
+    --nav-h: 64px;
+    --pad: 18px;
   }
   .hud-body {
-    grid-template-columns: 280px minmax(0, 1fr) !important;
+    display: grid !important;
+    grid-template-columns: 250px minmax(0, 1fr) !important;
     grid-template-rows: minmax(0, 1fr) !important;
     align-items: stretch !important;
+    height: calc(100% - 40px) !important;
+  }
+  .hud-col-left {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 250px !important;
+    max-width: 250px !important;
+    min-width: 250px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(8, 12, 18, 0.72) !important;
+  }
+  .hud-col-center {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
   }
   .hud-col-right {
-    display: none;
+    display: none !important;
   }
   .chapters {
     grid-template-columns: repeat(2, 1fr) !important;
@@ -3420,6 +3446,16 @@ video.wiretap-sticker-img {
   }
   #kage-mobile-dock {
     display: none !important;
+  }
+}
+@media (min-width: 851px) and (max-width: 1180px) {
+  .hud-body {
+    grid-template-columns: 280px minmax(0, 1fr) !important;
+  }
+  .hud-col-left {
+    width: 280px !important;
+    max-width: 280px !important;
+    min-width: 280px !important;
   }
 }
 
@@ -4222,7 +4258,7 @@ html.warroom-active #vignette {
   display: none !important;
 }
 
-@media (min-width: 769px) {
+@media (min-width: 768px) {
   /* Top Ticker Bar */
   .hud-top-bar {
     height: 40px !important;
@@ -5196,7 +5232,7 @@ html.warroom-active #vignette {
 }
 
 /* ── 11. DEFINITIVE MOBILE IMMERSION: FULL DISPLAY COVERAGE & TRANSPARENCY ── */
-@media (max-width: 768px), (max-aspect-ratio: 9/10) and (max-width: 920px), (pointer: coarse) and (max-width: 820px) {
+@media (max-width: 767px), (max-height: 500px) and (pointer: coarse) and (max-width: 920px) {
   html, body {
     overflow-x: hidden !important;
     max-width: 100vw !important;
@@ -5494,11 +5530,11 @@ html.warroom-active #vignette {
     white-space: nowrap !important;
   }
   .flt-btn {
-    font-size: 8.5px !important;
+    font-size: 9.5px !important;
     font-family: var(--font-sans) !important;
-    padding: 1px 6px !important;
-    height: 20px !important;
-    line-height: 20px !important;
+    padding: 0 8px !important;
+    height: 24px !important;
+    line-height: 24px !important;
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
     border-radius: var(--apple-radius-pill) !important;
@@ -6131,7 +6167,7 @@ html.warroom-active #vignette {
 }
 
 /* ── POWER COCKPIT BOTTOM LAYOUT & DOCKS ── */
-@media (min-width: 769px) {
+@media (min-width: 768px) {
   #kage-mobile-dock {
     display: none !important;
   }
@@ -6145,9 +6181,13 @@ html.warroom-active #vignette {
     border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
     background: rgba(8, 12, 18, 0.72) !important;
   }
+  .hud-col-center {
+    display: flex !important;
+    flex-direction: column !important;
+  }
 }
 
-@media (max-width: 768px), (max-aspect-ratio: 9/10) and (max-width: 920px), (pointer: coarse) and (max-width: 820px) {
+@media (max-width: 767px), (max-height: 500px) and (pointer: coarse) and (max-width: 920px) {
   .hud-col {
     display: none !important;
   }
@@ -6178,7 +6218,7 @@ html.warroom-active #vignette {
   }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 768px) {
   .hud-left-scroll-area {
     display: flex !important;
     flex-direction: column !important;
@@ -6642,7 +6682,7 @@ body.theme-light .kage-btn.secondary {
         <label class="owner-input-label">Operator Identifier</label>
         <div class="owner-input-wrapper">
           <input type="text" id="owner-username-input" class="owner-text-input" placeholder="Operator identifier (optional)" maxlength="32" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" value=""
-            onkeydown="if(event.key==='Enter') document.getElementById('owner-pin-input').focus()"
+            onkeydown="if(event.key==='Enter') document.getElementById('owner-pin-input')?.focus()"
           />
         </div>
       </div>
@@ -10603,22 +10643,26 @@ body.theme-light .kage-btn.secondary {
   }
 
   async function verifyAuthCode() {
-    const code = document.getElementById('auth-code-input').value.trim();
-    const password = document.getElementById('auth-password-input').value;
+    const code = document.getElementById('auth-code-input')?.value?.trim() || '';
+    const password = document.getElementById('auth-password-input')?.value || '';
     const phoneInput = document.getElementById('auth-phone-input');
     const phoneVal = phoneInput ? phoneInput.value.trim() : '';
     const btn = document.getElementById('auth-verify-btn');
     const errBox = document.getElementById('auth-verify-error');
 
     if (!code) {
-      errBox.innerText = 'Please enter the 5-digit code.';
-      errBox.style.display = 'block';
+      if (errBox) {
+        errBox.innerText = 'Please enter the 5-digit code.';
+        errBox.style.display = 'block';
+      }
       return;
     }
 
-    btn.innerHTML = '<span class="loading-spin"></span> Verifying...';
-    btn.disabled = true;
-    errBox.style.display = 'none';
+    if (btn) {
+      btn.innerHTML = '<span class="loading-spin"></span> Verifying...';
+      btn.disabled = true;
+    }
+    if (errBox) errBox.style.display = 'none';
 
     try {
       const res = await fetch('/api/auth/verify_code', {
@@ -10632,26 +10676,34 @@ body.theme-light .kage-btn.secondary {
       }
 
       if (data.status === 'password_needed') {
-        document.getElementById('auth-password-group').style.display = 'block';
-        document.getElementById('auth-password-input').focus();
-        errBox.innerText = '2-Step Verification password is required. Please enter your password above and click Verify again.';
-        errBox.style.display = 'block';
+        const pwGroup = document.getElementById('auth-password-group');
+        if (pwGroup) pwGroup.style.display = 'block';
+        document.getElementById('auth-password-input')?.focus();
+        if (errBox) {
+          errBox.innerText = '2-Step Verification password is required. Please enter your password above and click Verify again.';
+          errBox.style.display = 'block';
+        }
         return;
       }
 
       // Success!
-      document.getElementById('auth-modal').style.display = 'none';
+      const authModal = document.getElementById('auth-modal');
+      if (authModal) authModal.style.display = 'none';
       if (window.showToast) {
         showToast('⚡ Telegram Connected! Loading groups...', 'success');
       }
       await checkAuth();
       if (window.fetchDialogs) await fetchDialogs();
     } catch (err) {
-      errBox.innerText = `Error: ${err.message}`;
-      errBox.style.display = 'block';
+      if (errBox) {
+        errBox.innerText = `Error: ${err.message}`;
+        errBox.style.display = 'block';
+      }
     } finally {
-      btn.innerHTML = '<i data-lucide="check-circle" style="width: 15px; height: 15px;"></i> ⚡ Verify &amp; Authorize Cloud Instance';
-      btn.disabled = false;
+      if (btn) {
+        btn.innerHTML = '<i data-lucide="check-circle" style="width: 15px; height: 15px;"></i> ⚡ Verify &amp; Authorize Cloud Instance';
+        btn.disabled = false;
+      }
       safeCreateIcons();
     }
   }
@@ -12245,11 +12297,15 @@ body.theme-light .kage-btn.secondary {
 
   // HEATMAP MODAL & RENDERING
   function openHeatmapModal() {
-    document.getElementById('heatmap-modal').style.display = 'flex';
+    const hm = document.getElementById('heatmap-modal');
+    if (hm) hm.style.display = 'flex';
     renderHeatmap();
   }
   function closeHeatmapModal(e) {
-    if (e.target.id === 'heatmap-modal') e.target.style.display = 'none';
+    if (!e || (e.target && e.target.id === 'heatmap-modal')) {
+      const hm = document.getElementById('heatmap-modal');
+      if (hm) hm.style.display = 'none';
+    }
   }
 
   async function renderHeatmap() {
@@ -12308,8 +12364,9 @@ body.theme-light .kage-btn.secondary {
   // BROADCAST DRIP SUITE
   function openBroadcastModal() {
     const count = selectedIds.size || scannedMembers.length;
-    document.getElementById('broadcast-target-summary').innerText = `${count} Members`;
-    document.getElementById('broadcast-modal').style.display = 'flex';
+    safeSetText('broadcast-target-summary', `${count} Members`);
+    const bm = document.getElementById('broadcast-modal');
+    if (bm) bm.style.display = 'flex';
   }
   function closeBroadcastModal(e) {
     if (e.target.id === 'broadcast-modal') e.target.style.display = 'none';
@@ -12334,7 +12391,8 @@ body.theme-light .kage-btn.secondary {
     const startBtn = document.getElementById('btn-start-broadcast');
     isDispatchingBroadcast = true;
     if (startBtn) setButtonBusy(startBtn, true, 'LAUNCHING...');
-    document.getElementById('broadcast-progress-container').style.display = 'block';
+    const bpc = document.getElementById('broadcast-progress-container');
+    if (bpc) bpc.style.display = 'block';
 
     try {
       const res = await fetch('/api/broadcast', {
@@ -13526,18 +13584,19 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
-  function openTerminalModal() { document.getElementById('terminal-modal').style.display = 'flex'; }
+  function openTerminalModal() { const m = document.getElementById('terminal-modal'); if (m) m.style.display = 'flex'; }
   function closeTerminalModal(e) { if (e.target.id === 'terminal-modal') e.target.style.display = 'none'; }
-  function openSentinelModal() { document.getElementById('sentinel-modal').style.display = 'flex'; }
+  function openSentinelModal() { const m = document.getElementById('sentinel-modal'); if (m) m.style.display = 'flex'; }
   function closeSentinelModal(e) { if (e.target.id === 'sentinel-modal') e.target.style.display = 'none'; }
-  function openPillarsModal() { document.getElementById('pillars-modal').style.display = 'flex'; }
+  function openPillarsModal() { const m = document.getElementById('pillars-modal'); if (m) m.style.display = 'flex'; }
   function closePillarsModal(e) { if (e.target.id === 'pillars-modal') e.target.style.display = 'none'; }
-  function openSweeperModal() { document.getElementById('sweeper-modal').style.display = 'flex'; }
+  function openSweeperModal() { const m = document.getElementById('sweeper-modal'); if (m) m.style.display = 'flex'; }
   function closeSweeperModal(e) { if (e.target.id === 'sweeper-modal') e.target.style.display = 'none'; }
-  function openLeadsModal() { document.getElementById('leads-modal').style.display = 'flex'; }
+  function openLeadsModal() { const m = document.getElementById('leads-modal'); if (m) m.style.display = 'flex'; }
   function closeLeadsModal(e) { if (e.target.id === 'leads-modal') e.target.style.display = 'none'; }
   function toggleReplShell() {
     const c = document.getElementById('cyber-repl-container');
+    if (!c) return;
     if (c.style.display === 'none' || !c.style.display) {
       c.style.display = 'block';
       c.scrollIntoView({ behavior: 'smooth' });
@@ -16539,7 +16598,7 @@ body.theme-light .kage-btn.secondary {
   }
 
   function filterReconTable() {
-    const query = (document.getElementById('recon-search-filter').value || '').toLowerCase();
+    const query = (document.getElementById('recon-search-filter')?.value || '').toLowerCase();
     let filtered = cachedReconMembers.filter(m => {
       const name = (m.full_name || '').toLowerCase();
       const user = (m.username || '').toLowerCase();
@@ -16564,8 +16623,8 @@ body.theme-light .kage-btn.secondary {
     if (label) label.innerText = `${members ? members.length : 0} members`;
     if (!wrap) return;
 
-    const isScanPanelActive = document.getElementById('deep-scan-progress-panel') && 
-      document.getElementById('deep-scan-progress-panel').style.display !== 'none';
+    const scanPanel = document.getElementById('deep-scan-progress-panel');
+    const isScanPanelActive = scanPanel && scanPanel.style.display !== 'none';
 
     if (!members || members.length === 0) {
       if (isScanPanelActive) {
@@ -17761,8 +17820,10 @@ body.theme-light .kage-btn.secondary {
       });
       if (res.ok) {
         showToast(`🎯 Surveillance armed: [${type.toUpperCase()}] "${val}"`, "success");
-        document.getElementById('surv-val-input').value = '';
-        document.getElementById('surv-note-input').value = '';
+        const vi = document.getElementById('surv-val-input');
+        if (vi) vi.value = '';
+        const ni = document.getElementById('surv-note-input');
+        if (ni) ni.value = '';
         refreshSurveillanceWatchlist();
       } else {
         const err = await res.json().catch(() => ({}));
@@ -18110,7 +18171,8 @@ body.theme-light .kage-btn.secondary {
   // ==========================================
   function closeMessageReactorsModal(e) {
     if (e && e.target && e.target.id === 'message-reactors-modal') {
-      document.getElementById('message-reactors-modal').style.display = 'none';
+      const m = document.getElementById('message-reactors-modal');
+      if (m) m.style.display = 'none';
     }
   }
 
@@ -20667,10 +20729,10 @@ body.theme-light .kage-btn.secondary {
     else ratioLabel = '9:19.5';
 
     // Form Factor Classification:
-    // Mobile: phones in portrait/landscape (width < 768 or tall phone aspect ratio or touch phone)
+    // Mobile: phones in portrait/landscape (width < 768 or phone held in landscape: height <= 500 on touch device)
     // Tablet: iPad / Android tablet (768px - 1180px or touch tablet)
-    // Monitor: Desktop / widescreen monitors (> 1180px or > 1024px with mouse pointer)
-    if (w < 768 || (ratio < 0.92 && w < 920) || (isTouch && w < 820 && h > w)) {
+    // Monitor: Desktop / widescreen monitors (> 1180px)
+    if (w < 768 || (h <= 500 && isTouch && w <= 920)) {
       device = 'mobile';
     } else if (w <= 1180 || (isTouch && w <= 1366 && ratio >= 0.68 && ratio <= 1.48)) {
       device = 'tablet';
