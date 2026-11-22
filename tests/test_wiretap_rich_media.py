@@ -198,7 +198,7 @@ class TestWiretapRichMedia(unittest.TestCase):
         info_round = extract_media_info(round_msg, group_id=12345)
         self.assertEqual(info_round["media_type"], "video_note")
 
-        # Voice note
+        # Voice note with duration and waveform
         voice_msg = MagicMock()
         voice_msg.media = MagicMock()
         voice_msg.sticker = False
@@ -206,11 +206,18 @@ class TestWiretapRichMedia(unittest.TestCase):
         voice_msg.photo = False
         voice_msg.video = False
         voice_msg.video_note = False
-        voice_msg.voice = True
+        voice_obj = MagicMock()
+        voice_obj.duration = 14
+        voice_obj.waveform = bytes([0x1F, 0x00, 0x1F, 0x00, 0x1F])
+        voice_msg.voice = voice_obj
         voice_msg.id = 606
 
         info_voice = extract_media_info(voice_msg, group_id=12345)
         self.assertEqual(info_voice["media_type"], "voice")
+        self.assertEqual(info_voice["duration"], 14)
+        self.assertIsInstance(info_voice["waveform"], list)
+        self.assertTrue(len(info_voice["waveform"]) > 0)
+        self.assertIn("0:14", info_voice["fallback_text"])
         print("  ✅ PASS: Video, Video Note (Round), and Voice Message correctly identified.")
 
     def test_04_get_recent_messages_does_not_drop_non_text_media(self):
@@ -584,6 +591,34 @@ class TestWiretapRichMedia(unittest.TestCase):
 
         asyncio.run(run_test())
         print("  ✅ PASS: Own userbot identity strictly masked to '🛡️ [STEALTH SENSOR]' for OPSEC!")
+
+    def test_12_voice_note_playback_pipeline(self):
+        """Verify voice note streaming endpoint, Range header, and MP3 format negotiation."""
+        async def run_test():
+            vault_dir = Path(__file__).resolve().parent.parent / "media_vault"
+            vault_dir.mkdir(parents=True, exist_ok=True)
+            dummy_ogg = vault_dir / "preview_999888_999.ogg"
+            dummy_ogg.write_bytes(b"OGG_DUMMY_AUDIO_BYTES_TEST")
+
+            try:
+                # Test preview fetch for ogg
+                ret = await self.engine.get_media_preview_file(999888, 999)
+                self.assertIsNotNone(ret)
+                self.assertTrue(ret.endswith(".ogg"))
+
+                # Test FastAPI endpoint response headers with authentication
+                headers = {"X-Owner-Token": self.token}
+                resp = await self.client.request("GET", "/api/media/preview/999888/999", headers=headers)
+                self.assertEqual(resp.status, 200)
+                self.assertIn("accept-ranges", resp.headers)
+                self.assertEqual(resp.headers["accept-ranges"], "bytes")
+                self.assertEqual(resp.headers["content-type"], "audio/ogg")
+            finally:
+                if dummy_ogg.exists():
+                    dummy_ogg.unlink()
+
+        asyncio.run(run_test())
+        print("  ✅ PASS: Voice note media delivery supports HTTP Range streaming and audio/ogg MIME.")
 
 if __name__ == "__main__":
     print("=" * 70)

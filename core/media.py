@@ -15,7 +15,9 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
         "mime_type": "",
         "is_video": False,
         "media_url": "",
-        "fallback_text": ""
+        "fallback_text": "",
+        "duration": 0,
+        "waveform": []
     }
     if not msg:
         return info
@@ -66,10 +68,45 @@ def extract_media_info(msg, group_id: int = 0) -> Dict[str, Any]:
         info["fallback_text"] = "[🖼️ Photo]"
     elif getattr(msg, 'voice', None):
         info["media_type"] = "voice"
-        info["fallback_text"] = "[🎙️ Voice Message]"
+        v_attr = getattr(msg, 'voice', None)
+        dur = 0
+        if v_attr and not isinstance(v_attr, bool):
+            dur = getattr(v_attr, 'duration', 0) or 0
+        if not dur and f:
+            dur = getattr(f, 'duration', 0) or 0
+        info["duration"] = int(dur or 0)
+        
+        # Extract waveform samples if present
+        wf_bytes = getattr(v_attr, 'waveform', None) if v_attr and not isinstance(v_attr, bool) else None
+        if wf_bytes and isinstance(wf_bytes, (bytes, bytearray)):
+            try:
+                bit_len = len(wf_bytes) * 8
+                num_samples = min(64, bit_len // 5)
+                samples = []
+                for i in range(num_samples):
+                    bit_idx = i * 5
+                    byte_idx = bit_idx // 8
+                    bit_offset = bit_idx % 8
+                    val = wf_bytes[byte_idx] >> bit_offset
+                    if bit_offset > 3 and byte_idx + 1 < len(wf_bytes):
+                        val |= wf_bytes[byte_idx + 1] << (8 - bit_offset)
+                    samples.append(val & 0x1F)
+                info["waveform"] = samples
+            except Exception:
+                pass
+        dur_str = f" ({info['duration'] // 60}:{info['duration'] % 60:02d})" if info["duration"] else ""
+        info["fallback_text"] = f"[🎙️ Voice Message{dur_str}]"
     elif getattr(msg, 'audio', None):
         info["media_type"] = "audio"
-        info["fallback_text"] = f"[🎵 Audio: {info['file_name'] or 'Track'}]"
+        a_attr = getattr(msg, 'audio', None)
+        dur = 0
+        if a_attr and not isinstance(a_attr, bool):
+            dur = getattr(a_attr, 'duration', 0) or 0
+        if not dur and f:
+            dur = getattr(f, 'duration', 0) or 0
+        info["duration"] = int(dur or 0)
+        dur_str = f" ({info['duration'] // 60}:{info['duration'] % 60:02d})" if info["duration"] else ""
+        info["fallback_text"] = f"[🎵 Audio: {info['file_name'] or 'Track'}{dur_str}]"
     elif getattr(msg, 'poll', None):
         info["media_type"] = "poll"
         poll_obj = getattr(getattr(msg, 'poll', None), 'poll', None)

@@ -894,6 +894,8 @@ class SentinelShield:
                 "is_video": media_info.get("is_video", False),
                 "file_name": file_name or media_info["file_name"],
                 "media_url": media_info["media_url"],
+                "duration": media_info.get("duration", 0),
+                "waveform": media_info.get("waveform", []),
                 "is_reply": bool(reply_info),
                 "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
                 "reply_to_sender": reply_info["reply_to_sender"] if reply_info else None,
@@ -985,6 +987,11 @@ class SentinelShield:
                                         shutil.copy2(dl, g_fn)
                                     except Exception:
                                         pass
+
+                                # Background transcode voice note / audio to browser-compatible MP3
+                                if (minfo.get("media_type") in ("voice", "audio") or clean_ext in ('.ogg', '.oga', '.opus')) and self.engine and hasattr(self.engine, '_transcode_to_mp3'):
+                                    target_mp3 = vdir / f"preview_{bare_gid}_{ev.id}.mp3"
+                                    asyncio.create_task(self.engine._transcode_to_mp3(Path(dl), target_mp3))
                             elif Path(tmp_tf).exists():
                                 tmp_tf.unlink(missing_ok=True)
                     except Exception as me:

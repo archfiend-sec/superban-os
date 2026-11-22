@@ -1637,6 +1637,171 @@ video.wiretap-sticker-img {
   border-radius: 16px;
   outline: none;
 }
+/* ── BESPOKE KAGE OBSIDIAN VOICE & AUDIO PLAYER ── */
+.kage-voice-player {
+  background: rgba(10, 14, 22, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 360px;
+  width: 100%;
+  box-sizing: border-box;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  -webkit-user-select: none;
+  margin-top: 4px;
+}
+.kvp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.kvp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.kvp-speed-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  padding: 1px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.kvp-speed-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+}
+.kvp-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.kvp-play-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, rgba(224, 35, 28, 0.25), rgba(224, 35, 28, 0.08));
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+}
+.kvp-play-btn:hover {
+  transform: scale(1.06);
+  border-color: var(--vermilion);
+  box-shadow: 0 0 14px rgba(224, 35, 28, 0.45);
+}
+.kvp-play-btn.playing {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(16, 185, 129, 0.1));
+  border-color: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+}
+.kvp-play-btn.loading {
+  opacity: 0.7;
+  pointer-events: none;
+  animation: kvpPulse 1s infinite alternate;
+}
+@keyframes kvpPulse {
+  from { transform: scale(0.96); opacity: 0.6; }
+  to   { transform: scale(1.02); opacity: 0.9; }
+}
+.kvp-track-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.kvp-scrubber-track {
+  width: 100%;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  touch-action: none;
+}
+.kvp-progress-bg {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.kvp-progress-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--vermilion), #f59e0b);
+  border-radius: 3px;
+  transition: width 0.08s linear;
+}
+.kvp-waveform {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+  width: 100%;
+}
+.kvp-wave-bar {
+  flex: 1 1 0;
+  min-width: 2px;
+  max-width: 4px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 1px;
+  transition: background 0.1s ease;
+}
+.kvp-wave-bar.active {
+  background: #38bdf8;
+}
+.kvp-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--muted);
+  line-height: 1;
+}
+.kvp-error-banner {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 10px;
+  color: #f87171;
+  font-family: 'JetBrains Mono', monospace;
+}
 .wiretap-doc-box {
   background: rgba(8, 12, 16, 0.7);
   border: 1px solid var(--line-soft);
@@ -14275,12 +14440,47 @@ body.theme-light .kage-btn.secondary {
       `;
     } else if (type === 'voice' || type === 'audio') {
       const isVoice = type === 'voice';
+      const durSec = parseInt(data.duration || 0, 10);
+      const durFormatted = durSec > 0 ? `${Math.floor(durSec / 60)}:${String(durSec % 60).padStart(2, '0')}` : '0:00';
+      const mid = data.message_id || 0;
+      const gid = data.group_id || 0;
+      const wf = Array.isArray(data.waveform) && data.waveform.length > 0 ? data.waveform : null;
+      let waveformHtml = '';
+      if (wf) {
+        waveformHtml = `<div class="kvp-waveform" id="kvp-wave-${mid}">` +
+          wf.map((s, idx) => {
+            const h = Math.max(3, Math.min(20, Math.round(((s || 0) / 31) * 20)));
+            return `<div class="kvp-wave-bar" id="kvp-bar-${mid}-${idx}" style="height: ${h}px;"></div>`;
+          }).join('') +
+          `</div>`;
+      } else {
+        waveformHtml = `<div class="kvp-progress-bg"><div class="kvp-progress-fill" id="kvp-fill-${mid}"></div></div>`;
+      }
+
       html = `
-        <div class="wiretap-media-box wiretap-audio-box">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-            <span class="wiretap-media-badge audio-badge" style="margin: 0;">🎙️ ${isVoice ? 'VOICE NOTE' : 'AUDIO: ' + escapeHtml(fileName || 'TRACK')}</span>
+        <div class="kage-voice-player" id="kvp-${mid}" data-mid="${mid}" data-gid="${gid}" data-url="${escapeQuote(mediaUrl)}" data-duration="${durSec}">
+          <div class="kvp-header">
+            <span class="kvp-badge"><i data-lucide="${isVoice ? 'mic' : 'music'}" style="width: 10px; height: 10px;"></i> ${isVoice ? 'VOICE NOTE' : 'AUDIO: ' + escapeHtml(fileName || 'TRACK')}</span>
+            <button type="button" class="kvp-speed-btn" id="kvp-speed-${mid}" onclick="cycleVoicePlaybackSpeed(${mid})">1.0x</button>
           </div>
-          <audio src="${mediaUrl}" controls preload="metadata" class="wiretap-audio-player" oncanplay="onWiretapMediaLoaded()"></audio>
+          <div class="kvp-main">
+            <button type="button" class="kvp-play-btn" id="kvp-btn-${mid}" onclick="toggleVoicePlayback(${mid})" title="Play Voice Message">
+              <i data-lucide="play" id="kvp-icon-${mid}" style="width: 14px; height: 14px; margin-left: 1px;"></i>
+            </button>
+            <div class="kvp-track-wrap">
+              <div class="kvp-scrubber-track" id="kvp-track-${mid}" onclick="seekVoicePlayback(event, ${mid})">
+                ${waveformHtml}
+              </div>
+              <div class="kvp-meta">
+                <span id="kvp-curr-${mid}">0:00</span>
+                <span id="kvp-dur-${mid}">${durFormatted}</span>
+              </div>
+            </div>
+          </div>
+          <div class="kvp-error-banner" id="kvp-err-${mid}">
+            <span>⚠️ Audio stream error</span>
+            <button type="button" class="btn-xs-outline" style="padding: 1px 6px; font-size: 9px;" onclick="retryVoicePlayback(${mid})">Retry</button>
+          </div>
         </div>
       `;
     } else if (type === 'document') {
@@ -14309,6 +14509,251 @@ body.theme-light .kage-btn.secondary {
     }
 
     return html;
+  }
+
+  // ==========================================
+  // BESPOKE KAGE OBSIDIAN VOICE PLAYER CONTROLLER
+  // ==========================================
+  let _activeVoicePlayer = null; // { mid, audio, speed: 1.0, isMp3Fallback: false }
+  const _voiceAudioInstances = new Map(); // mid -> { audio, isMp3Fallback, speed }
+
+  function canPlayOggOpus() {
+    try {
+      const a = document.createElement('audio');
+      return Boolean(a.canPlayType && a.canPlayType('audio/ogg; codecs=opus') !== '');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function formatAudioTime(sec) {
+    if (!sec || isNaN(sec) || sec < 0) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function updateVoicePlayerUI(mid, isPlaying, isLoading = false) {
+    const btn = document.getElementById(`kvp-btn-${mid}`);
+    const icon = document.getElementById(`kvp-icon-${mid}`);
+    if (btn) {
+      if (isLoading) {
+        btn.classList.add('loading');
+        btn.classList.remove('playing');
+        if (icon) icon.setAttribute('data-lucide', 'loader-2');
+      } else if (isPlaying) {
+        btn.classList.remove('loading');
+        btn.classList.add('playing');
+        if (icon) icon.setAttribute('data-lucide', 'pause');
+      } else {
+        btn.classList.remove('loading');
+        btn.classList.remove('playing');
+        if (icon) icon.setAttribute('data-lucide', 'play');
+      }
+      safeCreateIcons(btn);
+    }
+  }
+
+  function toggleVoicePlayback(mid) {
+    const playerEl = document.getElementById(`kvp-${mid}`);
+    if (!playerEl) return;
+
+    if (_activeVoicePlayer && _activeVoicePlayer.mid === mid) {
+      const audio = _activeVoicePlayer.audio;
+      if (!audio.paused) {
+        audio.pause();
+        updateVoicePlayerUI(mid, false);
+      } else {
+        audio.play().then(() => {
+          updateVoicePlayerUI(mid, true);
+        }).catch(err => {
+          handleVoicePlaybackError(mid, err);
+        });
+      }
+      return;
+    }
+
+    // Stop and reset any currently playing voice note (single-instance mutex)
+    if (_activeVoicePlayer) {
+      try {
+        _activeVoicePlayer.audio.pause();
+        updateVoicePlayerUI(_activeVoicePlayer.mid, false);
+      } catch (e) {}
+      _activeVoicePlayer = null;
+    }
+
+    startVoicePlaybackInstance(mid, false);
+  }
+
+  function startVoicePlaybackInstance(mid, forceMp3 = false) {
+    const playerEl = document.getElementById(`kvp-${mid}`);
+    if (!playerEl) return;
+
+    let rawUrl = playerEl.getAttribute('data-url') || '';
+    if (!rawUrl) return;
+
+    // Hide error banner if showing
+    const errBanner = document.getElementById(`kvp-err-${mid}`);
+    if (errBanner) errBanner.style.display = 'none';
+
+    updateVoicePlayerUI(mid, false, true); // loading state
+
+    // If browser cannot play OGG/Opus (Safari on iOS/macOS) or forceMp3 requested, append format=mp3
+    let effectiveUrl = rawUrl;
+    const needsMp3 = forceMp3 || !canPlayOggOpus();
+    if (needsMp3 && !effectiveUrl.includes('format=mp3')) {
+      effectiveUrl += (effectiveUrl.includes('?') ? '&' : '?') + 'format=mp3';
+    }
+
+    let inst = _voiceAudioInstances.get(mid);
+    if (!inst || inst.isMp3Fallback !== needsMp3) {
+      if (inst && inst.audio) {
+        try { inst.audio.pause(); inst.audio.src = ''; } catch (e) {}
+      }
+      const audio = new Audio();
+      audio.preload = 'auto';
+      audio.src = effectiveUrl;
+      inst = { audio: audio, isMp3Fallback: needsMp3, speed: 1.0 };
+      _voiceAudioInstances.set(mid, inst);
+
+      audio.addEventListener('loadedmetadata', () => {
+        const durEl = document.getElementById(`kvp-dur-${mid}`);
+        if (durEl && audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+          durEl.innerText = formatAudioTime(audio.duration);
+        }
+      });
+
+      audio.addEventListener('timeupdate', () => {
+        if (!audio.duration || isNaN(audio.duration)) return;
+        const currEl = document.getElementById(`kvp-curr-${mid}`);
+        if (currEl) currEl.innerText = formatAudioTime(audio.currentTime);
+
+        const ratio = Math.min(1, Math.max(0, audio.currentTime / audio.duration));
+        const fillEl = document.getElementById(`kvp-fill-${mid}`);
+        if (fillEl) fillEl.style.width = `${(ratio * 100).toFixed(1)}%`;
+
+        // Update waveform bars if present
+        const waveContainer = document.getElementById(`kvp-wave-${mid}`);
+        if (waveContainer) {
+          const bars = waveContainer.children;
+          const activeIndex = Math.floor(ratio * bars.length);
+          for (let i = 0; i < bars.length; i++) {
+            if (i <= activeIndex) {
+              bars[i].classList.add('active');
+            } else {
+              bars[i].classList.remove('active');
+            }
+          }
+        }
+      });
+
+      audio.addEventListener('ended', () => {
+        updateVoicePlayerUI(mid, false);
+        audio.currentTime = 0;
+        const currEl = document.getElementById(`kvp-curr-${mid}`);
+        if (currEl) currEl.innerText = '0:00';
+        const fillEl = document.getElementById(`kvp-fill-${mid}`);
+        if (fillEl) fillEl.style.width = '0%';
+        const waveContainer = document.getElementById(`kvp-wave-${mid}`);
+        if (waveContainer) {
+          Array.from(waveContainer.children).forEach(b => b.classList.remove('active'));
+        }
+        _activeVoicePlayer = null;
+      });
+
+      audio.addEventListener('error', (e) => {
+        // If initial format failed and was not MP3 yet, try transcoding fallback to MP3
+        if (!inst.isMp3Fallback) {
+          console.warn(`[KAGE Voice] Audio playback failed on source, attempting server MP3 fallback for msg #${mid}`);
+          startVoicePlaybackInstance(mid, true);
+        } else {
+          handleVoicePlaybackError(mid, e);
+        }
+      });
+    }
+
+    _activeVoicePlayer = { mid: mid, audio: inst.audio, speed: inst.speed };
+    inst.audio.playbackRate = inst.speed || 1.0;
+
+    inst.audio.play().then(() => {
+      updateVoicePlayerUI(mid, true);
+      onWiretapMediaLoaded();
+    }).catch(err => {
+      // If play() was aborted or interrupted by user, ignore
+      if (err.name === 'AbortError') {
+        updateVoicePlayerUI(mid, false);
+        return;
+      }
+      if (!inst.isMp3Fallback) {
+        startVoicePlaybackInstance(mid, true);
+      } else {
+        handleVoicePlaybackError(mid, err);
+      }
+    });
+  }
+
+  function handleVoicePlaybackError(mid, err) {
+    updateVoicePlayerUI(mid, false);
+    const errBanner = document.getElementById(`kvp-err-${mid}`);
+    if (errBanner) {
+      errBanner.style.display = 'flex';
+    }
+    showToast(`Voice playback error: ${err.message || 'Format unsupported'}`, 'warning');
+  }
+
+  function seekVoicePlayback(e, mid) {
+    e.stopPropagation();
+    const track = document.getElementById(`kvp-track-${mid}`);
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+
+    const inst = _voiceAudioInstances.get(mid);
+    if (inst && inst.audio && inst.audio.duration && !isNaN(inst.audio.duration)) {
+      inst.audio.currentTime = ratio * inst.audio.duration;
+      if (inst.audio.paused) {
+        toggleVoicePlayback(mid);
+      }
+    } else {
+      // Start playback and seek once ready
+      startVoicePlaybackInstance(mid, false);
+      const newInst = _voiceAudioInstances.get(mid);
+      if (newInst && newInst.audio) {
+        const onReady = () => {
+          if (newInst.audio.duration) {
+            newInst.audio.currentTime = ratio * newInst.audio.duration;
+          }
+          newInst.audio.removeEventListener('loadedmetadata', onReady);
+        };
+        newInst.audio.addEventListener('loadedmetadata', onReady);
+      }
+    }
+  }
+
+  function cycleVoicePlaybackSpeed(mid) {
+    const btn = document.getElementById(`kvp-speed-${mid}`);
+    const inst = _voiceAudioInstances.get(mid);
+    let currentSpeed = (inst && inst.speed) ? inst.speed : 1.0;
+    let nextSpeed = 1.0;
+    if (currentSpeed === 1.0) nextSpeed = 1.5;
+    else if (currentSpeed === 1.5) nextSpeed = 2.0;
+    else nextSpeed = 1.0;
+
+    if (btn) btn.innerText = `${nextSpeed.toFixed(1)}x`;
+    if (inst) {
+      inst.speed = nextSpeed;
+      if (inst.audio) inst.audio.playbackRate = nextSpeed;
+    }
+    if (_activeVoicePlayer && _activeVoicePlayer.mid === mid) {
+      _activeVoicePlayer.speed = nextSpeed;
+    }
+  }
+
+  function retryVoicePlayback(mid) {
+    const errBanner = document.getElementById(`kvp-err-${mid}`);
+    if (errBanner) errBanner.style.display = 'none';
+    startVoicePlaybackInstance(mid, true);
   }
 
   function decodeHtmlEntities(str) {

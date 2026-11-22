@@ -1833,6 +1833,8 @@ class SuperBanEngine:
                     "is_video": media_info.get("is_video", False),
                     "file_name": media_info["file_name"],
                     "media_url": media_info["media_url"],
+                    "duration": media_info.get("duration", 0),
+                    "waveform": media_info.get("waveform", []),
                     "group_id": gid,
                     "is_reply": bool(reply_info),
                     "reply_to_msg_id": reply_info["reply_to_msg_id"] if reply_info else None,
@@ -1968,14 +1970,41 @@ class SuperBanEngine:
                 await self.db.log_ingestion_audit("recovery", group_id, "", start_id, "failed", str(e))
             return {"status": "failed", "recovered": 0, "detail": str(e)}
 
-    async def get_media_preview_file(self, group_id: int, message_id: int, prefer_thumb: bool = False) -> Optional[str]:
+    async def _transcode_to_mp3(self, source_path: Path, target_mp3: Path) -> bool:
+        """Transcode OGG/Opus/OGA voice note to universal MP3 format using ffmpeg."""
+        try:
+            if not source_path.exists() or source_path.stat().st_size == 0:
+                return False
+            if target_mp3.exists() and target_mp3.stat().st_size > 0:
+                return True
+
+            ffmpeg_bin = self._get_ffmpeg_bin()
+            tmp_target = target_mp3.parent / f"{target_mp3.stem}_{secrets.token_hex(4)}.tmp"
+            proc = await asyncio.create_subprocess_exec(
+                ffmpeg_bin, "-y", "-i", str(source_path),
+                "-c:a", "libmp3lame", "-b:a", "64k",
+                "-ar", "44100",
+                str(tmp_target),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL
+            )
+            await asyncio.wait_for(proc.wait(), timeout=12.0)
+            if tmp_target.exists() and tmp_target.stat().st_size > 0:
+                os.replace(tmp_target, target_mp3)
+                logger.info(f"🎙️ Transcoded voice note to MP3: {target_mp3.name} ({target_mp3.stat().st_size} bytes)")
+                return True
+        except Exception as e:
+            logger.debug(f"Voice note transcoding error: {e}")
+        return False
+
+    async def get_media_preview_file(self, group_id: int, message_id: int, prefer_thumb: bool = False, target_format: Optional[str] = None) -> Optional[str]:
         """Fetch or retrieve cached media preview (photo, sticker, gif, video, voice, doc) for wiretap."""
         raw_gid = str(abs(int(group_id))) if group_id else ""
         bare_gid = raw_gid.replace("100", "", 1) if raw_gid.startswith("100") and len(raw_gid) > 5 else raw_gid
         full_gid = f"100{bare_gid}"
         gid_variants = {raw_gid, bare_gid, full_gid}
 
-        vault_dir = Path(__file__).resolve().parent.parent / "media_vault"
+        vault_dir = Path(getattr(self, "media_vault_dir", Path(__file__).resolve().parent.parent / "media_vault"))
         vault_dir.mkdir(parents=True, exist_ok=True)
 
         # 1. Check if a background download task is currently in-flight first to eliminate race conditions
@@ -1988,7 +2017,7 @@ class SuperBanEngine:
 
         # 2. Browser-compatible cache check across all polymorphic group_id variants
         target_prefixes = tuple(f"{p}_{gv}_{message_id}." for p in ("ghost", "preview", "thumb") for gv in gid_variants)
-        browser_renderable_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm"}
+        browser_renderable_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm", ".ogg", ".oga", ".opus", ".mp3", ".m4a", ".aac", ".wav"}
         found_thumbs = []
         found_previews = []
 
@@ -2003,6 +2032,17 @@ class SuperBanEngine:
                             found_thumbs.append(str(f.resolve()))
                         else:
                             found_previews.append(str(f.resolve()))
+
+        # If MP3 format is requested, prioritize MP3 or transcode on demand from cached OGG
+        if target_format == 'mp3':
+            mp3_match = next((p for p in found_previews if p.lower().endswith('.mp3')), None)
+            if mp3_match:
+                return mp3_match
+            ogg_match = next((p for p in found_previews if p.lower().endswith(('.ogg', '.oga', '.opus'))), None)
+            if ogg_match:
+                target_mp3 = vault_dir / f"preview_{bare_gid}_{message_id}.mp3"
+                if await self._transcode_to_mp3(Path(ogg_match), target_mp3):
+                    return str(target_mp3.resolve())
 
         if prefer_thumb:
             if found_thumbs:
@@ -2032,6 +2072,8 @@ class SuperBanEngine:
             mime = getattr(getattr(msg, 'file', None), 'mime_type', '') or ''
             is_sticker = bool(getattr(msg, 'sticker', None))
             is_tgs = is_sticker and ('tgsticker' in mime or ext.lower() == '.tgs')
+            is_voice = bool(getattr(msg, 'voice', None))
+            is_audio = bool(getattr(msg, 'audio', None))
 
             clean_ext = ext if ext.startswith('.') else f".{ext}" if ext else ".jpg"
             target_file = vault_dir / f"preview_{bare_gid}_{message_id}{clean_ext}"
@@ -2067,7 +2109,16 @@ class SuperBanEngine:
 
             if not downloaded and not is_tgs:
                 tmp_target = vault_dir / f"preview_{bare_gid}_{message_id}_{secrets.token_hex(4)}.tmp"
-                dl = await self.client.download_media(msg, file=str(tmp_target))
+                try:
+                    dl = await self.client.download_media(msg, file=str(tmp_target))
+                except Exception as dl_err:
+                    # If file reference expired, refresh message once and retry
+                    from telethon.errors import FileReferenceExpiredError
+                    if isinstance(dl_err, FileReferenceExpiredError):
+                        msg = await self.client.get_messages(entity, ids=message_id)
+                        dl = await self.client.download_media(msg, file=str(tmp_target))
+                    else:
+                        raise dl_err
                 if dl and Path(dl).exists() and Path(dl).stat().st_size > 0:
                     os.replace(dl, target_file)
                     downloaded = str(target_file)
@@ -2090,6 +2141,14 @@ class SuperBanEngine:
                         shutil.copy2(downloaded, ghost_copy)
                     except Exception:
                         pass
+
+                # If voice message or OGG audio, ensure companion MP3 is generated for universal browser playback
+                if is_voice or is_audio or clean_ext in ('.ogg', '.oga', '.opus'):
+                    target_mp3 = vault_dir / f"preview_{bare_gid}_{message_id}.mp3"
+                    await self._transcode_to_mp3(Path(downloaded), target_mp3)
+                    if target_format == 'mp3' and target_mp3.exists() and target_mp3.stat().st_size > 0:
+                        return str(target_mp3.resolve())
+
                 return str(Path(downloaded).resolve())
         except Exception as e:
             logger.debug(f"Failed to fetch media preview for {group_id}/{message_id}: {e}")
@@ -2099,7 +2158,7 @@ class SuperBanEngine:
     async def get_user_avatar(self, user_id: int, big: bool = False) -> Optional[str]:
         """Fetch or retrieve cached user profile photo (avatar/PFP)."""
         uid = int(user_id)
-        vault_dir = Path(__file__).resolve().parent.parent / "media_vault" / "avatars"
+        vault_dir = Path(getattr(self, "media_vault_dir", Path(__file__).resolve().parent.parent / "media_vault")) / "avatars"
         vault_dir.mkdir(parents=True, exist_ok=True)
 
         suffix = "_big" if big else ""

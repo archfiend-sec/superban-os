@@ -2615,9 +2615,13 @@ def create_app(engine: SuperBanEngine):
         )
 
     @app.get("/api/media/preview/{group_id}/{message_id}")
-    async def get_media_preview(group_id: int, message_id: int, thumb: bool = False):
-        """Live wiretap media & sticker/GIF/photo/video preview streaming."""
-        file_path_str = await engine.get_media_preview_file(group_id, message_id, prefer_thumb=thumb)
+    async def get_media_preview(group_id: int, message_id: int, thumb: bool = False, format: Optional[str] = None, request: Request = None):
+        """Live wiretap media & sticker/GIF/photo/video/voice preview streaming."""
+        user_agent = request.headers.get("user-agent", "") if request else ""
+        is_safari_only = "Safari" in user_agent and "Chrome" not in user_agent and "Chromium" not in user_agent
+        target_fmt = "mp3" if (format == "mp3" or (is_safari_only and not format)) else format
+
+        file_path_str = await engine.get_media_preview_file(group_id, message_id, prefer_thumb=thumb, target_format=target_fmt)
         if not file_path_str:
             raise HTTPException(status_code=404, detail="Media preview unavailable")
 
@@ -2662,7 +2666,11 @@ def create_app(engine: SuperBanEngine):
             ".webm": "video/webm",
             ".ogg": "audio/ogg",
             ".oga": "audio/ogg",
+            ".opus": "audio/ogg",
             ".mp3": "audio/mpeg",
+            ".m4a": "audio/mp4",
+            ".aac": "audio/aac",
+            ".wav": "audio/wav",
             ".pdf": "application/pdf"
         }
         mime_type = mime_map.get(ext) or mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
@@ -2671,7 +2679,8 @@ def create_app(engine: SuperBanEngine):
             str(file_path),
             media_type=mime_type,
             headers={
-                "Cache-Control": "public, max-age=604800, immutable",
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "private, max-age=604800",
                 "X-Content-Type-Options": "nosniff"
             }
         )
