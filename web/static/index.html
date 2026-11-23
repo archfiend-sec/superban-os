@@ -163,36 +163,13 @@ h1, h2, h3, h4 { font-family: 'Onest', sans-serif; font-weight: 400; margin: 0; 
   .mob-txt { display: inline !important; }
 }
 
-/* Compact System Health Bar */
-.kage-sys-health-bar {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(14, 18, 28, 0.75);
-  border: 1px solid var(--line-soft);
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 9.5px;
-  white-space: nowrap;
-  flex-shrink: 0;
+/* Compact System Health Bar (Preserved in DOM for background telemetry, hidden from visible top nav) */
+.kage-sys-health-bar,
+#kage-sys-health-compact {
+  display: none !important;
 }
 .desk-only {
   display: inline-flex;
-}
-@media (max-width: 767px), (max-height: 500px) and (pointer: coarse) and (max-width: 920px) {
-  .kage-sys-health-bar,
-  #kage-sys-health-compact,
-  .desk-only {
-    display: none !important;
-  }
-}
-html[data-device="mobile"] .kage-sys-health-bar,
-html[data-device="mobile"] #kage-sys-health-compact,
-html[data-device="mobile"] .desk-only,
-body.device-mobile .kage-sys-health-bar,
-body.device-mobile #kage-sys-health-compact,
-body.device-mobile .desk-only {
-  display: none !important;
 }
 .sys-health-pill {
   display: inline-flex;
@@ -2708,7 +2685,6 @@ body.device-tablet #kage-mobile-dock {
   .kage-sys-health-bar, #kage-sys-health-compact { display: none !important; }
   header #btn-audio { display: none !important; }
   header #owner-clearance-nav-btn { display: none !important; }
-  header #owner-logout-btn { display: none !important; }
   .desk-only { display: none !important; }
 
   /* Clean Mobile Target Group Selector Pill in Header */
@@ -3627,6 +3603,32 @@ body.device-tablet #kage-mobile-dock {
   #kage-mobile-dock {
     display: none !important;
   }
+  /* Tablet Navigation Polish */
+  .nav {
+    height: 56px !important;
+    padding: 0 14px !important;
+    gap: 8px !important;
+  }
+  .brand {
+    gap: 8px !important;
+  }
+  .brand-tx i {
+    display: none !important;
+  }
+  .view-mode-pill {
+    margin-left: 6px !important;
+  }
+  .view-pill-btn {
+    padding: 4px 10px !important;
+    font-size: 10.5px !important;
+  }
+  .nav-right-cluster {
+    gap: 6px !important;
+  }
+  .kage-btn-pill {
+    padding: 5px 10px !important;
+    font-size: 10.5px !important;
+  }
 }
 @media (min-width: 851px) and (max-width: 1180px) {
   .hud-body {
@@ -4327,6 +4329,46 @@ html, body {
 }
 .kage-btn-pill:active {
   transform: scale(0.97) !important;
+}
+
+/* Restored Premium LOGOUT Button in Navigation */
+.kage-logout-btn,
+header #owner-logout-btn {
+  align-items: center;
+  gap: 6px;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #f87171 !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  cursor: pointer !important;
+  transition: all var(--ease-apple, 0.2s ease) !important;
+}
+
+.kage-logout-btn:hover,
+header #owner-logout-btn:hover {
+  border-color: rgba(239, 68, 68, 0.85) !important;
+  color: #ffffff !important;
+  background: rgba(239, 68, 68, 0.22) !important;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.4) !important;
+  transform: translateY(-0.5px) !important;
+}
+
+.kage-logout-btn:active,
+header #owner-logout-btn:active {
+  transform: scale(0.97) !important;
+}
+
+body.theme-light .kage-logout-btn,
+body.theme-light header #owner-logout-btn {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #dc2626 !important;
+}
+body.theme-light .kage-logout-btn:hover,
+body.theme-light header #owner-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #b91c1c !important;
 }
 
 /* Active Operator Clearance Badge (Apple Status Capsule) */
@@ -5432,7 +5474,6 @@ html.warroom-active #vignette {
   .kage-nav-dropdown-wrap,
   header #btn-audio,
   header #owner-clearance-nav-btn,
-  header #owner-logout-btn,
   header .kage-btn-pill:not(.mob-action-pill),
   .nav-mobile-status,
   .desk-only {
@@ -6949,6 +6990,9 @@ body.theme-light .kage-btn.secondary {
       <button type="button" onclick="openSearchModal()" class="kage-btn-pill mob-action-pill" title="Global Forensic Search">
         <i data-lucide="search" style="width: 13px; height: 13px;"></i>
       </button>
+      <button type="button" onclick="confirmAndLogout()" id="mob-nav-logout-btn" class="kage-btn-pill mob-action-pill kage-logout-btn" title="Logout and Invalidate Session" style="display: none;">
+        <i data-lucide="log-out" style="width: 13px; height: 13px; color: #ef4444;"></i>
+      </button>
     </div>
 
     <!-- Voice Chamber Apex -->
@@ -7012,11 +7056,16 @@ body.theme-light .kage-btn.secondary {
           <i id="theme-toggle-desktop-icon" data-lucide="sun" style="width: 13px; height: 13px; color: #f59e0b;"></i>
           <span id="theme-toggle-desktop-text">Daylight / Obsidian Theme</span>
         </button>
+        <div style="border-top: 1px solid var(--line-soft); margin: 4px 0;"></div>
+        <button type="button" id="nav-tools-logout-btn" onclick="closeNavToolsDropdown(); confirmAndLogout();" class="kage-dropdown-item text-danger" style="color: #ef4444; display: none;" title="Terminate Operator Session">
+          <i data-lucide="log-out" style="width: 13px; height: 13px; color: #ef4444;"></i>
+          <span>Terminate Session // LOGOUT</span>
+        </button>
       </div>
     </div>
 
-    <!-- Compact System Health Monitor -->
-    <div id="kage-sys-health-compact" class="kage-sys-health-bar font-mono" title="KAGE System Health & MTProto Ingestion Status">
+    <!-- Compact System Health Monitor (Preserved in DOM for background polling, hidden visually from header) -->
+    <div id="kage-sys-health-compact" class="kage-sys-health-bar font-mono" style="display: none;" title="KAGE System Health & MTProto Ingestion Status">
       <span class="sys-health-pill" id="health-tg-pill"><span class="health-dot active" id="health-tg-dot"></span> <span id="health-tg-status">TG: CONNECTED</span></span>
       <span class="sys-health-pill" id="health-backend-pill"><span class="health-dot active" id="health-be-dot"></span> <span id="health-backend-status">API: OK</span></span>
       <span class="sys-health-pill" id="health-jobs-pill"><span class="health-dot idle" id="health-jobs-dot"></span> <span id="health-jobs-status">JOBS: IDLE</span></span>
@@ -7029,9 +7078,9 @@ body.theme-light .kage-btn.secondary {
       <span>Clearances</span>
     </button>
 
-    <!-- Owner Logout Button (Explicit Logout & Session Revocation) -->
-    <button id="owner-logout-btn" onclick="logoutOwner()" class="kage-btn-pill" style="border-color: rgba(224,35,28,0.5); color: #ef4444; display: none;" title="Logout and Invalidate Session">
-      <i data-lucide="log-out" style="width: 12px; height: 12px;"></i>
+    <!-- Universal Owner Logout Button (Explicit Logout & Session Revocation) -->
+    <button id="owner-logout-btn" onclick="confirmAndLogout()" class="kage-btn-pill kage-logout-btn" style="border-color: rgba(239,68,68,0.5); color: #ef4444; display: none;" title="Logout and Invalidate Session">
+      <i data-lucide="log-out" style="width: 12px; height: 12px; color: #ef4444;"></i>
       <span>LOGOUT</span>
     </button>
 
@@ -9713,6 +9762,11 @@ body.theme-light .kage-btn.secondary {
         <i id="theme-toggle-mobile-icon" data-lucide="sun" style="color: #f59e0b;"></i>
         <b id="theme-toggle-mobile-label">Theme Switcher</b>
         <span id="theme-toggle-mobile-desc">Daylight / Obsidian</span>
+      </button>
+      <button id="mob-logout-card" type="button" onclick="closeMobileToolsSheet(); confirmAndLogout();" class="mobile-tool-card danger" style="border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.08); display: none;">
+        <i data-lucide="log-out" style="color: #ef4444;"></i>
+        <b style="color: #ef4444;">Terminate Session</b>
+        <span style="color: #f87171;">Logout &amp; Revoke Keys</span>
       </button>
     </div>
   </div>
@@ -21281,6 +21335,20 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
+  function updateLogoutButtonVisibility(visible) {
+    const deskBtn = document.getElementById('owner-logout-btn');
+    if (deskBtn) deskBtn.style.display = visible ? 'inline-flex' : 'none';
+
+    const mobBtn = document.getElementById('mob-nav-logout-btn');
+    if (mobBtn) mobBtn.style.display = visible ? 'inline-flex' : 'none';
+
+    const dropdownLogout = document.getElementById('nav-tools-logout-btn');
+    if (dropdownLogout) dropdownLogout.style.display = visible ? 'flex' : 'none';
+
+    const mobSheetLogout = document.getElementById('mob-logout-card');
+    if (mobSheetLogout) mobSheetLogout.style.display = visible ? 'flex' : 'none';
+  }
+
   function renderOperatorControls(isOwner) {
     const navBtn = document.getElementById('owner-clearance-nav-btn');
     if (navBtn) navBtn.style.display = isOwner ? 'inline-flex' : 'none';
@@ -21292,9 +21360,8 @@ body.theme-light .kage-btn.secondary {
     const lock = document.getElementById('owner-lockscreen');
     const userInput = document.getElementById('owner-username-input');
     const pinInput = document.getElementById('owner-pin-input');
-    const logoutBtn = document.getElementById('owner-logout-btn');
 
-    if (logoutBtn) logoutBtn.style.display = 'none';
+    updateLogoutButtonVisibility(false);
     if (!lock) return;
 
     lock.style.display = 'flex';
@@ -21323,8 +21390,7 @@ body.theme-light .kage-btn.secondary {
 
   function hideOwnerLockscreen() {
     const lock = document.getElementById('owner-lockscreen');
-    const logoutBtn = document.getElementById('owner-logout-btn');
-    if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+    updateLogoutButtonVisibility(true);
     if (lock) {
       lock.style.opacity = '0';
       lock.style.pointerEvents = 'none';
@@ -21592,17 +21658,43 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
+  async function confirmAndLogout() {
+    const confirmed = await showKageConfirm(
+      "Terminate operator session and revoke all active access keys?",
+      {
+        title: "TERMINATE SESSION // ログアウト",
+        confirmText: "LOGOUT / 終了",
+        danger: true
+      }
+    );
+    if (!confirmed) return;
+    await logoutOwner();
+  }
+
   async function logoutOwner() {
     try {
-      await fetch('/api/owner/logout', { method: 'POST' });
-    } catch (e) {}
+      if (window.showToast) {
+        showToast('Terminating session and revoking credentials...', 'info');
+      }
+      const token = getStoredOwnerToken();
+      const headers = {};
+      if (token) {
+        headers['X-Owner-Token'] = token;
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      await fetch('/api/owner/logout', { method: 'POST', headers });
+    } catch (e) {
+      console.warn('Logout endpoint call warning:', e);
+    }
     clearStoredOwnerToken();
-    sessionStorage.clear();
+    try { sessionStorage.clear(); } catch(e) {}
+    try { localStorage.removeItem('kage_owner_token'); } catch(e) {}
     isOwnerVerified = false;
     operatorRole = 'guest';
     if (ws) {
       try { ws.close(); } catch(e) {}
     }
+    updateLogoutButtonVisibility(false);
     // Prevent back navigation restoring cached authenticated session
     window.location.replace('/?logout=' + Date.now());
   }

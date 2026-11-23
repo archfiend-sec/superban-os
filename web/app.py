@@ -745,6 +745,7 @@ def create_app(engine: SuperBanEngine):
         forwarded_proto = (request.headers.get("x-forwarded-proto") or "").lower()
         is_secure = request.url.scheme == "https" or "https" in forwarded_proto
         response.delete_cookie(key="owner_token", path="/", httponly=True, secure=is_secure, samesite="lax")
+        response.delete_cookie(key="kage_session", path="/", httponly=True, secure=is_secure, samesite="lax")
         return {"status": "logged_out"}
 
     # ═══════════════════════════════════════════════════════
