@@ -2136,7 +2136,14 @@ def create_app(engine: SuperBanEngine):
         entity = await engine.get_group_entity(group_id)
         if not entity:
             raise HTTPException(status_code=404, detail="Target group not found")
-        return await engine.get_group_call_info(entity, auto_join=auto_join)
+        try:
+            return await engine.get_group_call_info(entity, auto_join=auto_join)
+        except PermissionError as pe:
+            logger.warning(f"Permission denied accessing voice chat in group {group_id}: {pe}")
+            raise HTTPException(status_code=403, detail=str(pe))
+        except Exception as e:
+            logger.error(f"Failed to get VC status: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     class VCJoinReq(BaseModel):
         group_id: int
@@ -2150,20 +2157,19 @@ def create_app(engine: SuperBanEngine):
             raise HTTPException(status_code=404, detail="Target group not found")
         try:
             return await engine.join_voice_call(entity, muted=req.muted, webrtc_params=req.webrtc_params)
+        except PermissionError as pe:
+            logger.warning(f"Permission denied joining VC: {pe}")
+            raise HTTPException(status_code=403, detail=str(pe))
+        except ValueError as ve:
+            logger.warning(f"Active voice chat not found: {ve}")
+            raise HTTPException(status_code=404, detail=str(ve))
         except Exception as e:
             logger.error(f"Failed to join VC: {e}")
             raise HTTPException(status_code=400, detail=str(e))
 
     @app.get("/api/vc/connection")
     async def get_vc_connection():
-        if not engine.active_vc_session:
-            return {"connected": False, "connection_data": None}
-        return {
-            "connected": True,
-            "group_id": engine.active_vc_session.get("group_id"),
-            "ssrc": engine.active_vc_session.get("ssrc"),
-            "connection_data": engine.active_vc_session.get("server_connection")
-        }
+        return engine.get_vc_connection_summary()
 
     @app.head("/api/vc/audio_stream")
     async def vc_audio_stream_head(group_id: int):
@@ -2312,7 +2318,7 @@ def create_app(engine: SuperBanEngine):
             return await engine.leave_voice_call(group_entity=req.group_id, auto_send_saved=req.auto_send_saved)
         except Exception as e:
             logger.error(f"Failed to leave VC: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e))
 
     class VCCreateReq(BaseModel):
         group_id: int

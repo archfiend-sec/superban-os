@@ -12777,6 +12777,10 @@ body.theme-light .kage-btn.secondary {
   let vcCurrentCallInfo = null;
   let vcIsConnected = false;
   let vcConnectedStartTime = null;
+  let vcConnectionState = 'IDLE';
+  let vcConnectionStage = 'Idle';
+  let vcConnectionInProgress = false;
+  let vcConnectionId = null;
 
   // Active Tactical Audio Recording State & Dual-Layer Engine
   let vcIsRecording = false;
@@ -13051,7 +13055,15 @@ body.theme-light .kage-btn.secondary {
       if (!res.ok) return;
       const data = await res.json();
       vcCurrentCallInfo = data;
-      vcIsConnected = !!data.is_connected;
+      if (typeof data.is_connected !== 'undefined') {
+        vcIsConnected = !!data.is_connected;
+      }
+      if (data.connection_state) {
+        vcConnectionState = data.connection_state;
+      }
+      if (data.connection_stage) {
+        vcConnectionStage = data.connection_stage;
+      }
 
       const modalBadge = document.getElementById('vc-modal-status-badge');
       const connBadge = document.getElementById('vc-connection-badge');
@@ -13068,20 +13080,31 @@ body.theme-light .kage-btn.secondary {
         if (vcIsConnected) {
           connBadge.className = 'badge badge-emerald';
           connBadge.innerHTML = `<i data-lucide="headphones" style="width: 10px; height: 10px; display: inline;"></i> CONNECTED (GHOST LISTENER)`;
+        } else if (vcConnectionInProgress) {
+          connBadge.className = 'badge badge-amber';
+          connBadge.innerHTML = `<i data-lucide="loader" style="width: 10px; height: 10px; display: inline;" class="hud-blink-dot"></i> ${escapeHtml((vcConnectionStage || 'CONNECTING...').toUpperCase())}`;
         } else {
           connBadge.className = 'badge badge-muted';
           connBadge.innerHTML = `<i data-lucide="radio" style="width: 10px; height: 10px; display: inline;"></i> REMOTE RADAR`;
         }
       }
       if (joinBtn && joinBtnText) {
-        if (vcIsConnected) {
-          joinBtnText.innerText = "Disconnect Voice Stream";
-          joinBtn.style.background = "rgba(224,35,28,0.85)";
-          joinBtn.style.borderColor = "var(--vermilion)";
+        if (vcConnectionInProgress) {
+          joinBtn.disabled = true;
+          joinBtn.style.opacity = '0.75';
+          joinBtnText.innerText = vcConnectionStage || "Connecting...";
         } else {
-          joinBtnText.innerText = "Connect (Ghost Listener)";
-          joinBtn.style.background = "#059669";
-          joinBtn.style.borderColor = "#10b981";
+          joinBtn.disabled = false;
+          joinBtn.style.opacity = '1.0';
+          if (vcIsConnected) {
+            joinBtnText.innerText = "Disconnect Voice Stream";
+            joinBtn.style.background = "rgba(224,35,28,0.85)";
+            joinBtn.style.borderColor = "var(--vermilion)";
+          } else {
+            joinBtnText.innerText = "Connect (Ghost Listener)";
+            joinBtn.style.background = "#059669";
+            joinBtn.style.borderColor = "#10b981";
+          }
         }
       }
 
@@ -13399,20 +13422,24 @@ body.theme-light .kage-btn.secondary {
     if (btnText) btnText.innerText = 'Connecting Carrier...';
 
     try {
-      // 1. Join Voice Chat as muted ghost listener via server PyTgCalls
-      const res = await fetch('/api/vc/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          group_id: parseInt(gid),
-          muted: true
-        })
-      });
+      // 1. Ensure Voice Chat is joined as ghost listener
+      if (!vcIsConnected) {
+        const res = await fetch('/api/vc/join', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            group_id: parseInt(gid),
+            muted: true
+          })
+        });
 
-      const data = await res.json();
-      if (!res.ok) {
-        stopVCLiveAudio();
-        return showToast(`Voice Chat Join error: ${data.detail || 'Could not connect'}`);
+        const data = await res.json();
+        if (!res.ok) {
+          stopVCLiveAudio();
+          return showToast(`Voice Chat Join error: ${data.detail || 'Could not connect'}`);
+        }
+        vcIsConnected = true;
+        vcConnectionState = data.connection_state || 'CONNECTED';
       }
 
       // 2. Obtain HTML5 Audio element with low-latency streaming configuration
@@ -13916,20 +13943,96 @@ body.theme-light .kage-btn.secondary {
 
   async function joinVoiceChat() {
     const gid = getActiveGroupId();
-    if (!gid) return;
+    if (!gid) return showToast("Select an active Telegram group first.", "warning");
 
-    // Immediately start live WebRTC audio pipe so the user hears sound right away
-    await startVCLiveAudio();
+    if (vcConnectionInProgress) return;
+    vcConnectionInProgress = true;
+    vcConnectionState = 'VALIDATING';
+    vcConnectionStage = 'Validating Session...';
+
+    const joinBtn = document.getElementById('vc-btn-join-stream');
+    const joinBtnText = document.getElementById('vc-join-btn-text');
+    const connBadge = document.getElementById('vc-connection-badge');
+
+    if (joinBtn) {
+      joinBtn.disabled = true;
+      joinBtn.style.opacity = '0.75';
+    }
+    if (joinBtnText) joinBtnText.innerText = 'Connecting (Ghost Listener)...';
+    if (connBadge) {
+      connBadge.className = 'badge badge-amber';
+      connBadge.innerHTML = `<i data-lucide="loader" style="width: 10px; height: 10px; display: inline;" class="hud-blink-dot"></i> CONNECTING...`;
+    }
+    safeCreateIcons();
+
+    playZenSound('clack');
+    showToast("Connecting sovereign Ghost Listener to Telegram Voice Chat...");
+
+    try {
+      const res = await fetch('/api/vc/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          group_id: parseInt(gid),
+          muted: true
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        vcIsConnected = false;
+        vcConnectionState = (res.status === 403) ? 'PERMISSION_DENIED' : ((res.status === 404) ? 'NO_ACTIVE_CALL' : 'FAILED');
+        vcConnectionStage = data.detail || 'Connection Failed';
+        const msg = data.detail || 'Could not connect to Voice Chat';
+        showToast(`Voice Chat Connection: ${msg}`, 'warning');
+        return;
+      }
+
+      vcIsConnected = true;
+      vcConnectionState = data.connection_state || 'CONNECTED';
+      vcConnectionStage = 'Connected (Ghost Listener Active)';
+      vcConnectionId = data.connection_id;
+      showToast("✓ Connected to Voice Chamber as sovereign ghost listener!", "success");
+      playZenSound('gong');
+    } catch (err) {
+      console.error("Failed to connect to voice chat:", err);
+      vcIsConnected = false;
+      vcConnectionState = 'FAILED';
+      vcConnectionStage = err.message || 'Connection Error';
+      showToast(`Connection error: ${err.message}`, 'warning');
+    } finally {
+      vcConnectionInProgress = false;
+      if (joinBtn) {
+        joinBtn.disabled = false;
+        joinBtn.style.opacity = '1.0';
+      }
+      refreshVCStatus();
+      safeCreateIcons();
+    }
   }
 
   async function leaveVoiceChat() {
     const gid = getActiveGroupId();
     if (!gid) return;
 
+    if (vcConnectionInProgress) return;
+    vcConnectionInProgress = true;
+    vcConnectionState = 'DISCONNECTING';
+    vcConnectionStage = 'Disconnecting...';
+
     stopVCLiveAudio();
     playZenSound('clack');
     const autoSend = document.getElementById('vc-auto-send-saved-toggle')?.checked ?? (localStorage.getItem('kage_vc_auto_send_saved') !== 'false');
     showToast(autoSend ? "Disconnecting & archiving recording to Saved Messages..." : "Disconnecting from Voice Chamber stream...");
+
+    const joinBtn = document.getElementById('vc-btn-join-stream');
+    const joinBtnText = document.getElementById('vc-join-btn-text');
+    if (joinBtn) {
+      joinBtn.disabled = true;
+      joinBtn.style.opacity = '0.75';
+    }
+    if (joinBtnText) joinBtnText.innerText = 'Disconnecting...';
+
     try {
       const res = await fetch('/api/vc/leave', {
         method: 'POST',
@@ -13941,18 +14044,28 @@ body.theme-light .kage-btn.secondary {
       });
       const data = await res.json();
       if (res.ok) {
+        vcIsConnected = false;
+        vcConnectionState = 'DISCONNECTED';
+        vcConnectionStage = 'Disconnected';
         if (autoSend) {
           playZenSound('gong');
           showToast("✓ Disconnected. Recording dispatched to your Saved Messages!", "success");
         } else {
           showToast("✓ Disconnected from Voice Chat stream.");
         }
-        refreshVCStatus();
       } else {
         showToast(`Leave notice: ${data.detail || 'Error leaving VC'}`);
       }
     } catch (e) {
       showToast(`Leave error: ${e.message}`);
+    } finally {
+      vcConnectionInProgress = false;
+      if (joinBtn) {
+        joinBtn.disabled = false;
+        joinBtn.style.opacity = '1.0';
+      }
+      refreshVCStatus();
+      safeCreateIcons();
     }
   }
 

@@ -20,7 +20,8 @@ from telethon.tl.types import (
 )
 from telethon.errors import (
     FloodWaitError, ChatAdminRequiredError, 
-    UserNotParticipantError, UserPrivacyRestrictedError, RPCError
+    UserNotParticipantError, UserPrivacyRestrictedError, RPCError,
+    ChannelPrivateError, UserBannedInChannelError
 )
 
 import os
@@ -78,6 +79,21 @@ class OperationState:
     ABORTED = "ABORTED"
     COMPLETED = "COMPLETED"
 
+class VCConnectionState:
+    IDLE = "IDLE"
+    VALIDATING = "VALIDATING"
+    RESOLVING_TARGET = "RESOLVING_TARGET"
+    CHECKING_GROUP_CALL = "CHECKING_GROUP_CALL"
+    JOINING = "JOINING"
+    INITIALIZING_AUDIO = "INITIALIZING_AUDIO"
+    CONNECTED = "CONNECTED"
+    RECONNECTING = "RECONNECTING"
+    DISCONNECTING = "DISCONNECTING"
+    DISCONNECTED = "DISCONNECTED"
+    FAILED = "FAILED"
+    PERMISSION_DENIED = "PERMISSION_DENIED"
+    NO_ACTIVE_CALL = "NO_ACTIVE_CALL"
+
 class SuperBanEngine:
     """Mission-Critical Telegram Administrative Engine with Live Control & Multi-Actions."""
 
@@ -126,6 +142,13 @@ class SuperBanEngine:
         # Active Voice Chat Tracking Session & Dispatch Policy
         self.active_vc_session: Optional[Dict[str, Any]] = None
         self.auto_send_vc_to_saved: bool = True
+        self.vc_connection_state: str = VCConnectionState.IDLE
+        self.vc_connection_stage: str = "Idle"
+        self.vc_connection_id: Optional[str] = None
+        self.vc_connection_error: Optional[str] = None
+        self.vc_connection_lock = asyncio.Lock()
+        self.vc_target_group_id: Optional[int] = None
+        self.vc_last_connected_at: Optional[float] = None
 
         # 100k Deep Message Scan & Reputation Engine State
         self.active_deep_scans: Dict[int, Dict[str, Any]] = {}
@@ -167,39 +190,29 @@ class SuperBanEngine:
         self.clients = [client]
         if hasattr(self, 'sentinel') and self.sentinel:
             self.sentinel.attach_client(client)
+        # Real-Time MTProto Voice Chat Listeners
         try:
             @self.client.on(events.Raw(types.UpdateGroupCallConnection))
             async def _on_vc_connection_update(event):
                 try:
                     data = json.loads(event.params.data)
                     logger.info(f"🎙️ MTProto UpdateGroupCallConnection received (candidates: {len(data.get('transport', {}).get('candidates', []))})")
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                    if self.active_vc_session:
+                        self.active_vc_session['server_connection'] = data
+                except Exception as e:
+                    logger.debug(f"Failed to parse UpdateGroupCallConnection: {e}")
 
-        # Active Voice Chat Tracking Session & Dispatch Policy
-        self.active_vc_session: Optional[Dict[str, Any]] = None
-        self.auto_send_vc_to_saved: bool = True
-
-        # 100k Deep Message Scan & Reputation Engine State
-        self.active_deep_scans: Dict[int, Dict[str, Any]] = {}
-        self._cancel_deep_scans: Set[int] = set()
-
-        # Native PyTgCalls WebRTC Engine
-        self.call_py: Optional[Any] = None
-        self._call_py_started = False
-
-        # Real-Time MTProto Voice Chat WebRTC Transport Listener
-        @self.client.on(events.Raw(types.UpdateGroupCallConnection))
-        async def _on_vc_connection_update(event):
-            try:
-                data = json.loads(event.params.data)
-                logger.info(f"🎙️ MTProto UpdateGroupCallConnection received (candidates: {len(data.get('transport', {}).get('candidates', []))})")
-                if self.active_vc_session:
-                    self.active_vc_session['server_connection'] = data
-            except Exception as e:
-                logger.debug(f"Failed to parse UpdateGroupCallConnection: {e}")
+            @self.client.on(events.Raw(types.UpdateGroupCall))
+            async def _on_group_call_update(event):
+                try:
+                    if hasattr(event, 'call') and isinstance(event.call, types.GroupCallDiscarded):
+                        logger.info("🎙️ MTProto UpdateGroupCall: GroupCallDiscarded received from Telegram server.")
+                        if self.active_vc_session:
+                            asyncio.create_task(self.leave_voice_call(auto_send_saved=True))
+                except Exception as e:
+                    logger.debug(f"Note on UpdateGroupCall: {e}")
+        except Exception as e:
+            logger.debug(f"Note attaching group call update listeners: {e}")
 
     def register_listener(self, callback: Callable[[Dict[str, Any]], Any]):
         """Subscribe to real-time telemetry updates."""
@@ -2284,18 +2297,28 @@ class SuperBanEngine:
             self._call_input_cache = {}
         if not force and gid in self._call_input_cache:
             entry = self._call_input_cache[gid]
-            if time.time() - entry['time'] < 12:
+            if time.time() - entry['time'] < 10:
                 return entry['input']
+
+        # Ensure client is connected
+        if hasattr(self, 'ensure_connected'):
+            await self.ensure_connected()
 
         call = None
         try:
             full = await self.client(GetFullChannelRequest(group_entity))
             call = getattr(full.full_chat, 'call', None)
+        except (ChannelPrivateError, ChatAdminRequiredError, UserBannedInChannelError, UserPrivacyRestrictedError) as pe:
+            logger.warning(f"Permission denied resolving voice chat in group {gid}: {pe}")
+            raise PermissionError(f"Permission denied to access voice chat in group: {pe}")
         except Exception:
             try:
                 chat_id = group_entity.id if hasattr(group_entity, 'id') else group_entity
                 full = await self.client(GetFullChatRequest(chat_id))
                 call = getattr(full.full_chat, 'call', None)
+            except (ChannelPrivateError, ChatAdminRequiredError, UserBannedInChannelError, UserPrivacyRestrictedError) as pe:
+                logger.warning(f"Permission denied resolving voice chat in full chat {gid}: {pe}")
+                raise PermissionError(f"Permission denied to access voice chat in group: {pe}")
             except Exception as e:
                 logger.debug(f"Error resolving full chat call: {e}")
                 call = None
@@ -2306,6 +2329,37 @@ class SuperBanEngine:
         
         self._call_input_cache[gid] = {'input': res, 'time': time.time()}
         return res
+
+    def has_audio_stream(self, group_id: Optional[int] = None) -> bool:
+        """Check whether an active audio stream buffer or recording exists for this group."""
+        gid = group_id or (self.active_vc_session.get('group_id') if self.active_vc_session else self.vc_target_group_id)
+        if not gid:
+            return False
+        clean_gid = str(gid).replace("-100", "").replace("-", "")
+        stream_path = f"/tmp/vc_stream_{clean_gid}.mp3"
+        return os.path.exists(stream_path) and os.path.getsize(stream_path) > 512
+
+    def get_vc_connection_state(self) -> str:
+        """Return the authoritative connection state string."""
+        return self.vc_connection_state
+
+    def get_vc_connection_summary(self) -> Dict[str, Any]:
+        """Return complete forensic telemetry of the voice chat connection."""
+        is_conn = self.is_in_voice_call()
+        has_audio = self.has_audio_stream()
+        return {
+            "connection_state": self.vc_connection_state,
+            "connection_stage": self.vc_connection_stage,
+            "connection_id": self.vc_connection_id,
+            "connection_error": self.vc_connection_error,
+            "active_group_id": self.vc_target_group_id or (self.active_vc_session.get('group_id') if self.active_vc_session else None),
+            "is_connected": is_conn,
+            "connected_at": self.vc_last_connected_at,
+            "audio_state": "STREAMING" if (is_conn and has_audio) else ("CONNECTED" if is_conn else "IDLE"),
+            "audio_stream_available": has_audio,
+            "pytgcalls": bool(self.active_vc_session.get('joined_via_pytgcalls', False)) if self.active_vc_session else False,
+            "server_connection": bool(self.active_vc_session.get('server_connection')) if self.active_vc_session else False
+        }
 
     async def _ensure_pytgcalls(self):
         """Lazy-initialize PyTgCalls native WebRTC engine with TelegramClient."""
@@ -2359,240 +2413,303 @@ class SuperBanEngine:
 
     async def join_voice_call(self, group_entity, muted: bool = True, webrtc_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Join the active voice chat as a sovereign listener / participant with full WebRTC audio exchange."""
-        call_input = await self._get_group_call_input(group_entity)
-        if not call_input:
-            raise ValueError("No active voice chat detected in this group.")
-
-        group_id = group_entity.id if hasattr(group_entity, 'id') else group_entity
-        ssrc = (webrtc_params.get('ssrc') if webrtc_params else None) or random.randint(10000000, 99999999)
-
-        # Check if already joined to this specific group call
-        if self.is_in_voice_call(group_id):
-            logger.info(f"🎙️ Already connected to voice chat in group {group_id}.")
-            return {
-                "success": True, 
-                "status": "already_connected", 
-                "group_id": group_id, 
-                "muted": self.active_vc_session.get('muted', True) if self.active_vc_session else True, 
-                "ssrc": self.active_vc_session.get('ssrc') if self.active_vc_session else ssrc,
-                "pytgcalls": self.active_vc_session.get('joined_via_pytgcalls', True) if self.active_vc_session else True,
-                "connection_data": self.active_vc_session.get('server_connection') if self.active_vc_session else None
-            }
-
-        # If connected to a different group voice chat, disconnect cleanly first
-        if self.active_vc_session and not self.is_in_voice_call(group_id):
-            logger.info("Switching voice chat: leaving prior group voice call first...")
-            await self.leave_voice_call()
-
-        # Convert group_entity to standard chat_id for PyTgCalls
-        chat_id = group_entity
-        if hasattr(group_entity, 'id'):
-            if getattr(group_entity, 'broadcast', False) or getattr(group_entity, 'megagroup', False):
-                chat_id = int(f"-100{group_entity.id}")
-            else:
-                chat_id = -group_entity.id
-        elif isinstance(chat_id, int) and chat_id > 0:
-            chat_id = int(f"-100{chat_id}")
-
-        # Resolve exact authorized join_as peer
-        join_as_peer = InputPeerSelf()
-        try:
-            join_as_res = await self.client(phone.GetGroupCallJoinAsRequest(peer=group_entity))
-            if join_as_res and join_as_res.peers:
-                user_peers = [p for p in join_as_res.peers if isinstance(p, types.InputPeerUser)]
-                if user_peers:
-                    join_as_peer = user_peers[0]
-                else:
-                    join_as_peer = join_as_res.peers[0]
-        except Exception as e:
-            logger.debug(f"JoinAs resolution note: {e}")
-
-        # Cancel any previous keepalive
-        if hasattr(self, '_vc_keepalive_task') and self._vc_keepalive_task and not self._vc_keepalive_task.done():
-            self._vc_keepalive_task.cancel()
-
-        server_conn = None
-        joined_via_pytgcalls = False
-
-        if webrtc_params:
-            # Browser is requesting direct WebRTC live audio pipe
-            if self.call_py and self._call_py_started:
-                try:
-                    await self.call_py.leave_call(chat_id)
-                except Exception:
-                    pass
-
-            payload = dict(webrtc_params)
-            if 'ssrc' not in payload:
-                payload['ssrc'] = ssrc
-
-            self.active_vc_session = {
-                'group_id': group_id,
-                'chat_id': chat_id,
-                'call': call_input,
-                'ssrc': ssrc,
-                'muted': muted,
-                'joined_at': time.time(),
-                'join_as': join_as_peer,
-                'joined_via_pytgcalls': False,
-                'server_connection': None
-            }
-
-            params = DataJSON(data=json.dumps(payload))
-            res = await self.client(phone.JoinGroupCallRequest(
-                call=call_input,
-                join_as=join_as_peer,
-                params=params,
-                muted=muted
-            ))
-
-            if hasattr(res, 'updates'):
-                for u in res.updates:
-                    if isinstance(u, types.UpdateGroupCallConnection):
-                        try:
-                            server_conn = json.loads(u.params.data)
-                        except Exception:
-                            server_conn = u.params.data
-                        self.active_vc_session['server_connection'] = server_conn
-                        break
-
-            if not server_conn and self.active_vc_session:
-                for _ in range(25):
-                    if self.active_vc_session.get('server_connection'):
-                        server_conn = self.active_vc_session['server_connection']
-                        break
-                    await asyncio.sleep(0.1)
+        # Concurrency guard: lock connection lifecycle
+        async with self.vc_connection_lock:
+            conn_id = f"vc_conn_{uuid.uuid4().hex[:8]}"
+            self.vc_connection_id = conn_id
+            self.vc_connection_error = None
 
             try:
-                await self.client(phone.CheckGroupCallRequest(call=call_input, sources=[ssrc]))
-            except Exception as e:
-                logger.debug(f"Initial CheckGroupCall ping: {e}")
+                # 1. State: VALIDATING
+                self.vc_connection_state = VCConnectionState.VALIDATING
+                self.vc_connection_stage = "Validating Client Session"
+                if hasattr(self, 'ensure_connected'):
+                    await self.ensure_connected()
 
-            self._vc_keepalive_task = asyncio.create_task(self._vc_keepalive_loop(call_input, ssrc))
-            logger.info(f"🎙️ Connected to Group Voice Chat in group {group_id} via Direct WebRTC Audio Pipe (Server transport candidates: {len(server_conn.get('transport', {}).get('candidates', [])) if isinstance(server_conn, dict) else 0})")
-        else:
-            # Connect via PyTgCalls with live audio recording buffer for browser streaming
-            clean_gid = str(group_id).replace("-100", "").replace("-", "")
-            audio_stream_path = f"/tmp/vc_stream_{clean_gid}.mp3"
-            if os.path.exists(audio_stream_path):
+                # 2. State: RESOLVING_TARGET
+                self.vc_connection_state = VCConnectionState.RESOLVING_TARGET
+                self.vc_connection_stage = "Resolving Target Group Entity"
+                group_id = group_entity.id if hasattr(group_entity, 'id') else group_entity
+                self.vc_target_group_id = group_id
+
+                # 3. State: CHECKING_GROUP_CALL
+                self.vc_connection_state = VCConnectionState.CHECKING_GROUP_CALL
+                self.vc_connection_stage = "Querying MTProto for Active Group Call"
                 try:
-                    os.remove(audio_stream_path)
-                except Exception:
-                    pass
+                    call_input = await self._get_group_call_input(group_entity, force=True)
+                except PermissionError as pe:
+                    self.vc_connection_state = VCConnectionState.PERMISSION_DENIED
+                    self.vc_connection_stage = "Access Denied by Telegram Server"
+                    self.vc_connection_error = str(pe)
+                    raise
 
-            # If our Telegram account is currently registered as joined in the call from a stale/prior session,
-            # clear it on Telegram's SFU so PyTgCalls can establish its own fresh WebRTC transport cleanly.
-            try:
-                call_info = await self.get_group_call_info(group_entity)
-                for p in call_info.get('participants', []):
-                    if p.get('is_self') and p.get('source'):
-                        logger.info(f"Clearing stale self session (source={p['source']}) on Telegram before PyTgCalls connect...")
-                        await self.client(phone.LeaveGroupCallRequest(call=call_input, source=p['source']))
-                        await asyncio.sleep(0.5)
-                        break
-            except Exception as e:
-                logger.debug(f"Note clearing stale self participant: {e}")
+                if not call_input:
+                    self.vc_connection_state = VCConnectionState.NO_ACTIVE_CALL
+                    self.vc_connection_stage = "No Active Voice Chat Found"
+                    self.vc_connection_error = "No active voice chat detected in this group."
+                    raise ValueError(self.vc_connection_error)
 
-            pycalls = await self._ensure_pytgcalls()
-            if pycalls:
+                ssrc = (webrtc_params.get('ssrc') if webrtc_params else None) or random.randint(10000000, 99999999)
+
+                # Check if already joined to this specific group call
+                if self.is_in_voice_call(group_id):
+                    logger.info(f"🎙️ Already connected to voice chat in group {group_id}.")
+                    self.vc_connection_state = VCConnectionState.CONNECTED
+                    self.vc_connection_stage = "Connected (Already Active)"
+                    self.vc_last_connected_at = self.active_vc_session.get('joined_at', time.time()) if self.active_vc_session else time.time()
+                    return {
+                        "success": True, 
+                        "status": "already_connected", 
+                        "group_id": group_id, 
+                        "connection_state": self.vc_connection_state,
+                        "connection_id": self.vc_connection_id,
+                        "muted": self.active_vc_session.get('muted', True) if self.active_vc_session else True, 
+                        "ssrc": self.active_vc_session.get('ssrc') if self.active_vc_session else ssrc,
+                        "pytgcalls": self.active_vc_session.get('joined_via_pytgcalls', True) if self.active_vc_session else True,
+                        "connection_data": self.active_vc_session.get('server_connection') if self.active_vc_session else None
+                    }
+
+                # If connected to a different group voice chat, disconnect cleanly first
+                if self.active_vc_session and not self.is_in_voice_call(group_id):
+                    logger.info("Switching voice chat: leaving prior group voice call first...")
+                    await self._leave_voice_call_internal()
+
+                # 4. State: JOINING
+                self.vc_connection_state = VCConnectionState.JOINING
+                self.vc_connection_stage = "Establishing MTProto Voice Chat Link"
+
+                # Convert group_entity to standard chat_id for PyTgCalls
+                chat_id = group_entity
+                if hasattr(group_entity, 'id'):
+                    if getattr(group_entity, 'broadcast', False) or getattr(group_entity, 'megagroup', False):
+                        chat_id = int(f"-100{group_entity.id}")
+                    else:
+                        chat_id = -group_entity.id
+                elif isinstance(chat_id, int) and chat_id > 0:
+                    chat_id = int(f"-100{chat_id}")
+
+                # Resolve exact authorized join_as peer
+                join_as_peer = InputPeerSelf()
                 try:
-                    rs = RecordStream(audio=audio_stream_path)
-                    await pycalls.record(chat_id, stream=rs)
-                    joined_via_pytgcalls = True
-                    if muted:
+                    join_as_res = await self.client(phone.GetGroupCallJoinAsRequest(peer=group_entity))
+                    if join_as_res and join_as_res.peers:
+                        user_peers = [p for p in join_as_res.peers if isinstance(p, types.InputPeerUser)]
+                        if user_peers:
+                            join_as_peer = user_peers[0]
+                        else:
+                            join_as_peer = join_as_res.peers[0]
+                except Exception as e:
+                    logger.debug(f"JoinAs resolution note: {e}")
+
+                # Cancel any previous keepalive
+                if hasattr(self, '_vc_keepalive_task') and self._vc_keepalive_task and not self._vc_keepalive_task.done():
+                    self._vc_keepalive_task.cancel()
+
+                # 5. State: INITIALIZING_AUDIO
+                self.vc_connection_state = VCConnectionState.INITIALIZING_AUDIO
+                self.vc_connection_stage = "Configuring Audio Carrier and Codec"
+
+                server_conn = None
+                joined_via_pytgcalls = False
+
+                if webrtc_params:
+                    # Browser is requesting direct WebRTC live audio pipe
+                    if self.call_py and self._call_py_started:
                         try:
-                            await pycalls.mute(chat_id)
+                            await self.call_py.leave_call(chat_id)
                         except Exception:
                             pass
-                    logger.info(f"🎙️ Connected to Group Voice Chat in group {chat_id} via PyTgCalls (Live Audio Buffer: {audio_stream_path})")
-                except Exception as e:
-                    logger.warning(f"PyTgCalls record note (falling back to play): {e}")
+
+                    payload = dict(webrtc_params)
+                    if 'ssrc' not in payload:
+                        payload['ssrc'] = ssrc
+
+                    self.active_vc_session = {
+                        'group_id': group_id,
+                        'chat_id': chat_id,
+                        'call': call_input,
+                        'ssrc': ssrc,
+                        'muted': muted,
+                        'joined_at': time.time(),
+                        'join_as': join_as_peer,
+                        'joined_via_pytgcalls': False,
+                        'server_connection': None
+                    }
+
+                    params = DataJSON(data=json.dumps(payload))
+                    res = await self.client(phone.JoinGroupCallRequest(
+                        call=call_input,
+                        join_as=join_as_peer,
+                        params=params,
+                        muted=muted
+                    ))
+
+                    if hasattr(res, 'updates'):
+                        for u in res.updates:
+                            if isinstance(u, types.UpdateGroupCallConnection):
+                                try:
+                                    server_conn = json.loads(u.params.data)
+                                except Exception:
+                                    server_conn = u.params.data
+                                self.active_vc_session['server_connection'] = server_conn
+                                break
+
+                    if not server_conn and self.active_vc_session:
+                        for _ in range(25):
+                            if self.active_vc_session.get('server_connection'):
+                                server_conn = self.active_vc_session['server_connection']
+                                break
+                            await asyncio.sleep(0.1)
+
                     try:
-                        ms = MediaStream('', audio_flags=MediaStream.Flags.IGNORE, video_flags=MediaStream.Flags.IGNORE)
-                        await pycalls.play(chat_id, stream=ms)
-                        joined_via_pytgcalls = True
-                    except Exception as e2:
-                        logger.warning(f"PyTgCalls play fallback note: {e2}")
+                        await self.client(phone.CheckGroupCallRequest(call=call_input, sources=[ssrc]))
+                    except Exception as e:
+                        logger.debug(f"Initial CheckGroupCall ping: {e}")
 
-            if not joined_via_pytgcalls:
-                ufrag = f"ufrag{random.randint(1000, 9999)}"
-                pwd = f"pwd{random.randint(100000, 999999)}"
-                fingerprint = "11:22:33:44:55:66:77:88:99:00:11:22:33:44:55:66:77:88:99:00:11:22:33:44:55:66:77:88:99:00:11:22"
-                payload = {
-                    'transport': {
-                        'fingerprints': [{'hash': 'sha-256', 'fingerprint': fingerprint, 'setup': 'active'}],
-                        'ufrag': ufrag,
-                        'pwd': pwd
-                    },
-                    'ssrc': ssrc
-                }
+                    self._vc_keepalive_task = asyncio.create_task(self._vc_keepalive_loop(call_input, ssrc))
+                    logger.info(f"🎙️ Connected to Group Voice Chat in group {group_id} via Direct WebRTC Audio Pipe (Server transport candidates: {len(server_conn.get('transport', {}).get('candidates', [])) if isinstance(server_conn, dict) else 0})")
+                else:
+                    # Connect via PyTgCalls with live audio recording buffer for browser streaming
+                    clean_gid = str(group_id).replace("-100", "").replace("-", "")
+                    audio_stream_path = f"/tmp/vc_stream_{clean_gid}.mp3"
+                    if os.path.exists(audio_stream_path):
+                        try:
+                            os.remove(audio_stream_path)
+                        except Exception:
+                            pass
 
-                self.active_vc_session = {
-                    'group_id': group_id,
-                    'chat_id': chat_id,
-                    'call': call_input,
-                    'ssrc': ssrc,
-                    'muted': muted,
-                    'joined_at': time.time(),
-                    'join_as': join_as_peer,
-                    'joined_via_pytgcalls': False,
-                    'server_connection': None
-                }
+                    # If our Telegram account is currently registered as joined in the call from a stale/prior session,
+                    # clear it on Telegram's SFU so PyTgCalls can establish its own fresh WebRTC transport cleanly.
+                    try:
+                        call_info = await self.get_group_call_info(group_entity)
+                        for p in call_info.get('participants', []):
+                            if p.get('is_self') and p.get('source'):
+                                logger.info(f"Clearing stale self session (source={p['source']}) on Telegram before PyTgCalls connect...")
+                                await self.client(phone.LeaveGroupCallRequest(call=call_input, source=p['source']))
+                                await asyncio.sleep(0.5)
+                                break
+                    except Exception as e:
+                        logger.debug(f"Note clearing stale self participant: {e}")
 
-                params = DataJSON(data=json.dumps(payload))
-                res = await self.client(phone.JoinGroupCallRequest(
-                    call=call_input,
-                    join_as=join_as_peer,
-                    params=params,
-                    muted=muted
-                ))
-
-                if hasattr(res, 'updates'):
-                    for u in res.updates:
-                        if isinstance(u, types.UpdateGroupCallConnection):
+                    pycalls = await self._ensure_pytgcalls()
+                    if pycalls:
+                        try:
+                            rs = RecordStream(audio=audio_stream_path)
+                            await pycalls.record(chat_id, stream=rs)
+                            joined_via_pytgcalls = True
+                            if muted:
+                                try:
+                                    await pycalls.mute(chat_id)
+                                except Exception:
+                                    pass
+                            logger.info(f"🎙️ Connected to Group Voice Chat in group {chat_id} via PyTgCalls (Live Audio Buffer: {audio_stream_path})")
+                        except Exception as e:
+                            logger.warning(f"PyTgCalls record note (falling back to play): {e}")
                             try:
-                                server_conn = json.loads(u.params.data)
-                            except Exception:
-                                server_conn = u.params.data
-                            self.active_vc_session['server_connection'] = server_conn
-                            break
+                                ms = MediaStream('', audio_flags=MediaStream.Flags.IGNORE, video_flags=MediaStream.Flags.IGNORE)
+                                await pycalls.play(chat_id, stream=ms)
+                                joined_via_pytgcalls = True
+                            except Exception as e2:
+                                logger.warning(f"PyTgCalls play fallback note: {e2}")
 
-                try:
-                    await self.client(phone.CheckGroupCallRequest(call=call_input, sources=[ssrc]))
-                except Exception as e:
-                    logger.debug(f"Initial CheckGroupCall ping: {e}")
+                    if not joined_via_pytgcalls:
+                        ufrag = f"ufrag{random.randint(1000, 9999)}"
+                        pwd = f"pwd{random.randint(100000, 999999)}"
+                        fingerprint = "11:22:33:44:55:66:77:88:99:00:11:22:33:44:55:66:77:88:99:00:11:22:33:44:55:66:77:88:99:00:11:22"
+                        payload = {
+                            'transport': {
+                                'fingerprints': [{'hash': 'sha-256', 'fingerprint': fingerprint, 'setup': 'active'}],
+                                'ufrag': ufrag,
+                                'pwd': pwd
+                            },
+                            'ssrc': ssrc
+                        }
 
-                self._vc_keepalive_task = asyncio.create_task(self._vc_keepalive_loop(call_input, ssrc))
-            else:
-                self.active_vc_session = {
-                    'group_id': group_id,
-                    'chat_id': chat_id,
-                    'call': call_input,
-                    'ssrc': ssrc,
-                    'muted': muted,
-                    'joined_at': time.time(),
-                    'join_as': join_as_peer,
-                    'joined_via_pytgcalls': True,
-                    'server_connection': None
+                        self.active_vc_session = {
+                            'group_id': group_id,
+                            'chat_id': chat_id,
+                            'call': call_input,
+                            'ssrc': ssrc,
+                            'muted': muted,
+                            'joined_at': time.time(),
+                            'join_as': join_as_peer,
+                            'joined_via_pytgcalls': False,
+                            'server_connection': None
+                        }
+
+                        params = DataJSON(data=json.dumps(payload))
+                        res = await self.client(phone.JoinGroupCallRequest(
+                            call=call_input,
+                            join_as=join_as_peer,
+                            params=params,
+                            muted=muted
+                        ))
+
+                        if hasattr(res, 'updates'):
+                            for u in res.updates:
+                                if isinstance(u, types.UpdateGroupCallConnection):
+                                    try:
+                                        server_conn = json.loads(u.params.data)
+                                    except Exception:
+                                        server_conn = u.params.data
+                                    self.active_vc_session['server_connection'] = server_conn
+                                    break
+
+                        try:
+                            await self.client(phone.CheckGroupCallRequest(call=call_input, sources=[ssrc]))
+                        except Exception as e:
+                            logger.debug(f"Initial CheckGroupCall ping: {e}")
+
+                        self._vc_keepalive_task = asyncio.create_task(self._vc_keepalive_loop(call_input, ssrc))
+                    else:
+                        self.active_vc_session = {
+                            'group_id': group_id,
+                            'chat_id': chat_id,
+                            'call': call_input,
+                            'ssrc': ssrc,
+                            'muted': muted,
+                            'joined_at': time.time(),
+                            'join_as': join_as_peer,
+                            'joined_via_pytgcalls': True,
+                            'server_connection': None
+                        }
+
+                # 6. State: CONNECTED
+                self.vc_connection_state = VCConnectionState.CONNECTED
+                self.vc_connection_stage = "Connected (Ghost Listener Active)"
+                self.vc_last_connected_at = time.time()
+                self.vc_connection_error = None
+
+                return {
+                    "success": True, 
+                    "status": "connected", 
+                    "connection_state": self.vc_connection_state,
+                    "connection_id": self.vc_connection_id,
+                    "group_id": group_id, 
+                    "muted": muted, 
+                    "ssrc": ssrc,
+                    "pytgcalls": joined_via_pytgcalls,
+                    "connection_data": server_conn
                 }
 
-        return {
-            "success": True, 
-            "status": "connected", 
-            "group_id": group_id, 
-            "muted": muted, 
-            "ssrc": ssrc,
-            "pytgcalls": joined_via_pytgcalls,
-            "connection_data": server_conn
-        }
+            except (PermissionError, ValueError):
+                raise
+            except Exception as e:
+                self.vc_connection_state = VCConnectionState.FAILED
+                self.vc_connection_stage = f"Connection Failed: {e}"
+                self.vc_connection_error = str(e)
+                logger.error(f"Failed to join voice call in group: {e}")
+                raise
 
-    async def leave_voice_call(self, group_entity = None, auto_send_saved: bool = False) -> Dict[str, Any]:
-        """Disconnect and leave the active voice chat cleanly, archiving and optionally auto-dispatching recording to Saved Messages."""
+    async def _leave_voice_call_internal(self, group_entity = None, auto_send_saved: bool = False) -> Dict[str, Any]:
+        """Internal worker to cleanly disconnect and tear down voice call resources."""
         if hasattr(self, '_vc_keepalive_task') and self._vc_keepalive_task and not self._vc_keepalive_task.done():
             self._vc_keepalive_task.cancel()
 
         if not self.active_vc_session:
-            return {"success": True, "status": "not_connected"}
+            self.vc_connection_state = VCConnectionState.DISCONNECTED
+            self.vc_connection_stage = "Disconnected"
+            return {"success": True, "status": "not_connected", "connection_state": self.vc_connection_state}
 
         chat_id = self.active_vc_session.get('chat_id')
         gid = self.active_vc_session.get('group_id')
@@ -2644,23 +2761,44 @@ class SuperBanEngine:
             logger.debug(f"Leave group call exception (safe to ignore): {e}")
 
         self.active_vc_session = None
+        self.vc_target_group_id = None
+        self.vc_connection_state = VCConnectionState.DISCONNECTED
+        self.vc_connection_stage = "Disconnected"
         logger.info("👋 Disconnected from Group Voice Chat.")
-        return {"success": True, "status": "disconnected"}
+        return {"success": True, "status": "disconnected", "connection_state": self.vc_connection_state}
+
+    async def leave_voice_call(self, group_entity = None, auto_send_saved: bool = False) -> Dict[str, Any]:
+        """Disconnect and leave the active voice chat cleanly, archiving and optionally auto-dispatching recording to Saved Messages."""
+        self.vc_connection_state = VCConnectionState.DISCONNECTING
+        self.vc_connection_stage = "Disconnecting"
+        async with self.vc_connection_lock:
+            return await self._leave_voice_call_internal(group_entity, auto_send_saved)
 
     async def get_group_call_info(self, group_entity, auto_join: bool = False) -> Dict[str, Any]:
         """Fetch active voice chat status, configuration, and complete participant profiles with pagination."""
         try:
             call_input = await self._get_group_call_input(group_entity)
+            group_id = group_entity.id if hasattr(group_entity, 'id') else group_entity
+            is_connected_to_group = self.is_in_voice_call(group_id)
+            has_audio = self.has_audio_stream(group_id)
+
             if not call_input:
                 return {
                     "has_call": False,
                     "status": "INACTIVE",
-                    "is_connected": False,
+                    "is_connected": is_connected_to_group,
+                    "connection_state": self.vc_connection_state,
+                    "connection_stage": self.vc_connection_stage,
+                    "connection_id": self.vc_connection_id,
+                    "connection_error": self.vc_connection_error,
+                    "active_group_id": self.vc_target_group_id,
+                    "is_connected_to_this_group": is_connected_to_group,
+                    "audio_stream_available": has_audio,
+                    "audio_state": "STREAMING" if (is_connected_to_group and has_audio) else ("CONNECTED" if is_connected_to_group else "IDLE"),
                     "message": "No voice chat active in this group."
                 }
 
-            group_id = group_entity.id if hasattr(group_entity, 'id') else group_entity
-            is_connected = self.is_in_voice_call(group_id)
+            is_connected = is_connected_to_group
 
             # Auto-join if requested and not currently connected
             if auto_join and not is_connected:
@@ -2694,6 +2832,14 @@ class SuperBanEngine:
                     "has_call": False,
                     "status": "DISCARDED",
                     "is_connected": False,
+                    "connection_state": self.vc_connection_state,
+                    "connection_stage": self.vc_connection_stage,
+                    "connection_id": self.vc_connection_id,
+                    "connection_error": self.vc_connection_error,
+                    "active_group_id": self.vc_target_group_id,
+                    "is_connected_to_this_group": False,
+                    "audio_stream_available": False,
+                    "audio_state": "IDLE",
                     "message": "Voice chat has ended."
                 }
 
@@ -2845,10 +2991,21 @@ class SuperBanEngine:
                 except Exception:
                     pass
 
+            is_connected_to_group = self.is_in_voice_call(group_id)
+            has_audio = self.has_audio_stream(group_id)
+
             return {
                 "has_call": True,
                 "status": "LIVE",
-                "is_connected": is_connected,
+                "is_connected": is_connected_to_group,
+                "connection_state": self.vc_connection_state,
+                "connection_stage": self.vc_connection_stage,
+                "connection_id": self.vc_connection_id,
+                "connection_error": self.vc_connection_error,
+                "active_group_id": self.vc_target_group_id,
+                "is_connected_to_this_group": is_connected_to_group,
+                "audio_stream_available": has_audio,
+                "audio_state": "STREAMING" if (is_connected_to_group and has_audio) else ("CONNECTED" if is_connected_to_group else "IDLE"),
                 "call_id": call.id,
                 "access_hash": call.access_hash,
                 "title": call.title or "Group Voice Chat",
@@ -2864,7 +3021,20 @@ class SuperBanEngine:
             }
         except Exception as e:
             logger.warning(f"Failed to fetch group call info: {e}")
-            return {"has_call": False, "status": "ERROR", "is_connected": False, "error": str(e)}
+            return {
+                "has_call": False,
+                "status": "ERROR",
+                "is_connected": False,
+                "connection_state": self.vc_connection_state,
+                "connection_stage": self.vc_connection_stage,
+                "connection_id": self.vc_connection_id,
+                "connection_error": str(e),
+                "active_group_id": self.vc_target_group_id,
+                "is_connected_to_this_group": False,
+                "audio_stream_available": False,
+                "audio_state": "IDLE",
+                "error": str(e)
+            }
 
     async def create_group_call(self, group_entity, title: str = "KAGE Tactical Voice Chamber", rtmp_stream: bool = False) -> Dict[str, Any]:
         """Initiate / Launch a Group Voice Chat as administrator."""

@@ -60,6 +60,7 @@ async def run_vc_streaming_verification():
     # 3. Test REST & Streaming Endpoints in web/app.py
     print("\n[TEST 3] Testing /api/vc/audio_stream HEAD and GET endpoints...")
     mock_engine = MagicMock(spec=SuperBanEngine)
+    mock_engine.db = None
     mock_engine.is_in_voice_call = MagicMock(return_value=True)
     mock_engine.active_vc_session = {"group_id": -1001234567, "ssrc": 99887766, "server_connection": {}}
     mock_engine.register_listener = MagicMock()
@@ -159,5 +160,11 @@ async def run_vc_streaming_verification():
     print("🏆 ALL VC AUDIO STREAMING TESTS PASSED WITH 100% SUCCESS!")
     print("=" * 70)
 
+import unittest
+
+class TestVCAudioStreaming(unittest.TestCase):
+    def test_vc_streaming(self):
+        asyncio.run(run_vc_streaming_verification())
+
 if __name__ == "__main__":
-    asyncio.run(run_vc_streaming_verification())
+    unittest.main()
