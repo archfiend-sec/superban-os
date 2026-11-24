@@ -3,7 +3,7 @@ import re
 import sqlite3
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any, Set, Optional, Tuple
 
@@ -255,6 +255,31 @@ class DatabaseManager:
                 last_spoke_at TIMESTAMP,
                 UNIQUE(group_id, call_id, user_id)
             );
+
+            CREATE TABLE IF NOT EXISTS vc_recordings (
+                id TEXT PRIMARY KEY,
+                group_id INTEGER NOT NULL,
+                group_title TEXT,
+                call_id TEXT,
+                call_title TEXT,
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                paused_at TIMESTAMP,
+                resumed_at TIMESTAMP,
+                stopped_at TIMESTAMP,
+                duration_sec REAL DEFAULT 0,
+                file_path TEXT,
+                file_size_bytes INTEGER DEFAULT 0,
+                media_format TEXT DEFAULT 'audio/mp3',
+                state TEXT DEFAULT 'RECORDING',
+                destination TEXT DEFAULT 'me',
+                telegram_message_id INTEGER,
+                error_message TEXT,
+                upload_attempts INTEGER DEFAULT 0,
+                last_upload_attempt TIMESTAMP,
+                metadata_json TEXT DEFAULT '{}'
+            );
+            CREATE INDEX IF NOT EXISTS idx_vc_rec_grp ON vc_recordings(group_id);
+            CREATE INDEX IF NOT EXISTS idx_vc_rec_state ON vc_recordings(state);
 
             CREATE TABLE IF NOT EXISTS extracted_entities (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2410,6 +2435,174 @@ class DatabaseManager:
                 "total_spoke_sec": round(r[3], 1),
                 "share_pct": round((r[3] / total_room_speech) * 100, 1),
                 "last_spoke_at": str(r[4])
+            } for r in rows]
+
+    # =========================================================================
+    #  VOICE CHAMBER FULL-SESSION CONTINUOUS RECORDINGS
+    # =========================================================================
+    async def create_vc_recording(
+        self,
+        rec_id: str,
+        group_id: int,
+        group_title: str = "",
+        call_id: str = "",
+        call_title: str = "",
+        file_path: Optional[str] = None,
+        destination: str = "me",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Initialize and persist a new continuous voice chat recording session."""
+        async with self.lock:
+            now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            meta_str = json.dumps(metadata or {})
+            self.cursor.execute(
+                '''INSERT INTO vc_recordings 
+                (id, group_id, group_title, call_id, call_title, started_at, state, destination, file_path, metadata_json)
+                VALUES (?, ?, ?, ?, ?, ?, 'RECORDING', ?, ?, ?)''',
+                (rec_id, group_id, group_title, str(call_id or ""), call_title, now_iso, destination, file_path or "", meta_str)
+            )
+            self.conn.commit()
+            return {
+                "id": rec_id,
+                "group_id": group_id,
+                "group_title": group_title,
+                "call_id": str(call_id or ""),
+                "call_title": call_title,
+                "started_at": now_iso,
+                "state": "RECORDING",
+                "destination": destination,
+                "file_path": file_path or "",
+                "duration_sec": 0.0,
+                "file_size_bytes": 0,
+                "telegram_message_id": None
+            }
+
+    async def update_vc_recording_state(
+        self,
+        rec_id: str,
+        state: str,
+        duration_sec: Optional[float] = None,
+        file_size_bytes: Optional[int] = None,
+        file_path: Optional[str] = None,
+        telegram_message_id: Optional[int] = None,
+        error_message: Optional[str] = None,
+        upload_attempts: Optional[int] = None
+    ) -> bool:
+        """Update recording lifecycle state, metrics and upload references."""
+        async with self.lock:
+            now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            updates = ["state = ?"]
+            params: List[Any] = [state]
+
+            if state == "PAUSED":
+                updates.append("paused_at = ?")
+                params.append(now_iso)
+            elif state == "RECORDING":
+                updates.append("resumed_at = ?")
+                params.append(now_iso)
+            elif state in ("STOPPED", "FINALIZING", "UPLOADING", "COMPLETED", "FAILED"):
+                updates.append("stopped_at = COALESCE(stopped_at, ?)")
+                params.append(now_iso)
+
+            if duration_sec is not None:
+                updates.append("duration_sec = ?")
+                params.append(round(duration_sec, 2))
+            if file_size_bytes is not None:
+                updates.append("file_size_bytes = ?")
+                params.append(int(file_size_bytes))
+            if file_path is not None:
+                updates.append("file_path = ?")
+                params.append(file_path)
+            if telegram_message_id is not None:
+                updates.append("telegram_message_id = ?")
+                params.append(telegram_message_id)
+            if error_message is not None:
+                updates.append("error_message = ?")
+                params.append(error_message)
+            if upload_attempts is not None:
+                updates.append("upload_attempts = ?")
+                params.append(upload_attempts)
+                updates.append("last_upload_attempt = ?")
+                params.append(now_iso)
+
+            params.append(rec_id)
+            sql = f"UPDATE vc_recordings SET {', '.join(updates)} WHERE id = ?"
+            self.cursor.execute(sql, params)
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+
+    async def get_vc_recording(self, rec_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a specific recording session by ID."""
+        async with self.lock:
+            self.cursor.execute(
+                '''SELECT id, group_id, group_title, call_id, call_title, started_at, paused_at, resumed_at, stopped_at,
+                          duration_sec, file_path, file_size_bytes, media_format, state, destination, telegram_message_id,
+                          error_message, upload_attempts, last_upload_attempt, metadata_json
+                   FROM vc_recordings WHERE id = ?''',
+                (rec_id,)
+            )
+            r = self.cursor.fetchone()
+            if not r:
+                return None
+            return {
+                "id": r[0], "group_id": r[1], "group_title": r[2], "call_id": r[3], "call_title": r[4],
+                "started_at": str(r[5]) if r[5] else None, "paused_at": str(r[6]) if r[6] else None,
+                "resumed_at": str(r[7]) if r[7] else None, "stopped_at": str(r[8]) if r[8] else None,
+                "duration_sec": r[9] or 0.0, "file_path": r[10] or "", "file_size_bytes": r[11] or 0,
+                "media_format": r[12] or "audio/mp3", "state": r[13], "destination": r[14] or "me",
+                "telegram_message_id": r[15], "error_message": r[16], "upload_attempts": r[17] or 0,
+                "last_upload_attempt": str(r[18]) if r[18] else None,
+                "metadata": json.loads(r[19]) if r[19] else {}
+            }
+
+    async def get_active_vc_recording(self, group_id: int) -> Optional[Dict[str, Any]]:
+        """Retrieve the currently active or finalizing recording session for a group."""
+        async with self.lock:
+            self.cursor.execute(
+                '''SELECT id, group_id, group_title, call_id, call_title, started_at, paused_at, resumed_at, stopped_at,
+                          duration_sec, file_path, file_size_bytes, media_format, state, destination, telegram_message_id,
+                          error_message, upload_attempts, last_upload_attempt, metadata_json
+                   FROM vc_recordings WHERE group_id = ? AND state IN ('RECORDING', 'PAUSED', 'FINALIZING', 'UPLOADING')
+                   ORDER BY started_at DESC LIMIT 1''',
+                (group_id,)
+            )
+            r = self.cursor.fetchone()
+            if not r:
+                return None
+            return {
+                "id": r[0], "group_id": r[1], "group_title": r[2], "call_id": r[3], "call_title": r[4],
+                "started_at": str(r[5]) if r[5] else None, "paused_at": str(r[6]) if r[6] else None,
+                "resumed_at": str(r[7]) if r[7] else None, "stopped_at": str(r[8]) if r[8] else None,
+                "duration_sec": r[9] or 0.0, "file_path": r[10] or "", "file_size_bytes": r[11] or 0,
+                "media_format": r[12] or "audio/mp3", "state": r[13], "destination": r[14] or "me",
+                "telegram_message_id": r[15], "error_message": r[16], "upload_attempts": r[17] or 0,
+                "last_upload_attempt": str(r[18]) if r[18] else None,
+                "metadata": json.loads(r[19]) if r[19] else {}
+            }
+
+    async def list_vc_recordings(self, group_id: Optional[int] = None, limit: int = 20) -> List[Dict[str, Any]]:
+        """List recording sessions filtered by group or globally."""
+        async with self.lock:
+            query = '''SELECT id, group_id, group_title, call_id, call_title, started_at, paused_at, resumed_at, stopped_at,
+                              duration_sec, file_path, file_size_bytes, media_format, state, destination, telegram_message_id,
+                              error_message, upload_attempts, last_upload_attempt
+                       FROM vc_recordings '''
+            params: List[Any] = []
+            if group_id is not None:
+                query += "WHERE group_id = ? "
+                params.append(group_id)
+            query += "ORDER BY started_at DESC LIMIT ?"
+            params.append(limit)
+            self.cursor.execute(query, params)
+            rows = self.cursor.fetchall()
+            return [{
+                "id": r[0], "group_id": r[1], "group_title": r[2], "call_id": r[3], "call_title": r[4],
+                "started_at": str(r[5]) if r[5] else None, "paused_at": str(r[6]) if r[6] else None,
+                "resumed_at": str(r[7]) if r[7] else None, "stopped_at": str(r[8]) if r[8] else None,
+                "duration_sec": r[9] or 0.0, "file_path": r[10] or "", "file_size_bytes": r[11] or 0,
+                "media_format": r[12] or "audio/mp3", "state": r[13], "destination": r[14] or "me",
+                "telegram_message_id": r[15], "error_message": r[16], "upload_attempts": r[17] or 0,
+                "last_upload_attempt": str(r[18]) if r[18] else None
             } for r in rows]
 
     # =========================================================================

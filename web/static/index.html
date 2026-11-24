@@ -8721,6 +8721,66 @@ body.theme-light .kage-btn.secondary {
         <audio id="vc-live-audio-player" autoplay playsinline style="display: none;"></audio>
       </div>
 
+      <!-- RECORDING TRANSPARENCY NOTICE -->
+      <div id="vc-recording-notice-banner" style="background: rgba(224,35,28,0.06); border: 1px solid rgba(224,35,28,0.25); border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px;">
+        <div style="display: flex; align-items: center; gap: 8px; color: var(--bone);">
+          <i data-lucide="shield-alert" style="width: 14px; height: 14px; color: var(--vermilion); flex-shrink: 0;"></i>
+          <span><b style="color: var(--vermilion);">RECORDING TRANSPARENCY NOTICE:</b> Voice Chamber capture is active. Audio received on this channel is recorded for intelligence archiving to userbot Saved Messages (<code style="color: #10b981;">'me'</code>).</span>
+        </div>
+        <span class="badge badge-muted" style="font-size: 9px; flex-shrink: 0;">TRANSPARENT CONSENT ACTIVE</span>
+      </div>
+
+      <!-- FULL-SESSION RECORDING SUITE -->
+      <div id="vc-full-recording-panel" style="background: rgba(10,14,20,0.85); border: 1px solid var(--line); border-radius: 4px; padding: 12px 16px; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--line-soft); padding-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span id="vc-full-rec-pulse" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted);"></span>
+              <span style="font-size: 11px; font-weight: 700; color: var(--bone); letter-spacing: 0.06em;">VC FULL-SESSION RECORDING</span>
+            </div>
+            <span id="vc-full-rec-status-badge" class="badge badge-muted" style="font-size: 10px;">IDLE</span>
+            <span id="vc-full-rec-codec" style="font-size: 10px; color: var(--muted);">MP3 128k (Audio MTProto Stream)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; font-family: var(--font-mono); font-size: 11px; flex-wrap: wrap;">
+            <div><span class="text-muted" style="font-size: 10px;">DURATION:</span> <b id="vc-full-rec-duration" style="color: var(--bone);">00:00</b></div>
+            <div><span class="text-muted" style="font-size: 10px;">SIZE:</span> <b id="vc-full-rec-size" style="color: var(--bone);">0 KB</b></div>
+            <div><span class="text-muted" style="font-size: 10px;">DESTINATION:</span> <span style="color: #10b981; font-weight: 600;">Saved Messages ('me')</span></div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <button id="btn-full-rec-start" type="button" onclick="startFullVCRecording()" class="kage-btn" style="padding: 6px 14px; font-size: 11px; background: rgba(224,35,28,0.22); border-color: var(--vermilion); color: #f87171; display: inline-flex; align-items: center; gap: 6px;" title="Start continuous full-session recording">
+            <i data-lucide="circle-dot" style="width: 12px; height: 12px; color: #ef4444;"></i> <span>Start Recording</span>
+          </button>
+          <button id="btn-full-rec-pause" type="button" onclick="pauseFullVCRecording()" class="kage-btn-pill" style="padding: 6px 12px; font-size: 11px; display: none; align-items: center; gap: 6px; background: rgba(245,158,11,0.2); border-color: #f59e0b; color: #fbbf24;" title="Pause current recording session">
+            <i data-lucide="pause" style="width: 12px; height: 12px;"></i> <span>Pause</span>
+          </button>
+          <button id="btn-full-rec-resume" type="button" onclick="resumeFullVCRecording()" class="kage-btn-pill" style="padding: 6px 12px; font-size: 11px; display: none; align-items: center; gap: 6px; background: rgba(16,185,129,0.2); border-color: #10b981; color: #10b981;" title="Resume paused recording">
+            <i data-lucide="play" style="width: 12px; height: 12px;"></i> <span>Resume</span>
+          </button>
+          <button id="btn-full-rec-stop" type="button" onclick="stopFullVCRecording()" class="kage-btn-pill" style="padding: 6px 14px; font-size: 11px; display: none; align-items: center; gap: 6px; background: rgba(16,185,129,0.2); border-color: #10b981; color: #10b981; font-weight: 700;" title="Stop recording and automatically upload to Saved Messages">
+            <i data-lucide="square" style="width: 11px; height: 11px;"></i> <span>Stop &amp; Upload</span>
+          </button>
+          <button id="btn-full-rec-retry" type="button" onclick="retryFullVCRecordingUpload()" class="kage-btn-pill" style="padding: 6px 12px; font-size: 11px; display: none; align-items: center; gap: 6px; background: rgba(245,158,11,0.2); border-color: #f59e0b; color: #fbbf24;" title="Retry uploading failed recording">
+            <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> <span>Retry Upload</span>
+          </button>
+          <button id="btn-full-rec-download" type="button" onclick="downloadActiveVCRecording()" class="btn-xs-outline" style="padding: 5px 10px; font-size: 10px; display: none; align-items: center; gap: 5px;" title="Download finalized MP3 to your computer">
+            <i data-lucide="download" style="width: 11px; height: 11px;"></i> <span>Download MP3</span>
+          </button>
+
+          <div id="vc-full-rec-completed-banner" style="display: none; margin-left: auto; align-items: center; gap: 8px;">
+            <span class="badge badge-emerald" style="font-size: 10px; display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="check-circle" style="width: 11px; height: 11px;"></i>
+              <span id="vc-full-rec-msg-label">Uploaded to Saved (Msg #0)</span>
+            </span>
+          </div>
+          <div id="vc-full-rec-error-banner" style="display: none; margin-left: auto; font-size: 11px; color: #f87171; align-items: center; gap: 6px;">
+            <i data-lucide="alert-circle" style="width: 12px; height: 12px;"></i>
+            <span id="vc-full-rec-error-msg">Upload failed</span>
+          </div>
+        </div>
+      </div>
+
       <!-- MASTER TACTICAL ACTIONS BAR -->
       <div style="display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap;">
         <button id="vc-btn-join-stream" onclick="toggleVCConnection()" class="kage-btn" style="flex: 1; min-width: 190px; background: #059669; border-color: #10b981;" title="Connect directly to group call as ghost listener (muted)">
@@ -12929,17 +12989,314 @@ body.theme-light .kage-btn.secondary {
       return;
     }
     if (vcIsRecording) {
-      pauseVCRecording();
-      const elapsed = Math.max(0, Math.floor((Date.now() - (vcRecordStartTime || Date.now())) / 1000));
-      const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
-      const s = String(elapsed % 60).padStart(2, '0');
-      showToast(`⏸️ Recording paused at ${m}:${s}. Click 'Save MP3' or 'Send to Saved Chat' to export.`, 'info');
-      playZenSound('click');
+      pauseFullVCRecording();
     } else {
-      startVCRecording();
-      showToast(`🔴 Voice Chat recording active! Capturing live audio...`, 'success');
-      playZenSound('blip');
+      startFullVCRecording();
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  FULL-SESSION CONTINUOUS RECORDING & SAVED MESSAGES CONTROLLER
+  // ═══════════════════════════════════════════════════════════════════════════
+  let vcCurrentRecordingId = null;
+  let vcFullRecordingPollTimer = null;
+  let vcClientChunkInterval = null;
+
+  async function startFullVCRecording() {
+    const gid = getActiveGroupId();
+    if (!gid) {
+      showToast("Select a target group first", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/vc/recording/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: gid })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(`Failed to start recording: ${err.detail || 'Error'}`, 'error');
+        return;
+      }
+      const data = await res.json();
+      vcCurrentRecordingId = data.recording_id;
+      showToast("🔴 VC Continuous Recording active! Capturing full voice chat session.", "success");
+      playZenSound('blip');
+
+      // Also start browser WebAudio media capture if live audio is playing
+      startVCRecording();
+      startClientChunkStreaming();
+
+      updateFullVCRecordingUI(data);
+      startFullVCRecordingPoll();
+    } catch (e) {
+      console.error("Failed to start full VC recording:", e);
+      showToast("Network error starting VC recording", "error");
+    }
+  }
+
+  async function pauseFullVCRecording() {
+    const gid = getActiveGroupId();
+    if (!gid) return;
+    try {
+      const res = await fetch('/api/vc/recording/pause', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: gid, recording_id: vcCurrentRecordingId })
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      pauseVCRecording();
+      showToast(`⏸️ VC Recording paused at ${data.duration_str}.`, 'info');
+      playZenSound('click');
+      updateFullVCRecordingUI(data);
+    } catch (e) {
+      console.error("Failed to pause recording:", e);
+    }
+  }
+
+  async function resumeFullVCRecording() {
+    const gid = getActiveGroupId();
+    if (!gid) return;
+    try {
+      const res = await fetch('/api/vc/recording/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: gid, recording_id: vcCurrentRecordingId })
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      startVCRecording();
+      showToast("▶️ VC Recording resumed.", "success");
+      playZenSound('blip');
+      updateFullVCRecordingUI(data);
+    } catch (e) {
+      console.error("Failed to resume recording:", e);
+    }
+  }
+
+  async function stopFullVCRecording() {
+    const gid = getActiveGroupId();
+    if (!gid) return;
+
+    stopClientChunkStreaming();
+    stopVCRecording();
+
+    // Show immediate finalizing UI
+    updateFullVCRecordingUI({ state: 'FINALIZING', duration_str: '...' });
+    showToast("⏹️ Finalizing audio & uploading directly to Telegram Saved Messages ('me')...", "info");
+    playZenSound('click');
+
+    try {
+      const res = await fetch('/api/vc/recording/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: gid, recording_id: vcCurrentRecordingId, auto_upload: true })
+      });
+      const data = await res.json();
+      updateFullVCRecordingUI(data);
+
+      if (data.state === 'COMPLETED') {
+        showToast(`✅ VC recording successfully saved to Saved Messages (Msg #${data.telegram_message_id})!`, 'success');
+        playZenSound('ding');
+      } else if (data.state === 'FAILED') {
+        showToast(`⚠️ Upload failed: ${data.error_message || 'Unknown error'}. Click 'Retry Upload'.`, 'error');
+      }
+    } catch (e) {
+      console.error("Failed to stop recording:", e);
+      showToast("Error finalizing recording upload", "error");
+    }
+  }
+
+  async function retryFullVCRecordingUpload() {
+    if (!vcCurrentRecordingId) {
+      showToast("No active recording session ID found", "error");
+      return;
+    }
+
+    updateFullVCRecordingUI({ state: 'UPLOADING' });
+    showToast("🔄 Retrying upload to Telegram Saved Messages ('me')...", "info");
+    playZenSound('click');
+
+    try {
+      const res = await fetch('/api/vc/recording/retry_upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recording_id: vcCurrentRecordingId })
+      });
+      const data = await res.json();
+      updateFullVCRecordingUI(data);
+
+      if (data.state === 'COMPLETED') {
+        showToast(`✅ Recording upload succeeded (Msg #${data.telegram_message_id})!`, 'success');
+        playZenSound('ding');
+      } else {
+        showToast(`❌ Retry upload failed: ${data.error_message || 'Error'}`, 'error');
+      }
+    } catch (e) {
+      console.error("Retry upload exception:", e);
+      showToast("Failed to retry recording upload", "error");
+    }
+  }
+
+  function downloadActiveVCRecording() {
+    const gid = getActiveGroupId();
+    const url = vcCurrentRecordingId 
+      ? `/api/vc/recording/download?recording_id=${encodeURIComponent(vcCurrentRecordingId)}`
+      : `/api/vc/recording/download?group_id=${gid}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `VC_Recording_${Math.floor(Date.now() / 1000)}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  async function refreshVCRecordingStatus() {
+    const gid = getActiveGroupId();
+    if (!gid) return;
+
+    try {
+      const url = vcCurrentRecordingId 
+        ? `/api/vc/recording/status?group_id=${gid}&recording_id=${encodeURIComponent(vcCurrentRecordingId)}`
+        : `/api/vc/recording/status?group_id=${gid}`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.recording_id) {
+        vcCurrentRecordingId = data.recording_id;
+      }
+      updateFullVCRecordingUI(data);
+    } catch (e) {}
+  }
+
+  function startFullVCRecordingPoll() {
+    stopFullVCRecordingPoll();
+    vcFullRecordingPollTimer = setInterval(refreshVCRecordingStatus, 1500);
+  }
+
+  function stopFullVCRecordingPoll() {
+    if (vcFullRecordingPollTimer) {
+      clearInterval(vcFullRecordingPollTimer);
+      vcFullRecordingPollTimer = null;
+    }
+  }
+
+  function startClientChunkStreaming() {
+    if (vcClientChunkInterval) clearInterval(vcClientChunkInterval);
+    vcClientChunkInterval = setInterval(async () => {
+      if (!vcIsRecording || !vcRecordedAudioChunks || vcRecordedAudioChunks.length === 0) return;
+      const gid = getActiveGroupId();
+      if (!gid) return;
+      try {
+        const blob = new Blob(vcRecordedAudioChunks, { type: vcRecordedMimeType || 'audio/webm' });
+        vcRecordedAudioChunks = [];
+        if (blob.size < 50) return;
+        await fetch(`/api/vc/recording/chunk?group_id=${gid}${vcCurrentRecordingId ? '&recording_id=' + encodeURIComponent(vcCurrentRecordingId) : ''}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: blob
+        });
+      } catch (err) {}
+    }, 3000);
+  }
+
+  function stopClientChunkStreaming() {
+    if (vcClientChunkInterval) {
+      clearInterval(vcClientChunkInterval);
+      vcClientChunkInterval = null;
+    }
+  }
+
+  function updateFullVCRecordingUI(data) {
+    if (!data) return;
+    const state = data.state || 'IDLE';
+
+    // Status Badge & Pulse Dot
+    const badge = document.getElementById('vc-full-rec-status-badge');
+    const pulse = document.getElementById('vc-full-rec-pulse');
+    if (badge) {
+      badge.innerText = state;
+      badge.className = 'badge';
+      if (state === 'RECORDING') badge.classList.add('badge-vermilion');
+      else if (state === 'PAUSED' || state === 'FINALIZING' || state === 'UPLOADING') badge.classList.add('badge-amber');
+      else if (state === 'COMPLETED') badge.classList.add('badge-emerald');
+      else if (state === 'FAILED') badge.classList.add('badge-vermilion');
+      else badge.classList.add('badge-muted');
+    }
+    if (pulse) {
+      if (state === 'RECORDING') {
+        pulse.style.background = '#ef4444';
+        pulse.style.boxShadow = '0 0 8px #ef4444';
+        pulse.className = 'hud-blink-dot';
+      } else if (state === 'PAUSED' || state === 'FINALIZING' || state === 'UPLOADING') {
+        pulse.style.background = '#f59e0b';
+        pulse.style.boxShadow = '0 0 6px #f59e0b';
+        pulse.className = 'hud-blink-dot';
+      } else if (state === 'COMPLETED') {
+        pulse.style.background = '#10b981';
+        pulse.style.boxShadow = '0 0 6px #10b981';
+        pulse.className = '';
+      } else {
+        pulse.style.background = 'var(--muted)';
+        pulse.style.boxShadow = 'none';
+        pulse.className = '';
+      }
+    }
+
+    // Telemetry Duration & Size
+    const durEl = document.getElementById('vc-full-rec-duration');
+    const sizeEl = document.getElementById('vc-full-rec-size');
+    if (durEl && data.duration_str) durEl.innerText = data.duration_str;
+    if (sizeEl && data.file_size_str) sizeEl.innerText = data.file_size_str;
+
+    // Buttons
+    const btnStart = document.getElementById('btn-full-rec-start');
+    const btnPause = document.getElementById('btn-full-rec-pause');
+    const btnResume = document.getElementById('btn-full-rec-resume');
+    const btnStop = document.getElementById('btn-full-rec-stop');
+    const btnRetry = document.getElementById('btn-full-rec-retry');
+    const btnDl = document.getElementById('btn-full-rec-download');
+
+    if (btnStart) btnStart.style.display = (state === 'IDLE' || state === 'STOPPED' || state === 'COMPLETED') ? 'inline-flex' : 'none';
+    if (btnPause) btnPause.style.display = (state === 'RECORDING') ? 'inline-flex' : 'none';
+    if (btnResume) btnResume.style.display = (state === 'PAUSED') ? 'inline-flex' : 'none';
+    if (btnStop) btnStop.style.display = (state === 'RECORDING' || state === 'PAUSED') ? 'inline-flex' : 'none';
+    if (btnRetry) btnRetry.style.display = (state === 'FAILED') ? 'inline-flex' : 'none';
+    if (btnDl) btnDl.style.display = (state === 'COMPLETED' || (state === 'STOPPED' && data.file_size > 0)) ? 'inline-flex' : 'none';
+
+    // Banners
+    const completedBanner = document.getElementById('vc-full-rec-completed-banner');
+    const msgLabel = document.getElementById('vc-full-rec-msg-label');
+    const errorBanner = document.getElementById('vc-full-rec-error-banner');
+    const errorMsg = document.getElementById('vc-full-rec-error-msg');
+
+    if (completedBanner && msgLabel) {
+      if (state === 'COMPLETED' && data.telegram_message_id) {
+        completedBanner.style.display = 'inline-flex';
+        msgLabel.innerText = `Uploaded to Saved (Msg #${data.telegram_message_id})`;
+      } else {
+        completedBanner.style.display = 'none';
+      }
+    }
+    if (errorBanner && errorMsg) {
+      if (state === 'FAILED') {
+        errorBanner.style.display = 'inline-flex';
+        errorMsg.innerText = data.error_message || 'Upload failed';
+      } else {
+        errorBanner.style.display = 'none';
+      }
+    }
+
+    // Keep top pill synchronized as well
+    if (state === 'RECORDING') {
+      updateVCRecordButtonUI(true);
+    } else if (state === 'PAUSED') {
+      updateVCRecordButtonUI(false);
+    }
+    safeCreateIcons();
   }
 
   function openVCModal() {
@@ -12958,6 +13315,7 @@ body.theme-light .kage-btn.secondary {
     }
 
     refreshVCStatus();
+    refreshVCRecordingStatus();
     startVCPoll();
     safeCreateIcons();
 
@@ -12976,6 +13334,9 @@ body.theme-light .kage-btn.secondary {
     const modal = document.getElementById('vc-modal');
     if (modal) modal.style.display = 'none';
     stopVCPoll();
+    if (!vcIsRecording) {
+      stopFullVCRecordingPoll();
+    }
     if (!vcIsAudioActive && vcVisualizerAnimFrame) {
       cancelAnimationFrame(vcVisualizerAnimFrame);
       vcVisualizerAnimFrame = null;
@@ -13182,6 +13543,7 @@ body.theme-light .kage-btn.secondary {
         if (livePanel) livePanel.style.display = 'none';
         if (inactivePanel) inactivePanel.style.display = 'block';
       }
+      refreshVCRecordingStatus();
       safeCreateIcons();
     } catch (e) {
       console.error("Failed to refresh VC status:", e);

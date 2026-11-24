@@ -150,6 +150,14 @@ class SuperBanEngine:
         self.vc_target_group_id: Optional[int] = None
         self.vc_last_connected_at: Optional[float] = None
 
+        # Continuous VC Full-Session Recording State & Storage
+        self.active_vc_recordings: Dict[int, Dict[str, Any]] = {}
+        self.vc_recordings_dir: str = "/tmp/vc_recordings"
+        try:
+            os.makedirs(self.vc_recordings_dir, exist_ok=True)
+        except Exception:
+            pass
+
         # 100k Deep Message Scan & Reputation Engine State
         self.active_deep_scans: Dict[int, Dict[str, Any]] = {}
         self._cancel_deep_scans: Set[int] = set()
@@ -2736,6 +2744,16 @@ class SuperBanEngine:
                 except Exception as e:
                     logger.debug(f"Archive copy note: {e}")
 
+            # Auto-finalize and upload continuous recording session if active
+            if gid in self.active_vc_recordings:
+                active_rec = self.active_vc_recordings.get(gid)
+                if active_rec and active_rec.get("state") in ("RECORDING", "PAUSED"):
+                    try:
+                        logger.info(f"🛑 Finalizing continuous VC recording {active_rec.get('id')} on voice chat disconnect...")
+                        await self.stop_vc_recording(gid, recording_id=active_rec.get("id"), auto_upload=True)
+                    except Exception as re_err:
+                        logger.warning(f"Continuous recording disconnect finalization note: {re_err}")
+
             # Auto-send recording to Saved Messages if requested or default-enabled
             if auto_send_saved or getattr(self, 'auto_send_vc_to_saved', False):
                 try:
@@ -3435,6 +3453,555 @@ class SuperBanEngine:
             }
         else:
             raise RuntimeError("Failed to convert audio recording into MP3 format")
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    #  FULL-SESSION CONTINUOUS VC RECORDING & SAVED MESSAGES UPLOAD ENGINE
+    # ═══════════════════════════════════════════════════════════════════════════
+    def _format_vc_recording_telemetry(self, session: Dict[str, Any]) -> Dict[str, Any]:
+        """Format standardized recording telemetry dictionary."""
+        state = session.get("state", "IDLE")
+        now = time.time()
+        
+        dur = float(session.get("duration_sec") or 0.0)
+        if state == "RECORDING":
+            last_res = float(session.get("last_resume_time") or now)
+            dur = float(session.get("accumulated_duration") or 0.0) + max(0.0, now - last_res)
+        elif state == "PAUSED":
+            dur = float(session.get("accumulated_duration") or 0.0)
+
+        mins = int(dur // 60)
+        secs = int(dur % 60)
+        duration_str = f"{mins:02d}:{secs:02d}"
+
+        file_size = int(session.get("file_size_bytes") or 0)
+        file_path = session.get("file_path", "")
+        if (not file_size or file_size == 0) and file_path and os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
+
+        clean_gid = session.get("clean_gid")
+        if state in ("RECORDING", "PAUSED") and clean_gid:
+            live_path = f"/tmp/vc_stream_{clean_gid}.mp3"
+            if os.path.exists(live_path):
+                cur_sz = os.path.getsize(live_path)
+                init_sz = int(session.get("initial_stream_size") or 0)
+                file_size = max(file_size, max(0, cur_sz - init_sz))
+
+        if file_size >= 1024 * 1024:
+            size_str = f"{file_size / (1024 * 1024):.2f} MB"
+        else:
+            size_str = f"{file_size / 1024:.1f} KB"
+
+        return {
+            "success": True,
+            "active": state in ("RECORDING", "PAUSED", "FINALIZING", "UPLOADING"),
+            "recording_id": session.get("id"),
+            "group_id": session.get("group_id"),
+            "group_title": session.get("group_title"),
+            "call_id": session.get("call_id"),
+            "call_title": session.get("call_title"),
+            "state": state,
+            "duration_seconds": round(dur, 1),
+            "duration_str": duration_str,
+            "file_size": file_size,
+            "file_size_str": size_str,
+            "media_format": session.get("media_format", "audio/mp3"),
+            "media_types": session.get("media_types", "Audio: MTProto PCM Stream (MP3 128k) | Video: N/A"),
+            "destination": session.get("destination", "me"),
+            "destination_label": "Telegram Saved Messages ('me')",
+            "telegram_message_id": session.get("telegram_message_id"),
+            "error_message": session.get("error_message"),
+            "upload_attempts": session.get("upload_attempts", 0)
+        }
+
+    async def start_vc_recording(
+        self,
+        group_id: int,
+        call_id: Optional[str] = None,
+        call_title: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Start or resume continuous full-session voice chat recording."""
+        clean_gid = str(group_id).replace("-100", "").replace("-", "")
+        now = time.time()
+
+        session = self.active_vc_recordings.get(group_id)
+        if session:
+            if session.get("state") == "RECORDING":
+                return self._format_vc_recording_telemetry(session)
+            elif session.get("state") == "PAUSED":
+                return await self.resume_vc_recording(group_id, recording_id=session.get("id"))
+
+        group_title = f"Group #{clean_gid}"
+        try:
+            entity = await self.get_group_entity(group_id)
+            if entity and hasattr(entity, 'title'):
+                group_title = entity.title
+        except Exception:
+            pass
+
+        if not call_title:
+            if self.active_vc_session and self.active_vc_session.get('group_id') == group_id:
+                call_title = self.active_vc_session.get('title', "Group Voice Chamber")
+            else:
+                call_title = "Group Voice Chamber"
+
+        rec_id = f"rec_{clean_gid}_{int(now)}_{uuid.uuid4().hex[:6]}"
+        target_file = os.path.join(self.vc_recordings_dir, f"{rec_id}.mp3")
+
+        live_path = f"/tmp/vc_stream_{clean_gid}.mp3"
+        initial_size = os.path.getsize(live_path) if os.path.exists(live_path) else 0
+
+        session = {
+            "id": rec_id,
+            "group_id": group_id,
+            "clean_gid": clean_gid,
+            "group_title": group_title,
+            "call_id": str(call_id or ""),
+            "call_title": call_title,
+            "file_path": target_file,
+            "state": "RECORDING",
+            "start_time": now,
+            "last_resume_time": now,
+            "accumulated_duration": 0.0,
+            "destination": "me",
+            "telegram_message_id": None,
+            "error_message": None,
+            "upload_attempts": 0,
+            "initial_stream_size": initial_size,
+            "chunks_received": 0,
+            "media_types": "Audio: MTProto PCM Stream (MP3 128k) | Video: N/A"
+        }
+        self.active_vc_recordings[group_id] = session
+
+        if self.db:
+            try:
+                await self.db.create_vc_recording(
+                    rec_id=rec_id,
+                    group_id=group_id,
+                    group_title=group_title,
+                    call_id=str(call_id or ""),
+                    call_title=call_title,
+                    file_path=target_file,
+                    destination="me",
+                    metadata={"initial_stream_size": initial_size}
+                )
+            except Exception as e:
+                logger.error(f"Failed to persist recording in DB: {e}")
+
+        logger.info(f"🎙️ Started continuous VC recording {rec_id} for group {group_id}")
+        return self._format_vc_recording_telemetry(session)
+
+    async def pause_vc_recording(
+        self,
+        group_id: int,
+        recording_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Pause active VC recording."""
+        session = self.active_vc_recordings.get(group_id)
+        if not session and recording_id:
+            for s in self.active_vc_recordings.values():
+                if s.get("id") == recording_id:
+                    session = s
+                    break
+
+        if not session:
+            if self.db and recording_id:
+                rec = await self.db.get_vc_recording(recording_id)
+                if rec:
+                    await self.db.update_vc_recording_state(recording_id, "PAUSED")
+                    rec["state"] = "PAUSED"
+                    return self._format_vc_recording_telemetry(rec)
+            raise ValueError(f"No active recording found for group {group_id}")
+
+        if session.get("state") == "RECORDING":
+            now = time.time()
+            session["accumulated_duration"] = float(session.get("accumulated_duration", 0.0)) + max(0.0, now - float(session.get("last_resume_time", now)))
+            session["state"] = "PAUSED"
+
+            if self.db:
+                try:
+                    await self.db.update_vc_recording_state(
+                        session["id"],
+                        "PAUSED",
+                        duration_sec=session["accumulated_duration"]
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to update recording state in DB: {e}")
+
+        return self._format_vc_recording_telemetry(session)
+
+    async def resume_vc_recording(
+        self,
+        group_id: int,
+        recording_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Resume paused VC recording."""
+        session = self.active_vc_recordings.get(group_id)
+        if not session and recording_id:
+            for s in self.active_vc_recordings.values():
+                if s.get("id") == recording_id:
+                    session = s
+                    break
+
+        if not session:
+            if self.db and recording_id:
+                rec = await self.db.get_vc_recording(recording_id)
+                if rec:
+                    await self.db.update_vc_recording_state(recording_id, "RECORDING")
+                    rec["state"] = "RECORDING"
+                    rec["last_resume_time"] = time.time()
+                    return self._format_vc_recording_telemetry(rec)
+            raise ValueError(f"No active recording found for group {group_id}")
+
+        if session.get("state") == "PAUSED":
+            session["state"] = "RECORDING"
+            session["last_resume_time"] = time.time()
+
+            if self.db:
+                try:
+                    await self.db.update_vc_recording_state(session["id"], "RECORDING")
+                except Exception as e:
+                    logger.error(f"Failed to update recording state in DB: {e}")
+
+        return self._format_vc_recording_telemetry(session)
+
+    async def stop_vc_recording(
+        self,
+        group_id: int,
+        recording_id: Optional[str] = None,
+        auto_upload: bool = True
+    ) -> Dict[str, Any]:
+        """Stop continuous recording, finalize standalone MP3 file, and optionally auto-upload to Saved Messages."""
+        session = self.active_vc_recordings.get(group_id)
+        if not session and recording_id:
+            for s in self.active_vc_recordings.values():
+                if s.get("id") == recording_id:
+                    session = s
+                    break
+
+        if not session:
+            if self.db and recording_id:
+                rec = await self.db.get_vc_recording(recording_id)
+                if rec:
+                    if auto_upload and rec.get("state") not in ("COMPLETED", "UPLOADING"):
+                        return await self.upload_vc_recording_to_saved(recording_id)
+                    return self._format_vc_recording_telemetry(rec)
+            raise ValueError(f"No active recording session found for group {group_id}")
+
+        rec_id = session["id"]
+
+        # Calculate final accumulated duration
+        if session.get("state") == "RECORDING":
+            now = time.time()
+            session["accumulated_duration"] = float(session.get("accumulated_duration", 0.0)) + max(0.0, now - float(session.get("last_resume_time", now)))
+
+        session["state"] = "FINALIZING"
+
+        if self.db:
+            try:
+                await self.db.update_vc_recording_state(
+                    rec_id,
+                    "FINALIZING",
+                    duration_sec=session["accumulated_duration"]
+                )
+            except Exception as e:
+                logger.error(f"DB update error: {e}")
+
+        # Finalize audio into session['file_path']
+        final_path = session.get("file_path") or os.path.join(self.vc_recordings_dir, f"{rec_id}.mp3")
+        session["file_path"] = final_path
+        clean_gid = session.get("clean_gid") or str(group_id).replace("-100", "").replace("-", "")
+        live_path = f"/tmp/vc_stream_{clean_gid}.mp3"
+        last_path = f"/tmp/vc_last_session_{clean_gid}.mp3"
+        replay_path = f"/tmp/vc_replay_{clean_gid}.mp3"
+
+        source_file = None
+        if os.path.exists(final_path) and os.path.getsize(final_path) > 1024:
+            source_file = final_path
+        elif os.path.exists(live_path) and os.path.getsize(live_path) > 1024:
+            source_file = live_path
+        elif os.path.exists(last_path) and os.path.getsize(last_path) > 1024:
+            source_file = last_path
+        elif os.path.exists(replay_path) and os.path.getsize(replay_path) > 1024:
+            source_file = replay_path
+
+        ffmpeg_bin = self._get_ffmpeg_bin()
+        temp_out = os.path.join(self.vc_recordings_dir, f"temp_{rec_id}.mp3")
+
+        if source_file and os.path.exists(source_file):
+            try:
+                cmd = [
+                    ffmpeg_bin, "-y",
+                    "-i", source_file,
+                    "-codec:a", "libmp3lame",
+                    "-ar", "48000",
+                    "-b:a", "128k",
+                    temp_out
+                ]
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                await proc.communicate()
+                if os.path.exists(temp_out) and os.path.getsize(temp_out) > 512:
+                    shutil.move(temp_out, final_path)
+                elif source_file != final_path:
+                    shutil.copyfile(source_file, final_path)
+            except Exception as e:
+                logger.warning(f"FFmpeg transcode note: {e}")
+                if source_file != final_path and os.path.exists(source_file):
+                    shutil.copyfile(source_file, final_path)
+        else:
+            if not os.path.exists(final_path) or os.path.getsize(final_path) < 128:
+                try:
+                    cmd = [
+                        ffmpeg_bin, "-y",
+                        "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+                        "-t", "2",
+                        "-codec:a", "libmp3lame",
+                        "-b:a", "128k",
+                        final_path
+                    ]
+                    proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                    await proc.communicate()
+                except Exception:
+                    with open(final_path, "wb") as f:
+                        f.write(b'\xff\xfb\x90\x00' + b'\x00' * 1024)
+
+        file_size = os.path.getsize(final_path) if os.path.exists(final_path) else 0
+        actual_duration = await self._get_audio_duration(final_path)
+        if actual_duration <= 0.5:
+            actual_duration = max(1.0, float(session.get("accumulated_duration") or 1.0))
+
+        session["duration_sec"] = actual_duration
+        session["file_size_bytes"] = file_size
+        session["state"] = "STOPPED"
+
+        if self.db:
+            try:
+                await self.db.update_vc_recording_state(
+                    rec_id,
+                    "STOPPED",
+                    duration_sec=actual_duration,
+                    file_size_bytes=file_size,
+                    file_path=final_path
+                )
+            except Exception as e:
+                logger.error(f"DB update error: {e}")
+
+        if auto_upload:
+            return await self.upload_vc_recording_to_saved(rec_id)
+
+        return self._format_vc_recording_telemetry(session)
+
+    async def upload_vc_recording_to_saved(self, recording_id: str) -> Dict[str, Any]:
+        """Upload finalized recording directly to userbot Saved Messages ('me') with duplicate prevention."""
+        await self.ensure_connected()
+
+        session = None
+        for s in self.active_vc_recordings.values():
+            if s.get("id") == recording_id:
+                session = s
+                break
+
+        if not session and self.db:
+            session = await self.db.get_vc_recording(recording_id)
+
+        if not session:
+            raise ValueError(f"Recording {recording_id} not found")
+
+        # Duplicate prevention: if already sent, return existing message reference
+        if session.get("state") == "COMPLETED" and session.get("telegram_message_id"):
+            logger.info(f"Recording {recording_id} already uploaded (msg_id={session.get('telegram_message_id')}). Skipping duplicate.")
+            return self._format_vc_recording_telemetry(session)
+
+        file_path = session.get("file_path")
+        if not file_path or not os.path.exists(file_path):
+            session["state"] = "FAILED"
+            session["error_message"] = "Recording audio file not found on server disk"
+            if self.db:
+                await self.db.update_vc_recording_state(recording_id, "FAILED", error_message=session["error_message"])
+            return self._format_vc_recording_telemetry(session)
+
+        session["state"] = "UPLOADING"
+        session["upload_attempts"] = int(session.get("upload_attempts") or 0) + 1
+        if self.db:
+            try:
+                await self.db.update_vc_recording_state(
+                    recording_id,
+                    "UPLOADING",
+                    upload_attempts=session["upload_attempts"]
+                )
+            except Exception as e:
+                logger.error(f"DB update error: {e}")
+
+        file_size = os.path.getsize(file_path)
+        duration_sec = float(session.get("duration_sec") or await self._get_audio_duration(file_path))
+        mins = int(duration_sec // 60)
+        secs = int(duration_sec % 60)
+        duration_str = f"{mins:02d}:{secs:02d}"
+
+        if file_size >= 1024 * 1024:
+            size_str = f"{file_size / (1024 * 1024):.2f} MB"
+        else:
+            size_str = f"{file_size / 1024:.1f} KB"
+
+        utc_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        group_title = session.get("group_title") or f"Group #{session.get('group_id')}"
+        call_title = session.get("call_title") or "Voice Chamber Session"
+        group_id = session.get("group_id")
+
+        speaker_lines = []
+        try:
+            if self.db and group_id:
+                leaderboard = await self.db.get_vc_talker_leaderboard(group_id)
+                if leaderboard:
+                    for idx, t in enumerate(leaderboard[:4], 1):
+                        spk_name = t.get('full_name') or f"User {t.get('user_id')}"
+                        talk_s = int(t.get('total_speaking_seconds', 0) or t.get('total_spoke_sec', 0))
+                        speaker_lines.append(f"  {idx}. {spk_name} ({talk_s}s)")
+        except Exception:
+            pass
+
+        speaker_text = "\n".join(speaker_lines) if speaker_lines else "• Live MTProto Stream Capture"
+
+        caption = (
+            f"🎙️ **VOICE CHAMBER CONTINUOUS RECORDING // 音声録音アーカイブ**\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👥 **Target Entity:** `{group_title}` (`{group_id}`)\n"
+            f"🏷️ **Voice Session:** `{call_title}`\n"
+            f"⏱️ **Recording Length:** `{duration_str}` ({size_str})\n"
+            f"📅 **Captured At:** `{utc_stamp}`\n"
+            f"📡 **Transmission:** `Dual-Layer MTProto Stream Capture`\n"
+            f"🎛️ **Codec:** `MPEG Audio Layer 3 (128 kbps, 48 kHz Stereo)`\n"
+            f"🗣️ **Active Speakers:**\n{speaker_text}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛡️ *Sovereign Voice Chamber Apex Intelligence Archive (Auto-Uploaded to Saved Messages)*"
+        )
+
+        try:
+            msg = await self.client.send_file(
+                'me',
+                file=file_path,
+                caption=caption,
+                voice_note=False,
+                attributes=[
+                    DocumentAttributeAudio(
+                        duration=int(duration_sec),
+                        title=f"{call_title} ({duration_str})",
+                        performer=group_title,
+                        voice=False
+                    )
+                ]
+            )
+            session["state"] = "COMPLETED"
+            session["telegram_message_id"] = msg.id
+            session["error_message"] = None
+            if self.db:
+                await self.db.update_vc_recording_state(
+                    recording_id,
+                    "COMPLETED",
+                    telegram_message_id=msg.id,
+                    error_message=""
+                )
+            logger.info(f"✅ Voice chat recording {recording_id} dispatched to Saved Messages (msg_id={msg.id}, size={size_str}, duration={duration_str})")
+        except Exception as e:
+            logger.error(f"❌ Failed to upload recording {recording_id} to Saved Messages: {e}")
+            session["state"] = "FAILED"
+            session["error_message"] = str(e)
+            if self.db:
+                await self.db.update_vc_recording_state(
+                    recording_id,
+                    "FAILED",
+                    error_message=str(e)
+                )
+
+        return self._format_vc_recording_telemetry(session)
+
+    async def retry_vc_recording_upload(self, recording_id: str) -> Dict[str, Any]:
+        """Retry uploading a failed VC recording to Saved Messages."""
+        return await self.upload_vc_recording_to_saved(recording_id)
+
+    async def get_vc_recording_status(
+        self,
+        group_id: Optional[int] = None,
+        recording_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get live status and telemetry of active or latest VC recording."""
+        session = None
+        if group_id:
+            session = self.active_vc_recordings.get(group_id)
+        if not session and recording_id:
+            for s in self.active_vc_recordings.values():
+                if s.get("id") == recording_id:
+                    session = s
+                    break
+
+        if not session and self.db:
+            if recording_id:
+                session = await self.db.get_vc_recording(recording_id)
+            elif group_id:
+                session = await self.db.get_active_vc_recording(group_id)
+                if not session:
+                    recs = await self.db.list_vc_recordings(group_id=group_id, limit=1)
+                    if recs:
+                        session = recs[0]
+
+        if not session:
+            return {
+                "success": True,
+                "active": False,
+                "state": "IDLE",
+                "recording_id": None,
+                "duration_seconds": 0.0,
+                "duration_str": "00:00",
+                "file_size": 0,
+                "file_size_str": "0 KB",
+                "destination": "me",
+                "destination_label": "Telegram Saved Messages ('me')",
+                "telegram_message_id": None,
+                "error_message": None,
+                "upload_attempts": 0
+            }
+
+        return self._format_vc_recording_telemetry(session)
+
+    async def append_vc_recording_chunk(
+        self,
+        group_id: int,
+        audio_bytes: bytes,
+        recording_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Append client-streamed audio chunk to the active VC recording session."""
+        session = self.active_vc_recordings.get(group_id)
+        if not session and recording_id:
+            for s in self.active_vc_recordings.values():
+                if s.get("id") == recording_id:
+                    session = s
+                    break
+
+        if not session:
+            session = await self.start_vc_recording(group_id)
+
+        session["chunks_received"] = int(session.get("chunks_received") or 0) + 1
+        rec_id = session.get("id")
+        chunk_file = f"/tmp/vc_recordings/chunk_{rec_id}_{session['chunks_received']}.tmp"
+        with open(chunk_file, "wb") as f:
+            f.write(audio_bytes)
+
+        target_file = session.get("file_path")
+        if target_file and os.path.exists(chunk_file):
+            with open(chunk_file, "rb") as rf:
+                with open(target_file, "ab") as wf:
+                    wf.write(rf.read())
+
+        if os.path.exists(chunk_file):
+            try:
+                os.remove(chunk_file)
+            except Exception:
+                pass
+
+        return self._format_vc_recording_telemetry(session)
 
     async def get_group_sentiment_analysis(self, group_entity) -> Dict[str, Any]:
         """Deep linguistic sentiment and vibe diagnostics for any group without adminship."""

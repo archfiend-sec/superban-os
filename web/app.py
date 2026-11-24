@@ -2803,6 +2803,158 @@ def create_app(engine: SuperBanEngine):
             logger.error(f"Failed to upload and dispatch VC recording to Saved Messages: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    # ═══════════════════════════════════════════════════════════════════════════
+    #  FULL-SESSION CONTINUOUS VC RECORDING & SAVED MESSAGES ENDPOINTS
+    # ═══════════════════════════════════════════════════════════════════════════
+    class VCRecordingStartReq(BaseModel):
+        group_id: int
+        call_id: Optional[str] = None
+        call_title: Optional[str] = None
+
+    class VCRecordingActionReq(BaseModel):
+        group_id: int
+        recording_id: Optional[str] = None
+        auto_upload: Optional[bool] = True
+
+    class VCRecordingRetryReq(BaseModel):
+        recording_id: str
+
+    @app.post("/api/vc/recording/start")
+    async def vc_recording_start(req: VCRecordingStartReq):
+        try:
+            return await engine.start_vc_recording(
+                group_id=req.group_id,
+                call_id=req.call_id,
+                call_title=req.call_title
+            )
+        except Exception as e:
+            logger.error(f"Failed to start VC recording: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/vc/recording/pause")
+    async def vc_recording_pause(req: VCRecordingActionReq):
+        try:
+            return await engine.pause_vc_recording(
+                group_id=req.group_id,
+                recording_id=req.recording_id
+            )
+        except ValueError as ve:
+            raise HTTPException(status_code=404, detail=str(ve))
+        except Exception as e:
+            logger.error(f"Failed to pause VC recording: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/vc/recording/resume")
+    async def vc_recording_resume(req: VCRecordingActionReq):
+        try:
+            return await engine.resume_vc_recording(
+                group_id=req.group_id,
+                recording_id=req.recording_id
+            )
+        except ValueError as ve:
+            raise HTTPException(status_code=404, detail=str(ve))
+        except Exception as e:
+            logger.error(f"Failed to resume VC recording: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/vc/recording/stop")
+    async def vc_recording_stop(req: VCRecordingActionReq):
+        try:
+            return await engine.stop_vc_recording(
+                group_id=req.group_id,
+                recording_id=req.recording_id,
+                auto_upload=req.auto_upload if req.auto_upload is not None else True
+            )
+        except ValueError as ve:
+            raise HTTPException(status_code=404, detail=str(ve))
+        except Exception as e:
+            logger.error(f"Failed to stop VC recording: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/vc/recording/status")
+    async def vc_recording_status(group_id: Optional[int] = None, recording_id: Optional[str] = None):
+        try:
+            return await engine.get_vc_recording_status(
+                group_id=group_id,
+                recording_id=recording_id
+            )
+        except Exception as e:
+            logger.error(f"Failed to get VC recording status: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/vc/recording/retry_upload")
+    async def vc_recording_retry(req: VCRecordingRetryReq):
+        try:
+            return await engine.retry_vc_recording_upload(recording_id=req.recording_id)
+        except ValueError as ve:
+            raise HTTPException(status_code=404, detail=str(ve))
+        except Exception as e:
+            logger.error(f"Failed to retry VC recording upload: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/vc/recording/download")
+    async def vc_recording_download(recording_id: Optional[str] = None, group_id: Optional[int] = None):
+        target_path = None
+        file_name = None
+
+        if recording_id:
+            for s in engine.active_vc_recordings.values():
+                if s.get("id") == recording_id:
+                    target_path = s.get("file_path")
+                    break
+            if not target_path and engine.db:
+                rec = await engine.db.get_vc_recording(recording_id)
+                if rec:
+                    target_path = rec.get("file_path")
+            file_name = f"{recording_id}.mp3"
+
+        if not target_path and group_id:
+            session = engine.active_vc_recordings.get(group_id)
+            if session and session.get("file_path") and os.path.exists(session.get("file_path")):
+                target_path = session.get("file_path")
+                file_name = f"{session.get('id', 'rec')}.mp3"
+            elif engine.db:
+                recs = await engine.db.list_vc_recordings(group_id=group_id, limit=1)
+                if recs and recs[0].get("file_path") and os.path.exists(recs[0].get("file_path")):
+                    target_path = recs[0].get("file_path")
+                    file_name = f"{recs[0].get('id', 'rec')}.mp3"
+
+        if not target_path or not os.path.exists(target_path) or os.path.getsize(target_path) < 128:
+            if group_id:
+                clean_gid = str(group_id).replace("-100", "").replace("-", "")
+                live_path = f"/tmp/vc_stream_{clean_gid}.mp3"
+                last_path = f"/tmp/vc_last_session_{clean_gid}.mp3"
+                if os.path.exists(live_path) and os.path.getsize(live_path) > 512:
+                    target_path = live_path
+                    file_name = f"VC_{clean_gid}_{int(time.time())}.mp3"
+                elif os.path.exists(last_path) and os.path.getsize(last_path) > 512:
+                    target_path = last_path
+                    file_name = f"VC_{clean_gid}_{int(time.time())}.mp3"
+
+        if not target_path or not os.path.exists(target_path):
+            raise HTTPException(status_code=404, detail="Recording audio file not found on server")
+
+        return FileResponse(
+            target_path,
+            media_type="audio/mpeg",
+            filename=file_name or f"vc_recording_{int(time.time())}.mp3"
+        )
+
+    @app.post("/api/vc/recording/chunk")
+    async def vc_recording_chunk(request: Request, group_id: int, recording_id: Optional[str] = None):
+        try:
+            chunk_bytes = await request.body()
+            if not chunk_bytes or len(chunk_bytes) < 10:
+                return {"success": True, "appended": 0}
+            return await engine.append_vc_recording_chunk(
+                group_id=group_id,
+                audio_bytes=chunk_bytes,
+                recording_id=recording_id
+            )
+        except Exception as e:
+            logger.error(f"Error appending VC recording chunk: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @app.get("/api/vc/leaderboard")
     async def get_vc_leaderboard(group_id: int, call_id: Optional[str] = None):
         if not engine.db:
