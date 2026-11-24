@@ -3523,8 +3523,16 @@ body.device-tablet #kage-mobile-dock {
     height: 42px !important;
     border-radius: 8px !important;
   }
-  #vc-spectrum-canvas {
+  #vc-spectrum-container {
+    width: 100% !important;
     max-width: 100% !important;
+    height: 32px !important;
+    min-width: 0 !important;
+  }
+  #vc-spectrum-canvas {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
   }
   #btn-vc-send-saved, #btn-vc-download, #btn-vc-replay-30s, #btn-vc-send-replay-saved {
     flex: 1 1 calc(50% - 6px) !important;
@@ -3628,6 +3636,20 @@ body.device-tablet #kage-mobile-dock {
   .kage-btn-pill {
     padding: 5px 10px !important;
     font-size: 10.5px !important;
+  }
+  /* Tablet Voice Chamber Apex Audio Suite */
+  #vc-audio-suite > div:first-child {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 10px 14px !important;
+  }
+  #vc-spectrum-container {
+    flex: 1 1 160px !important;
+    min-width: 140px !important;
+    max-width: 280px !important;
+    height: 32px !important;
   }
 }
 @media (min-width: 851px) and (max-width: 1180px) {
@@ -8658,9 +8680,9 @@ body.theme-light .kage-btn.secondary {
           </div>
           
           <!-- CYBER SPECTRUM VISUALIZER -->
-          <div style="flex: 1; min-width: 160px; max-width: 280px; height: 28px; background: rgba(5,7,10,0.8); border: 1px solid var(--line-soft); border-radius: 2px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative;">
-            <canvas id="vc-spectrum-canvas" width="280" height="28" style="width: 100%; height: 100%; display: block;"></canvas>
-            <span id="vc-spectrum-placeholder" style="position: absolute; font-size: 9px; color: var(--muted); letter-spacing: 0.1em; pointer-events: none;">LIVE FREQUENCY BARS</span>
+          <div id="vc-spectrum-container" style="flex: 1 1 200px; min-width: 150px; max-width: 280px; height: 32px; background: rgba(5,7,10,0.85); border: 1px solid var(--line-soft); border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; box-shadow: inset 0 1px 4px rgba(0,0,0,0.6);" title="Voice Chamber Apex Live Frequency Spectrum">
+            <canvas id="vc-spectrum-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+            <span id="vc-spectrum-placeholder" style="position: absolute; font-size: 9px; font-weight: 600; color: var(--muted); letter-spacing: 0.12em; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.8); transition: opacity 0.25s ease; user-select: none;">LIVE FREQUENCY BARS</span>
           </div>
 
           <!-- MASTER OUTPUT VOLUME -->
@@ -12934,6 +12956,15 @@ body.theme-light .kage-btn.secondary {
     refreshVCStatus();
     startVCPoll();
     safeCreateIcons();
+
+    // Resume AudioContext if suspended (critical for Safari, iPadOS, macOS)
+    if (window.vcAudioContext && window.vcAudioContext.state === 'suspended') {
+      window.vcAudioContext.resume().catch(() => {});
+    }
+    // Update or resume visualizer state
+    if (typeof startVCSpectrumVisualizer === 'function') {
+      startVCSpectrumVisualizer();
+    }
   }
 
   function closeVCModal(e) {
@@ -12941,6 +12972,10 @@ body.theme-light .kage-btn.secondary {
     const modal = document.getElementById('vc-modal');
     if (modal) modal.style.display = 'none';
     stopVCPoll();
+    if (!vcIsAudioActive && vcVisualizerAnimFrame) {
+      cancelAnimationFrame(vcVisualizerAnimFrame);
+      vcVisualizerAnimFrame = null;
+    }
   }
 
   function startVCPoll() {
@@ -13292,6 +13327,8 @@ body.theme-light .kage-btn.secondary {
   let vcAudioContext = null;
   let vcAudioAnalyser = null;
   let vcVisualizerAnimFrame = null;
+  let vcVisualizerResizeObserver = null;
+  let vcVisualizerPeaks = null;
   let vcIsAudioActive = false;
 
   async function toggleVCConnection() {
@@ -13423,6 +13460,16 @@ body.theme-light .kage-btn.secondary {
         if (window.vcAudioContext.state === 'suspended') {
           await window.vcAudioContext.resume();
         }
+        if (!window.vcAudioContext._hasStateListener) {
+          window.vcAudioContext._hasStateListener = true;
+          window.vcAudioContext.onstatechange = () => {
+            if (window.vcAudioContext && window.vcAudioContext.state === 'running' && vcIsAudioActive) {
+              if (typeof startVCSpectrumVisualizer === 'function') {
+                startVCSpectrumVisualizer();
+              }
+            }
+          };
+        }
       }
 
       // 4. Hook audio element to Web Audio graph once for visualizer & volume control
@@ -13430,7 +13477,10 @@ body.theme-light .kage-btn.secondary {
         try {
           const source = window.vcAudioContext.createMediaElementSource(audioEl);
           const analyser = window.vcAudioContext.createAnalyser();
-          analyser.fftSize = 64;
+          analyser.fftSize = 128; // 64 frequency bins (375Hz per bin @ 48kHz)
+          analyser.smoothingTimeConstant = 0.8;
+          analyser.minDecibels = -90;
+          analyser.maxDecibels = -10;
           const gainNode = window.vcAudioContext.createGain();
 
           const volSlider = document.getElementById('vc-audio-volume-slider');
@@ -13500,6 +13550,51 @@ body.theme-light .kage-btn.secondary {
     }
   }
 
+  function renderVCDormantSpectrum(canvas, ctx, placeholder, isIdleListening) {
+    if (!canvas || !ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = Math.max(120, Math.floor(rect.width || 280));
+    const h = Math.max(20, Math.floor(rect.height || 32));
+    const targetW = Math.round(w * dpr);
+    const targetH = Math.round(h * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const numBars = 24;
+    const gap = 2;
+    const totalGap = (numBars - 1) * gap;
+    const barWidth = Math.max(2, (w - totalGap) / numBars);
+
+    for (let i = 0; i < numBars; i++) {
+      const x = i * (barWidth + gap);
+      if (isIdleListening) {
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+        ctx.fillRect(Math.floor(x), h - 3, Math.ceil(barWidth), 3);
+      } else {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.fillRect(Math.floor(x), h - 2, Math.ceil(barWidth), 2);
+      }
+    }
+    ctx.restore();
+
+    if (placeholder) {
+      placeholder.style.display = 'block';
+      if (isIdleListening) {
+        placeholder.style.opacity = '0.45';
+        placeholder.innerText = 'LISTENING // OPEN CARRIER';
+      } else {
+        placeholder.style.opacity = '0.7';
+        placeholder.innerText = 'LIVE FREQUENCY BARS';
+      }
+    }
+  }
+
   function stopVCLiveAudio() {
     if (window.vcLiveSyncInterval) {
       clearInterval(window.vcLiveSyncInterval);
@@ -13515,18 +13610,18 @@ body.theme-light .kage-btn.secondary {
       audioEl.removeAttribute('src');
       audioEl.load();
     }
-    // Clear spectrum canvas
-    const canvas = document.getElementById('vc-spectrum-canvas');
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-    const placeholder = document.getElementById('vc-spectrum-placeholder');
-    if (placeholder) placeholder.style.display = 'block';
 
     vcIsAudioActive = false;
     updateVCAudioUI(false);
     pauseVCRecording();
+
+    // Render honest disconnected / dormant state
+    const canvas = document.getElementById('vc-spectrum-canvas');
+    const placeholder = document.getElementById('vc-spectrum-placeholder');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) renderVCDormantSpectrum(canvas, ctx, placeholder, false);
+    }
   }
 
   function startVCSpectrumVisualizer() {
@@ -13537,38 +13632,200 @@ body.theme-light .kage-btn.secondary {
 
     const canvas = document.getElementById('vc-spectrum-canvas');
     const placeholder = document.getElementById('vc-spectrum-placeholder');
-    if (!canvas || !window.vcAudioAnalyser) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    const bufferLength = window.vcAudioAnalyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    if (!ctx) return;
 
-    function drawSpectrum() {
-      if (!vcIsAudioActive) return;
-      vcVisualizerAnimFrame = requestAnimationFrame(drawSpectrum);
-      window.vcAudioAnalyser.getByteFrequencyData(dataArray);
-
-      let sum = 0;
-      for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-      const shouldHide = sum > 10;
-      if (placeholder && placeholder._isVis !== shouldHide) {
-        placeholder._isVis = shouldHide;
-        placeholder.style.display = shouldHide ? 'none' : 'block';
-      }
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const barWidth = (canvas.width / bufferLength) * 1.6;
-      let x = 0;
-
-      for (let i = 0; i < bufferLength; i++) {
-        const barHeight = (dataArray[i] / 255) * canvas.height;
-        ctx.fillStyle = i % 2 === 0 ? '#10b981' : '#e0231c';
-        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
-        x += barWidth;
+    // Attach ResizeObserver once for seamless responsive scaling across desktop & tablet
+    if (!window.vcVisualizerResizeObserver && typeof ResizeObserver !== 'undefined') {
+      const container = document.getElementById('vc-spectrum-container') || canvas.parentElement;
+      if (container) {
+        window.vcVisualizerResizeObserver = new ResizeObserver(() => {
+          if (!vcIsAudioActive || !window.vcAudioAnalyser) {
+            renderVCDormantSpectrum(canvas, ctx, placeholder, vcIsAudioActive);
+          }
+        });
+        window.vcVisualizerResizeObserver.observe(container);
       }
     }
+
+    // If audio is not active or analyser node not hooked, show honest dormant/disconnected state
+    if (!vcIsAudioActive || !window.vcAudioAnalyser) {
+      renderVCDormantSpectrum(canvas, ctx, placeholder, false);
+      return;
+    }
+
+    const analyser = window.vcAudioAnalyser;
+    const bufferLength = analyser.frequencyBinCount; // 64 bins with fftSize=128
+    const dataArray = new Uint8Array(bufferLength);
+    const numBars = 24;
+
+    if (!vcVisualizerPeaks || vcVisualizerPeaks.length !== numBars) {
+      vcVisualizerPeaks = new Float32Array(numBars);
+    }
+
+    // Pre-calculate bin index mapping across human speech spectrum (0Hz to ~8kHz, bins 0 to 24)
+    // Non-linear power distribution so low and mid vocal formants are well distributed
+    const binIndices = new Int32Array(numBars);
+    for (let i = 0; i < numBars; i++) {
+      const t = i / (numBars - 1);
+      const mappedBin = Math.min(bufferLength - 1, Math.floor(Math.pow(t, 1.35) * 26));
+      binIndices[i] = mappedBin;
+    }
+
+    function drawSpectrum() {
+      if (!vcIsAudioActive) {
+        renderVCDormantSpectrum(canvas, ctx, placeholder, false);
+        return;
+      }
+      vcVisualizerAnimFrame = requestAnimationFrame(drawSpectrum);
+
+      analyser.getByteFrequencyData(dataArray);
+
+      // Measure true audio energy across speech bins (bins 0 to 28)
+      let energySum = 0;
+      const speechBinCount = Math.min(28, bufferLength);
+      for (let i = 0; i < speechBinCount; i++) {
+        energySum += dataArray[i];
+      }
+      const avgEnergy = energySum / speechBinCount;
+
+      // Dynamic sizing with devicePixelRatio support
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const w = Math.max(120, Math.floor(rect.width || 280));
+      const h = Math.max(20, Math.floor(rect.height || 32));
+      const targetW = Math.round(w * dpr);
+      const targetH = Math.round(h * dpr);
+
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const gap = 2;
+      const totalGap = (numBars - 1) * gap;
+      const barWidth = Math.max(2, (w - totalGap) / numBars);
+
+      // STATE 1: ACTIVE AUDIO (Energy detected above noise floor)
+      const ENERGY_THRESHOLD = 3.5;
+      if (avgEnergy >= ENERGY_THRESHOLD) {
+        if (placeholder && placeholder.style.display !== 'none') {
+          placeholder.style.display = 'none';
+          placeholder.style.opacity = '0';
+        }
+
+        // Cyberpunk vertical gradient: emerald base -> yellow/amber mid -> red peaks
+        const gradient = ctx.createLinearGradient(0, h, 0, 0);
+        gradient.addColorStop(0.0, '#10b981');
+        gradient.addColorStop(0.55, '#34d399');
+        gradient.addColorStop(0.80, '#f59e0b');
+        gradient.addColorStop(1.0, '#ef4444');
+
+        const peakCapColor = '#f87171';
+
+        for (let i = 0; i < numBars; i++) {
+          const bin = binIndices[i];
+          let val = dataArray[bin];
+          if (bin > 0 && bin < bufferLength - 1) {
+            val = Math.max(val, Math.round((dataArray[bin - 1] + dataArray[bin] + dataArray[bin + 1]) / 3));
+          }
+
+          const norm = Math.min(1.0, val / 255.0);
+          const rawHeight = norm * (h - 2);
+          const barHeight = Math.max(2, rawHeight);
+
+          if (barHeight >= vcVisualizerPeaks[i]) {
+            vcVisualizerPeaks[i] = barHeight;
+          } else {
+            vcVisualizerPeaks[i] = Math.max(2, vcVisualizerPeaks[i] - 0.65);
+          }
+
+          const x = i * (barWidth + gap);
+          const y = h - barHeight;
+
+          ctx.fillStyle = gradient;
+          if (ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(Math.floor(x), y, Math.ceil(barWidth), barHeight, [2, 2, 0, 0]);
+            ctx.fill();
+          } else {
+            ctx.fillRect(Math.floor(x), y, Math.ceil(barWidth), barHeight);
+          }
+
+          const peakY = h - vcVisualizerPeaks[i];
+          if (vcVisualizerPeaks[i] > 4 && peakY < y - 1) {
+            ctx.fillStyle = peakCapColor;
+            ctx.fillRect(Math.floor(x), Math.max(0, peakY - 1), Math.ceil(barWidth), 1.5);
+          }
+        }
+      } else {
+        // STATE 2: IDLE STREAM (Connected & listening, but voice chat is silent)
+        for (let i = 0; i < numBars; i++) {
+          vcVisualizerPeaks[i] = Math.max(2, vcVisualizerPeaks[i] - 0.8);
+          const x = i * (barWidth + gap);
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+          ctx.fillRect(Math.floor(x), h - 3, Math.ceil(barWidth), 3);
+        }
+
+        if (placeholder) {
+          if (placeholder.style.display !== 'block') {
+            placeholder.style.display = 'block';
+          }
+          placeholder.style.opacity = '0.45';
+          placeholder.innerText = 'LISTENING // OPEN CARRIER';
+        }
+      }
+
+      ctx.restore();
+    }
+
     drawSpectrum();
   }
+
+  // Handle tab visibility and sleep/wake lifecycle for spectrum visualizer
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (vcVisualizerAnimFrame) {
+        cancelAnimationFrame(vcVisualizerAnimFrame);
+        vcVisualizerAnimFrame = null;
+      }
+    } else {
+      if (vcIsAudioActive && !vcVisualizerAnimFrame) {
+        const modal = document.getElementById('vc-modal');
+        if (modal && modal.style.display !== 'none') {
+          startVCSpectrumVisualizer();
+        }
+      }
+    }
+  });
+
+  // Handle window resize and orientationchange across desktop & tablet
+  window.addEventListener('resize', () => {
+    const canvas = document.getElementById('vc-spectrum-canvas');
+    if (!canvas) return;
+    if (!vcIsAudioActive || !window.vcAudioAnalyser) {
+      const ctx = canvas.getContext('2d');
+      const placeholder = document.getElementById('vc-spectrum-placeholder');
+      if (ctx) renderVCDormantSpectrum(canvas, ctx, placeholder, vcIsAudioActive);
+    }
+  });
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      const canvas = document.getElementById('vc-spectrum-canvas');
+      if (!canvas) return;
+      if (!vcIsAudioActive || !window.vcAudioAnalyser) {
+        const ctx = canvas.getContext('2d');
+        const placeholder = document.getElementById('vc-spectrum-placeholder');
+        if (ctx) renderVCDormantSpectrum(canvas, ctx, placeholder, vcIsAudioActive);
+      }
+    }, 200);
+  });
 
   // Telegram WebRTC SDP Parsing and Answer Generation
   function parseTelegramSdp(sdp) {
